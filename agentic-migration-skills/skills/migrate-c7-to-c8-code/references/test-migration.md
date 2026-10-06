@@ -13,8 +13,7 @@ The skill scans each module's build-declared test source sets.
 The skill scans abstract test classes, shared test bases, test configuration classes, and `camunda.cfg.xml` in test resources.
 The skill scans `src/test/java` and additional source sets such as `src/it/java` or Gradle `integrationTest`.
 
-A test is eligible for migration only when it runs a BPMN process or DMN decision on a Camunda 7 engine.
-The test must also use a framework or approach that existed for Camunda 7.
+When a test runs a BPMN process or DMN decision on a Camunda 7 engine and uses a framework or approach that existed for Camunda 7, the skill includes the test in scope.
 A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
@@ -22,7 +21,7 @@ The skill inventories every test method declared or inherited by each concrete t
 It records each test's test kind and handling, including tests marked out of scope.
 Apply the table from top to bottom. The first matching row assigns one test kind and handling.
 The skill classifies tests by executed engine behavior, not assertion type.
-A real C7 process or decision test remains in scope when it asserts only endpoint responses or downstream side effects.
+When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps the test in scope.
 The skill records assertion gaps in the Test Inventory's Notes column for migration review.
 The skill verifies that a direct service call resolves to a real C7 engine in the test or its
 shared configuration.
@@ -50,11 +49,11 @@ The skill inventories CMMN tests and tests that use unsupported engine internals
 | 5 | remote-engine test | A test runs a BPMN process or DMN decision on a running Camunda 7 engine through Engine REST at `/engine-rest`, `org.camunda.bpm.client.*`, or Testcontainers for C7. | Report only |
 | 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT only with the `Spring` modifier; otherwise Report only |
-| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. Remote health or metadata probes that run no process or decision are also out of scope, unless the shared-engine exception in Scope confirmation applies. | Not part of test migration |
+| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or WireMock Engine REST stubs. The skill classifies remote health or metadata probes that run no process or decision as out of scope. When the shared-engine exception in Scope confirmation applies, the skill classifies the probe as a remote-engine test instead. | Not part of test migration |
 
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
-The skill keeps remote-engine test rows at Report only until their migration procedures are defined.
-The skill keeps process test rows without the `Spring` modifier at Report only until their engine-test migration procedure is defined.
+While the remote-engine migration procedure is undefined, the skill keeps remote-engine test rows at Report only.
+While the engine-test migration procedure is undefined, the skill keeps process test rows without the `Spring` modifier at Report only.
 
 ## Decision-test migration
 
@@ -72,17 +71,17 @@ Decision mocks use the mock subtask's `mockDmnDecision` rules.
 | A Spring test that injects `DecisionService` | `@SpringBootTest` with `@CamundaSpringProcessTest` and an injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
 | `dmnEngine.parseDecision("dish", stream)`, `parseDecisions(stream)`, or `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | Deploy the converted DMN copy. A DRD deploys as one resource. |
 | `dmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
-| `Variables.putValue("a", 1).putValue("b", "x")` | A `Map<String, Object>` | The skill keeps the same logical inputs. Camunda 8 serializes map values as JSON. For a Camunda 7 `Date` or typed value, the skill checks that the converted DMN reads its JSON representation as intended. The skill does not assume the Java type survives serialization. |
+| `Variables.putValue("a", 1).putValue("b", "x")` | A `Map<String, Object>` | The skill keeps the same logical inputs. Camunda 8 serializes map values as JSON. Where a Camunda 7 value is a `Date` or typed value, the skill checks that the converted DMN reads its JSON representation as intended. The skill does not assume the Java type survives serialization. |
 | `result.getSingleResult().getSingleEntry()` or `result.getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and one result. |
 | `result.getSingleResult().getEntry("a")` or `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected outputs. |
 | `result.collectEntries("x")` with hit policy `COLLECT` | The skill parses `response.getDecisionOutput()` as a list of scalar values for one output column, or a list of maps keyed by output name for multiple output columns. The skill selects values by output name and compares rows without relying on their order. | Camunda 8 returns `COLLECT` results in arbitrary order. |
 | `result.collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | The order is defined by the hit policy. |
 | `result.isEmpty()` or `getSingleResult()` returns `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasNoMatchedRules()` | |
-| Matched-rule checks through `HistoricDecisionInstance` | `hasMatchedRules(int...)` or `hasNotMatchedRules(int...)` | `hasMatchedRules` passes when the expected rule numbers are a subset of the matched rules. |
+| Matched-rule checks through `HistoricDecisionInstance` | `hasMatchedRules(int...)` or `hasNotMatchedRules(int...)` | When the expected rule numbers are a subset of the matched rules, `hasMatchedRules` passes. |
 | An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | The skill checks `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for this response. |
 
 The skill reads the hit policy and output columns from the converted DMN copy before choosing an assertion.
-The skill uses the output names from that copy when it checks a map.
+When the skill checks a map, it uses the output names from the converted DMN copy.
 The skill preserves exact checks as exact and order-insensitive checks as order-insensitive.
 If the converted decision uses an output shape not listed here, then the skill parses `response.getDecisionOutput()` and checks its actual JSON shape.
 The skill does not guess an output shape from the Camunda 7 Java result type.
@@ -112,13 +111,13 @@ The skill does not change the Diagram Converter.
 
 | Dependency use | Camunda 7 artifact | Camunda 8 test artifact |
 |---|---|---|
-| Standalone DMN tests | Remove test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` and `org.camunda.bpm.dmn:camunda-engine-feel-*` artifacts when tests are their only users. | Add `io.camunda:camunda-process-test-java` in test scope. |
-| Spring decision tests | Remove test-scoped `org.camunda.bpm.dmn` engine and FEEL artifacts when tests are their only users. | Use the CPT Spring artifact that matches the production Spring Boot starter. Use `camunda-process-test-spring` with Spring Boot 4 or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. |
-| Process engine used only by tests | Remove the test-scoped Camunda 7 engine when tests are its only users. | Use the CPT artifact for the selected test harness. |
+| Standalone DMN tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` and `org.camunda.bpm.dmn:camunda-engine-feel-*` artifacts. | Add `io.camunda:camunda-process-test-java` in test scope. |
+| Spring decision tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn` engine and FEEL artifacts. | Use the CPT Spring artifact that matches the production Spring Boot starter. Use `camunda-process-test-spring` with Spring Boot 4 or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. |
+| Process engine used only by tests | When tests are its only users, the skill removes the test-scoped Camunda 7 engine. | Use the CPT artifact for the selected test harness. |
 
 The skill inventories each dependency before removal.
-The skill keeps an artifact when production code still uses it.
-The skill records a required redesign when a production dependency has no Camunda 8 equivalent.
+When production code uses an artifact, the skill keeps it.
+When a production dependency has no Camunda 8 equivalent, the skill records a required redesign.
 
 Standalone Camunda 7 DMN tests run with an in-process engine.
 The migrated CPT tests need a Camunda 8 runtime.
@@ -138,7 +137,7 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 
 | Signal | Confirmation required |
 |---|---|
-| A test uses CMMN APIs or models, or unsupported Camunda engine internals | Keep the test as `manual redesign` and use `Report only` handling, even when it does not run a BPMN process or DMN decision |
+| A test uses CMMN APIs or models, or unsupported Camunda engine internals | The skill marks the test as `manual redesign` and uses `Report only` handling. The skill applies this classification to tests that do not run a BPMN process or DMN decision. |
 | A test uses `ClockUtil` to control a timer | Treat `ClockUtil` as a supported test utility. Do not assign `manual redesign` based on `ClockUtil` alone. |
 | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, or a JUnit 3 test method | The method runs a BPMN process or DMN decision on a Camunda 7 engine |
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
@@ -165,7 +164,7 @@ Keep modifiers separate from the test kind.
 ## Test sources and methods
 
 The skill scans every configured test source directory in each module.
-This includes `src/test/java`, `src/test/kotlin`, and `src/test/groovy` when present.
+Where a module has `src/test/java`, `src/test/kotlin`, or `src/test/groovy`, the skill scans each present directory.
 The skill also scans each additional test source set declared by the build, such as `src/it/java` or Gradle `integrationTest`.
 The skill follows each Cucumber runner or build configuration to locate executed `.feature` files in test resources.
 The skill inventories each Cucumber `Scenario` as one test.
@@ -173,7 +172,7 @@ The skill inventories each data row in a Cucumber `Scenario Outline` `Examples` 
 The skill reads methods annotated with `@Given`, `@When`, `@Then`, `@And`, or `@But` as step definitions.
 The skill reads constructor-registered lambda steps, such as `io.cucumber.java8.En`.
 The skill does not inventory step-definition methods, lambda registrations, a Cucumber runner class, or hook methods as separate tests.
-The skill follows both forms when it checks for Camunda 7 process or decision calls.
+When the skill checks for Camunda 7 process or decision calls, it inspects both step-definition methods and constructor-registered lambda steps.
 The skill reads applicable Cucumber hooks.
 The skill uses them to check whether scenarios run BPMN processes or DMN decisions on a Camunda 7 engine.
 The skill reads shared test bases, abstract test classes, test configuration classes, and `camunda.cfg.xml` under test resources.
@@ -181,9 +180,9 @@ When a shared base or configuration supplies an engine signal, apply it to each 
 The skill includes methods annotated with `@Test`, `@ParameterizedTest`, or `@RepeatedTest`.
 The skill also includes JUnit 3 `public void test...()` methods.
 The skill includes Spock feature methods in Groovy classes that extend `spock.lang.Specification`.
-The skill includes these methods even when they have no `@Test` annotation.
+The skill includes these methods without a `@Test` annotation.
 
-The skill marks Kotlin/Groovy tests as `manual migration` only when they run an engine-backed BPMN process or DMN decision.
+Where Kotlin or Groovy tests run an engine-backed BPMN process or DMN decision on C7, the skill marks them as `manual migration`.
 The engine must be Camunda 7.
 The skill records their source language in the `Notes` cell.
 
@@ -206,7 +205,7 @@ Record the resolved path for each model resource.
 | CMMN model deployed by a test | Record the CMMN path and note manual redesign | Report only |
 | BPMN model built with the Camunda fluent model API, such as `Bpmn.createExecutableProcess()` | Record the model as programmatically built and note the manual migration reason in `Notes` | Report only |
 
-For implicit deployment, the skill tries suffixes in this order:
+When the skill resolves an implicit deployment, it tries suffixes in this order:
 
 | Order | Suffix |
 |---|---|
@@ -265,7 +264,7 @@ When the target version is Camunda 8.8, the skill detects every test.
 | Migrate | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate to CPT | Report only | `test migration needs Camunda 8.9 or later` |
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
-| Report only | Keep `Report only` | For an in-scope test, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. For `manual redesign`, the skill preserves the existing reason. |
+| Report only | Keep `Report only` | Where a test is in scope, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. Where the test kind is `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |
 
 ## Spring Test Migration
@@ -307,8 +306,8 @@ The skill uses the dependency catalog for artifact versions. The skill does not 
 starter for tests than the production starter.
 The skill removes each C7 test dependency that no remaining test or production code uses after
 migration.
-This includes `camunda-bpm-spring-boot-starter-test`, `camunda-bpm-junit5`, and
-`camunda-bpm-assert` when only migrated tests use them.
+When only migrated tests use them, the skill removes `camunda-bpm-spring-boot-starter-test`,
+`camunda-bpm-junit5`, and `camunda-bpm-assert`.
 If any test outside the migrated set or production code still uses a dependency, the skill keeps it.
 
 The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBootTest` and adds
@@ -320,7 +319,7 @@ The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBoo
 | `@RunWith(SpringRunner.class) @SpringBootTest` | `@SpringBootTest @CamundaSpringProcessTest` |
 | `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` |
 | `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | The skill removes the engine rule and initialization |
-| `camunda.bpm.*` test-engine properties | The skill removes them. The skill adds `camunda.process-test.*` properties only when needed |
+| `camunda.bpm.*` test-engine properties | The skill removes them. Where a migrated test needs `camunda.process-test.*` properties, the skill adds them. |
 | H2 used only by the embedded engine | The skill removes H2. The skill keeps a data source used by the application |
 | The C7 test transaction reverts engine and application state | The skill keeps `@Transactional` only for application database state |
 
@@ -328,7 +327,7 @@ The skill uses `@MockitoBean` with Spring Boot 4. The skill uses a supported Moc
 annotation with the selected Spring Boot 3 version. When Step 3 changes Spring Boot 3 to 4, the
 skill migrates `@MockBean` annotations to `@MockitoBean`.
 
-The skill keeps each test's class and method names when practical. (SHOULD)
+Where practical, the skill keeps each test's class and method names. (SHOULD)
 
 ## Deployment
 
@@ -408,8 +407,8 @@ to restore C8 process state.
 
 When the user approves a test or mock boundary change, the skill records it before changing the
 boundary in `MIGRATION_REPORT.md` at the project root.
-Create `MIGRATION_REPORT.md` when it does not exist.
-Add the Test Parity record when the file exists, and preserve its existing content.
+When `MIGRATION_REPORT.md` does not exist, the skill creates it.
+When `MIGRATION_REPORT.md` exists, the skill adds the Test Parity record and preserves its existing content.
 Record one row per approved change with these columns:
 
 | Test ID | C7 boundary | Approved C8 boundary | Approver | Reason |
@@ -453,8 +452,8 @@ test dependencies, test edits, and timer handling in every instruction below.
 
 ### Scope and target
 
-The test inventory classifies an in-scope test method as a `scenario test` when it uses
-`Scenario.run(...)` or `Scenario.use(...)` with a `ProcessScenario`.
+When an in-scope test method uses `Scenario.run(...)` or `Scenario.use(...)` with a
+`ProcessScenario`, the test inventory classifies it as a `scenario test`.
 The artifacts `org.camunda.bpm.extension.scenario:camunda-platform-scenario-runner` and
 `org.camunda.bpm.extension:camunda-bpm-assert-scenario` are detection signals. Their JARs contain
 overlapping classes in `org.camunda.bpm.scenario`. The skill keeps only one of these artifacts on
@@ -474,15 +473,15 @@ The scenario runner's Cucumber module, logging, and history fast-forward reports
 
 ### Prepare the test
 
-Before changing a class's setup, the skill inspects every test method and each method's shared
+When the skill changes a class's setup, it first inspects every test method and each method's shared
 Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependencies.
 
 | Retained method condition | Class setup action |
 |---|---|
 | No retained method needs C7 Scenario setup. | Convert the shared setup to CPT or remove it. |
-| A retained manual method needs C7 Scenario setup. | Move migrated methods to a separate CPT class, or retain the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments until no retained method needs them. |
+| A retained manual method needs C7 Scenario setup. | While a retained manual method needs C7 Scenario setup, the skill moves migrated methods to a separate CPT class or retains the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments. |
 
-Before changing the target build, the skill checks test-source roots, test filters, and resource
+When the skill plans a target-build change, it checks test-source roots, test filters, and resource
 processing in every Maven module or Gradle source set.
 Where a project uses Maven, the skill checks each module's
 `testSourceDirectory`, compiler include patterns, `resources`, and `testResources` declarations.
@@ -497,16 +496,16 @@ paths. The skill checks plugins or tasks that copy or generate resources.
 |---|---|
 | Multiple C7 modules compile the same physical test source. | Migrate that source only once to the CPT suite. Keep each module-qualified C7 test ID in the inventory. Map duplicate module executions to one CPT test ID. |
 | A target module has no test sources outside the shared set and no unique resources, resource-processing behavior, main outputs, generated outputs, or build responsibilities. | Remove the module. |
-| A target module has test sources outside the shared set or unique resources, resource-processing behavior, main outputs, generated outputs, or build responsibilities. | Preserve every unique test, resource, resource-processing rule, output, and build responsibility in a reconfigured module that excludes shared sources or in the primary module. Retain the target module if the skill cannot preserve all unique content. |
+| A target module has test sources outside the shared set or unique resources, resource-processing behavior, main outputs, generated outputs, or build responsibilities. | Preserve every unique test, resource, resource-processing rule, output, and build responsibility in a reconfigured module that excludes shared sources or in the primary module. If the skill cannot preserve all unique content, then the skill retains the target module. |
 
-A shared resource root can produce unique output when the module applies different filters, target
-paths, or generation tasks.
+When a module applies different filters, target paths, or generation tasks, a shared resource root
+can produce unique output.
 
 | Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
 | `@Rule ProcessEngineRule processEngineRule = new ProcessEngineRule()` | Add `@CamundaProcessTest` to the class. Remove the `ProcessEngineRule` field. | CPT supplies the engine-test runtime. |
 | `@Deployment(resources = "source.bpmn")` | `@TestDeployment(resources = "converted-c8-source.bpmn")` | Deploy the converted C8 copy. |
-| Test code needs a `CamundaClient` | Inject `CamundaProcessTestContext processTestContext`. Call `processTestContext.createClient()` when needed. | |
+| Test code needs a `CamundaClient` | Inject `CamundaProcessTestContext processTestContext`. Call `processTestContext.createClient()`. | |
 
 1. The skill reads the converted copy before mapping test behavior. It uses that copy to find element
    IDs, external job types, message names and correlation keys, and timer definitions.
@@ -514,34 +513,34 @@ paths, or generation tasks.
    `<zeebe:userTask />`. Without the marker, Camunda uses a job-worker implementation, so the User
    Task API has no user-task instance to complete.
 3. The skill moves JUnit 3 and JUnit 4 scenario tests to JUnit 5.
-4. The skill removes the `ProcessScenario` mock and Scenario runner setup only when no retained
-   method needs them.
-5. The skill removes each Scenario artifact only when no remaining test uses it.
+4. When no retained method needs the `ProcessScenario` mock or Scenario runner setup, the skill
+   removes both.
+5. When no remaining test uses a Scenario artifact, the skill removes the artifact.
 6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
 7. The skill keeps Mockito initialization and cleanup for retained annotations that rely on
    `MockitoAnnotations.openMocks(this)`.
 
 The Scenario runner completed external tasks itself.
-The skill does not add a mock for a Java delegate that the Camunda 7 test ran for real. The skill
-keeps the migrated worker real unless the Camunda 7 test mocked that delegate.
+When the Camunda 7 test ran a Java delegate for real, the skill keeps the migrated worker real and
+does not add a mock.
 
 ### Wait-state behavior
 
 The skill uses a CPT conditional behavior for each user-task, message, signal, event-gateway, or
-conditional-event stub unless the skill uses sequential CPT calls on a linear path. Each condition
+conditional-event stub. Each condition
 waits for the corresponding process state. The action resolves that state so CPT can detect it
 again.
 
-The skill scopes a condition or action to the Scenario instance only when the corresponding CPT API
-accepts a process-instance selector. The user-task condition and completion action use the
+Where the corresponding CPT API accepts a process-instance selector, the skill scopes a condition or
+action to the Scenario instance. The user-task condition and completion action use the
 process-instance key from the Scenario start result.
 
 The message action targets a message name and evaluated correlation key, not the Scenario start
 result's process-instance key. The signal action broadcasts by signal name and can also advance
 another process instance waiting for that signal.
 
-The skill uses sequential CPT calls instead of conditional behaviors when the process path is
-linear. (MAY) The skill advances time explicitly for timer stubs.
+When the process path is linear, the skill may use sequential CPT calls instead of conditional
+behaviors. (MAY) The skill advances time explicitly for timer stubs.
 
 ```java
 long processInstanceKey = processInstance.getProcessInstanceKey();
@@ -558,8 +557,8 @@ processTestContext
 ```
 
 The skill preserves every existing stub. The skill does not add behavior for an unstubbed wait
-state. When a process reaches an unstubbed wait state, CPT leaves it waiting. The final process
-assertion fails after its timeout.
+state. When a process reaches an unstubbed wait state, CPT leaves it waiting. When the process test
+times out, its final assertion fails.
 
 ### Scenario-to-CPT mapping
 
@@ -568,8 +567,8 @@ parity-ledger entry.
 
 | Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
-| `@Mock ProcessScenario process` and its Scenario stubs | The skill converts each migrated Scenario stub with the matching CPT behavior below. The skill removes the mock and Scenario runner setup only when no retained method needs C7 Scenario setup. | Map each verification to the CPT assertion rows below. |
-| `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove only when no retained Mockito annotations require it | Keep initialization and cleanup for `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields that rely on it. |
+| `@Mock ProcessScenario process` and its Scenario stubs | The skill converts each migrated Scenario stub with the matching CPT behavior below. When no retained method needs C7 Scenario setup, the skill removes the mock and Scenario runner setup. | Map each verification to the CPT assertion rows below. |
+| `MockitoAnnotations.openMocks(this)` and matching cleanup | When no retained Mockito annotations require initialization, the skill removes initialization and matching cleanup. | When retained `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields rely on it, the skill keeps initialization and cleanup. |
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask(byElementId("X", processInstanceKey), variables))` | The action completes the task tested by the condition. |
 | `thenReturn(a, b)` for repeated actions on a conditional behavior | Chain `.then(a).then(b)` on the corresponding CPT conditional behavior. | CPT repeats the last action after earlier actions run. The skill does not apply this chain to worker mocks. |
@@ -584,19 +583,19 @@ parity-ledger entry.
 | `waitsAtSignalIntermediateCatchEvent` with `receive()` | Broadcast `client.newBroadcastSignalCommand().signalName(name).send().join()` | Read `name` from the converted copy. |
 | `waitsAtEventBasedGateway("G")` receiving event `"E"` | Use the corresponding message, signal, or timer action for `"E"` | Read the event type and subscription from the converted copy. |
 | `waitsAtConditionalIntermediateEvent("C")` | Call `processTestContext.updateVariables(byKey(processInstanceKey), variables)` | Converted conditional events need Camunda 8.9 or later. |
-| `runsCallActivity("C")` returning `Scenario.use(child)` | Deploy the converted child process and register its behaviors with `byProcessId(childProcessId)` | Keep the child process behavior real unless the Camunda 7 test mocked it. |
+| `runsCallActivity("C")` returning `Scenario.use(child)` | Deploy the converted child process and register its behaviors with `byProcessId(childProcessId)` | When the Camunda 7 test mocks the child process, the skill preserves that mocked boundary. |
 | `withMockedProcess("child")` and `waitsAtMockedCallActivity("C")` | Call `processTestContext.mockChildProcess("child", variables)` | This preserves the existing mocked-child boundary. |
-| `Scenario.run(process).startByKey(key, variables).execute()` | The skill creates an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` and retains the returned `ProcessInstanceEvent` | Apply the confirmed business-key mapping when the source test sets a business key. |
+| `Scenario.run(process).startByKey(key, variables).execute()` | The skill creates an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` and retains the returned `ProcessInstanceEvent` | When the source test sets a business key, the skill applies the confirmed business-key mapping. |
 | `startByMessage(name, variables)` | The skill correlates a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` and retains the returned `CorrelateMessageResponse` | |
 | `.fromBefore("A")` | Call `.startBeforeElement("A")` on the create command | |
-| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger with the reason that CPT has no direct counterpart and the next element is ambiguous | Start before the next element only when it is unambiguous. |
+| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger with the reason that CPT has no direct counterpart and the next element is ambiguous | When the next element is unambiguous, the skill starts before it. |
 | `startBy(customProcessStarter)` | Record `manual` in the parity ledger with the reason that CPT has no direct mapping for the custom starter | A custom `ProcessStarter` needs a manual migration. |
 | `Scenario.instance(process)` after `startByKey` | The skill asserts against the `ProcessInstanceEvent` returned by the create-instance command | |
 | `Scenario.instance(process)` after `startByMessage` | The skill selects the instance with `assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))` | The correlate command returns a `CorrelateMessageResponse`, not a `ProcessInstanceEvent`. |
 | `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
 | `verify(process, times(n)).hasCompleted("E")` | Assert `hasCompletedElement("E", n)`. | The skill preserves the exact completed-element count. |
 | `verify(process).hasFinished("E")` | The skill asserts `hasCompletedElements("E")`, `hasTerminatedElements("E")`, or both | The skill asserts each outcome present on the path. `hasFinished` includes completed and canceled elements. |
-| `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, assert the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | The skill uses one assertion when all visits share an outcome. The skill uses both assertions when the path has known mixed counts. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason. The skill does not assert exact counts or their sum in that case. |
+| `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, the skill asserts the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | When all visits share an outcome, the skill uses one assertion. When the path has known mixed counts, the skill uses both assertions. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason and does not assert exact counts or their sum. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | Assert `hasNotActivatedElements("E")` after a waiting assertion | This assertion does not wait. |
@@ -610,8 +609,8 @@ the active path. When the active path contains a boundary timer, the skill asser
 activity is active. When the active path contains a timer catch event, the skill asserts that the
 timer event is active. After each step, the skill asserts the expected timer effect.
 
-When a Scenario stub uses `defer(period, action)`, the skill runs the deferred action when the total
-time increase reaches `period`, not before.
+When a Scenario stub uses `defer(period, action)` and the total time increase reaches `period`, the
+skill runs the deferred action.
 
 One valid schedule uses five 12-hour increments for a daily timer and `defer("P2DT12H", action)`.
 

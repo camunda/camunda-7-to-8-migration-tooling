@@ -248,7 +248,7 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-For Step 2, follow `references/test-migration.md` for the Test Inventory procedure.
+When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
 
 #### Model Inventory
 

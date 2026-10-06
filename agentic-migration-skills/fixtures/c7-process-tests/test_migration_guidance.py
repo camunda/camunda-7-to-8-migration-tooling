@@ -389,6 +389,76 @@ def normalized(value):
     return " ".join(value.lower().split())
 
 
+def non_ears_conditional_rules(markdown):
+    conditional = re.compile(
+        r"\b(?:only\s+when|unless|until|when|while|if|where)\b",
+        flags=re.IGNORECASE,
+    )
+    blocks = []
+    current_lines = []
+    current_start = 1
+    violations = []
+    in_code_block = False
+
+    def flush_block():
+        nonlocal current_lines
+        if current_lines:
+            blocks.append((current_start, " ".join(current_lines)))
+            current_lines = []
+
+    for line_number, line in enumerate(markdown.splitlines(), start=1):
+        if line.lstrip().startswith("```"):
+            flush_block()
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        line = re.sub(r"`[^`]*`", "CODE", line)
+        if not line.strip():
+            flush_block()
+            continue
+        if line.lstrip().startswith("|"):
+            flush_block()
+            blocks.extend((line_number, cell) for cell in line.split("|"))
+            continue
+        if re.match(r"^\s*(?:[-*+]|\d+\.)\s+", line):
+            flush_block()
+            current_start = line_number
+            current_lines.append(
+                re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", line).strip()
+            )
+            continue
+        if re.match(r"^\s*#{1,6}\s+", line):
+            flush_block()
+            current_start = line_number
+            current_lines.append(re.sub(r"^\s*#{1,6}\s+", "", line).strip())
+            continue
+        if not current_lines:
+            current_start = line_number
+        current_lines.append(line.strip())
+
+    flush_block()
+
+    for line_number, block in blocks:
+        for sentence in re.split(r"(?<=[.!?])\s+", block):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+
+            matches = list(conditional.finditer(sentence))
+            if not matches:
+                continue
+
+            starts_with_trigger = (
+                matches[0].start() == 0
+                and matches[0].group().lower() in {"when", "while", "if", "where"}
+            )
+            if not starts_with_trigger or len(matches) > 1:
+                violations.append("{}: {}".format(line_number, sentence))
+
+    return violations
+
+
 class MigrationGuidanceTest(unittest.TestCase):
     def assert_unique_rows(self, rows, identifier_column, report_path):
         identifiers = [row[identifier_column] for row in rows]
@@ -503,7 +573,7 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "before changing the target build, the skill checks test-source roots, "
+            "when the skill plans a target-build change, it checks test-source roots, "
             "test filters, and resource processing in every maven module or gradle source set.",
             reference,
         )
@@ -586,7 +656,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             preserve_action["Migration action"].lower(),
         )
         self.assertIn(
-            "retain the target module",
+            "the skill retains the target module",
             preserve_action["Migration action"].lower(),
         )
 
@@ -727,8 +797,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             time_rule,
         )
         self.assertIn(
-            "when a scenario stub uses `defer(period, action)`, the skill runs the deferred "
-            "action when the total time increase reaches `period`, not before.",
+            "when a scenario stub uses `defer(period, action)` and the total time increase "
+            "reaches `period`, the skill runs the deferred action.",
             time_rule,
         )
         self.assertNotIn("increases time by one day twice", time_rule)
@@ -962,12 +1032,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
         self.assertIn(
-            "remote health or metadata probes that run no process or decision are "
-            "also out of scope",
+            "the skill classifies remote health or metadata probes that run no process "
+            "or decision as out of scope.",
             out_of_scope_row,
         )
         self.assertIn(
-            "unless the shared-engine exception in scope confirmation applies",
+            "when the shared-engine exception in scope confirmation applies, the skill "
+            "classifies the probe as a remote-engine test instead.",
             out_of_scope_row,
         )
         confirmation_rows = markdown_table(
@@ -1116,7 +1187,7 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_mixed_manual_methods_preserve_required_class_setup(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "before changing a class's setup, the skill inspects every test method "
+            "when the skill changes a class's setup, it first inspects every test method "
             "and each method's shared scenario runner, `processscenario` mock, c7 "
             "engine rule, and deployment dependencies.",
             reference,
@@ -1132,12 +1203,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         ]
         self.assertEqual(1, len(manual_actions))
         self.assertIn(
-            "move migrated methods to a separate cpt class",
+            "the skill moves migrated methods to a separate cpt class",
             normalized(manual_actions[0]["Class setup action"]),
         )
         self.assertIn(
-            "retain the scenario runner, `processscenario` mock, c7 engine rule, and "
-            "deployments until no retained method needs them",
+            "while a retained manual method needs c7 scenario setup, the skill moves "
+            "migrated methods to a separate cpt class or retains the scenario runner, "
+            "`processscenario` mock, c7 engine rule, and deployments",
             normalized(manual_actions[0]["Class setup action"]),
         )
 
@@ -1145,8 +1217,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
 
         self.assertIn(
-            "4. the skill removes the `processscenario` mock and scenario runner setup "
-            "only when no retained method needs them.",
+            "4. when no retained method needs the `processscenario` mock or scenario "
+            "runner setup, the skill removes both.",
             reference,
         )
 
@@ -1162,8 +1234,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         ]
         self.assertEqual(1, len(mock_mapping))
         self.assertIn(
-            "the skill removes the mock and scenario runner setup only when no retained "
-            "method needs c7 scenario setup",
+            "when no retained method needs c7 scenario setup, the skill removes the "
+            "mock and scenario runner setup",
             normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
         )
 
@@ -1197,10 +1269,23 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
 
         self.assertEqual([], non_ears_for_openers)
+        self.assertEqual([], non_ears_conditional_rules(reference))
+        for marker in ("only when", "unless", "until", "when"):
+            with self.subTest(marker=marker):
+                self.assertTrue(
+                    non_ears_conditional_rules(
+                        "The skill removes this {} the rule applies.".format(marker)
+                    )
+                )
+        self.assertTrue(
+            non_ears_conditional_rules(
+                "The skill waits for the result\nwhen the test is complete."
+            )
+        )
 
     def test_build_resource_checks_are_scoped_by_platform(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        start = reference.index("before changing the target build")
+        start = reference.index("when the skill plans a target-build change")
         end = reference.index("| source-set condition", start)
         sentences = re.split(r"(?<=[.!?])\s+", reference[start:end])
         platform_markers = {
@@ -1236,13 +1321,12 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertIn(
             "the skill uses a cpt conditional behavior for each user-task, message, "
-            "signal, event-gateway, or conditional-event stub unless the skill uses "
-            "sequential cpt calls on a linear path.",
+            "signal, event-gateway, or conditional-event stub.",
             reference,
         )
         self.assertIn(
-            "the skill uses sequential cpt calls instead of conditional behaviors "
-            "when the process path is linear. (may)",
+            "when the process path is linear, the skill may use sequential cpt calls "
+            "instead of conditional behaviors. (may)",
             reference,
         )
 
@@ -1459,9 +1543,9 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "a test is eligible for migration only when it runs a bpmn process or dmn "
-            "decision "
-            "on a camunda 7 engine.",
+            "when a test runs a bpmn process or dmn decision on a camunda 7 engine "
+            "and uses a framework or approach that existed for camunda 7, the skill "
+            "includes the test in scope.",
             reference,
         )
         self.assertIn(
@@ -1474,8 +1558,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill keeps remote-engine test rows at report only until "
-            "their migration procedures are defined.",
+            "while the remote-engine migration procedure is undefined, the skill keeps "
+            "remote-engine test rows at report only.",
             reference,
         )
         self.assertIn(
@@ -1484,8 +1568,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill keeps process test rows without the `spring` modifier at report "
-            "only until their engine-test migration procedure is defined.",
+            "while the engine-test migration procedure is undefined, the skill keeps "
+            "process test rows without the `spring` modifier at report only.",
             reference,
         )
         for test_kind in TEST_KINDS:
@@ -1517,7 +1601,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "@but",
             "the skill reads constructor-registered lambda steps",
             "`io.cucumber.java8.en`",
-            "the skill follows both forms when it checks for camunda 7 process or decision calls.",
+            "when the skill checks for camunda 7 process or decision calls, it inspects "
+            "both step-definition methods and constructor-registered lambda steps.",
             "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn process "
             "or dmn decision",
             "the cucumber classification includes applicable hooks, not only steps",
@@ -1550,10 +1635,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             if line.startswith("| A test uses CMMN")
         )
         self.assertIn("unsupported camunda engine internals", scope_confirmation_row)
-        self.assertIn("manual redesign", scope_confirmation_row)
-        self.assertIn("report only", scope_confirmation_row)
         self.assertIn(
-            "even when it does not run a bpmn process or dmn decision",
+            "the skill marks the test as `manual redesign` and uses `report only` handling.",
+            scope_confirmation_row,
+        )
+        self.assertIn(
+            "the skill applies this classification to tests that do not run a bpmn "
+            "process or dmn decision.",
             scope_confirmation_row,
         )
 
@@ -1672,7 +1760,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "the skill includes these methods even when they have no `@test` annotation.",
+            "the skill includes these methods without a `@test` annotation.",
             reference,
         )
         self.assertIn(
@@ -1725,8 +1813,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             ),
         )
         self.assertIn(
-            "the skill marks kotlin/groovy tests as `manual migration` only when they "
-            "run an engine-backed bpmn process or dmn decision.",
+            "where kotlin or groovy tests run an engine-backed bpmn process or dmn "
+            "decision on c7, the skill marks them as `manual migration`.",
             reference,
         )
         self.assertIn(
@@ -1841,8 +1929,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             wait_state_behavior,
         )
         self.assertIn(
-            "the skill scopes a condition or action to the scenario instance only when "
-            "the corresponding cpt api accepts a process-instance selector",
+            "where the corresponding cpt api accepts a process-instance selector, "
+            "the skill scopes a condition or action to the scenario instance",
             normalized_behavior,
         )
         self.assertIn(
