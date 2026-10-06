@@ -389,13 +389,21 @@ def normalized(value):
     return " ".join(value.lower().split())
 
 
+def fixture_files(root, pattern):
+    return sorted(
+        path
+        for path in root.rglob(pattern)
+        if "target" not in path.relative_to(root).parts
+    )
+
+
 def non_ears_conditional_rules(markdown):
     conditional = re.compile(
         r"\b(?:only\s+when|unless|until|when|while|if|where)\b",
         flags=re.IGNORECASE,
     )
     non_ears_temporal_starter = re.compile(
-        r"^(?:before|after|once|whenever|provided(?:\s+that)?|as\s+long\s+as)\b",
+        r"^(?:before|after|once|whenever|provided(?:\s+that)?|as\s+long\s+as|as\s+soon\s+as)\b",
         flags=re.IGNORECASE,
     )
     blocks = []
@@ -488,6 +496,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             expected_counts,
             "{} must count every test kind exactly.".format(inventory_path),
         )
+
+    def test_fixture_file_discovery_excludes_maven_targets(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            source = root / "module/src/main/resources/diagram.bpmn"
+            generated = root / "module/target/classes/diagram.bpmn"
+            source.parent.mkdir(parents=True)
+            generated.parent.mkdir(parents=True)
+            source.touch()
+            generated.touch()
+
+            self.assertEqual([source], fixture_files(root, "diagram.bpmn"))
 
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
@@ -725,12 +745,12 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_converted_bpmn_copies_do_not_add_di_to_sources_without_di(self):
         namespace = {"bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI"}
-        converted_files = sorted(EXPECTED_C8.rglob("converted-c8-*.bpmn"))
+        converted_files = fixture_files(EXPECTED_C8, "converted-c8-*.bpmn")
         no_di_sources = 0
 
         for converted_file in converted_files:
             source_name = converted_file.name.removeprefix("converted-c8-")
-            source_files = list(C7_SOURCE.rglob(source_name))
+            source_files = fixture_files(C7_SOURCE, source_name)
             self.assertEqual(
                 1,
                 len(source_files),
@@ -1301,6 +1321,10 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "as long as",
                 "As long as the step is active, the skill checks the state.",
             ),
+            (
+                "as soon as",
+                "As soon as the step completes, the skill checks the state.",
+            ),
         )
         for marker, rule in non_ears_temporal_starters:
             with self.subTest(marker=marker):
@@ -1539,10 +1563,10 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
-            path.read_text(encoding="utf-8") for path in EXPECTED_C8.rglob("*.java")
+            path.read_text(encoding="utf-8") for path in fixture_files(EXPECTED_C8, "*.java")
         )
         job_types = set()
-        for model in EXPECTED_C8.rglob("converted-c8-*.bpmn"):
+        for model in fixture_files(EXPECTED_C8, "converted-c8-*.bpmn"):
             root = ET.parse(model).getroot()
             for element in root.iter():
                 if element.tag.rsplit("}", 1)[-1] in {"taskDefinition", "executionListener"}:
