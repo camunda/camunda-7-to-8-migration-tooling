@@ -527,13 +527,24 @@ def fixture_files(root, pattern):
     )
 
 
-def migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids):
+def test_parity_errors(inventory, parity_by_id, cpt_test_ids):
     errors = []
     for row in inventory:
+        test_id = row["Test ID"]
+        if row.get("Test kind") == "manual migration":
+            parity_row = parity_by_id.get(test_id)
+            if parity_row is None:
+                errors.append("Missing parity row for {}".format(test_id))
+                continue
+            if parity_row["Verdict"] not in ("manual", "retired"):
+                errors.append(
+                    "Expected manual or retired verdict for {}".format(test_id)
+                )
+            continue
+
         if row["Handling"] not in MIGRATED_HANDLINGS:
             continue
 
-        test_id = row["Test ID"]
         parity_row = parity_by_id.get(test_id)
         if parity_row is None:
             errors.append("Missing parity row for {}".format(test_id))
@@ -774,6 +785,24 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
 
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
+        engine_parity_row = parity_by_id.get(engine_test_id)
+        self.assertIsNotNone(
+            engine_parity_row,
+            "The in-scope JGiven test must have a parity row.",
+        )
+        if engine_parity_row is not None:
+            self.assertEqual("manual", engine_parity_row["Verdict"])
+            self.assertEqual("—", engine_parity_row["CPT Test ID(s)"])
+            self.assertIn(
+                "requires manual migration",
+                normalized(engine_parity_row["Notes"]),
+            )
+
     def test_supported_discovery_inputs_stay_separate_from_kind_assignment(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         inventory = markdown_table(
@@ -812,8 +841,71 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(test_id=test_id):
                 self.assertIn(test_id, test_ids)
 
+    def test_spock_discovery_preserves_quoted_feature_names(self):
+        self.assertIn(
+            "engine-tests:com.camunda.fixture.order."
+            "InventoryDiscoverySpec#feature without engine",
+            test_method_ids(C7_SOURCE),
+        )
+
+    def test_cucumber_discovery_preserves_full_scenario_names(self):
+        self.assertIn(
+            "engine-tests:src/test/resources/features/"
+            "CandidateDiscovery.feature#Without engine execution@L10",
+            test_method_ids(C7_SOURCE),
+        )
+
+    def test_process_test_walkthrough_matches_decision_and_jgiven_fixtures(self):
+        readme = normalized((FIXTURE / "README.md").read_text(encoding="utf-8"))
+        self.assertIn(
+            "it migrates selected process, decision, scenario, and remote-engine tests "
+            "with available cpt procedures.",
+            readme,
+        )
+        self.assertIn(
+            "the test parity table marks the paymentworker remote-engine test as migrated, "
+            "keeps the shared-engine test manual because cpt deletes runtime data between tests",
+            readme,
+        )
+        self.assertIn(
+            "records the engine-backed jgiven test as `manual` "
+            "with no cpt mapping,",
+            readme,
+        )
+        self.assertIn(
+            "it excludes jgiven tests that execute no real c7 process or decision.",
+            readme,
+        )
+        self.assertIn(
+            "e1 and e2 have migrated cpt equivalents.",
+            readme,
+        )
+        self.assertNotIn(
+            "when e1 and e2 have `report only` or manual-migration handling",
+            readme,
+        )
+
     def test_all_in_scope_test_kinds_keep_modifier_signals(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        required_modifiers = {
+            "OrderProcessTest#approvesAndShipsOrder": ("mocks modifier", "time modifier"),
+            "OrderTimerTest#escalatesAfterOneDay": ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#registersWholeDelegateAndExecutionListenerMocks":
+                ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#registersDelegateOutputAndVerifiesItsInvocation":
+                ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#routesDelegateBpmnError": ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#throwsWhenTheSynchronousDelegateFails":
+                ("mocks modifier", "time modifier"),
+            "OrderAutoMockTest#autoMocksDelegatesAndTracksCoverage":
+                ("mocks modifier", "coverage modifier"),
+            "FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders":
+                ("mocks modifier", "time modifier"),
+            "SubscriptionStandaloneTest#startsSubscriptionWithoutSpring": ("mocks modifier",),
+            "JGivenEngineBackedTest#startsProcess": ("no applicable modifiers",),
+            "FluentModelTest#buildsAndStartsModel": ("no applicable modifiers",),
+        }
+
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
             rows = markdown_table(inventory_path, headers)
             for row in rows:
@@ -821,6 +913,14 @@ class MigrationGuidanceTest(unittest.TestCase):
                     continue
                 with self.subTest(inventory=inventory_path, test_id=row["Test ID"]):
                     self.assertTrue(row["Signals"].strip())
+                    source = (C7_SOURCE / row["File"]).read_text(encoding="utf-8")
+                    if any(
+                        marker in source
+                        for marker in ("@SpringBootTest", "SpringRunner", "SpringExtension")
+                    ):
+                        self.assertIn("Spring modifier", row["Signals"])
+                    if "@MockBean" in source:
+                        self.assertIn("mocks modifier", row["Signals"])
 
             fulfillment_rows = [
                 row for row in rows if "FulfillmentScenarioTest#" in row["Test ID"]
@@ -830,10 +930,21 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertIn("mocks modifier", row["Signals"])
                 self.assertIn("time modifier", row["Signals"])
 
-            manual_row = next(
-                row for row in rows if "FluentModelTest#buildsAndStartsModel" in row["Test ID"]
-            )
-            self.assertIn("no applicable modifiers", manual_row["Signals"])
+            for test_suffix, modifiers in required_modifiers.items():
+                matching_rows = [
+                    row for row in rows if row["Test ID"].endswith(test_suffix)
+                ]
+                self.assertTrue(
+                    matching_rows,
+                    "Missing modifier fixture for {}".format(test_suffix),
+                )
+                for row in matching_rows:
+                    with self.subTest(
+                        inventory=inventory_path,
+                        test_id=row["Test ID"],
+                    ):
+                        for modifier in modifiers:
+                            self.assertIn(modifier, row["Signals"])
 
     def test_inventory_count_summaries_match_each_test_kind(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
@@ -1936,7 +2047,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                         with self.subTest(test_id=test_id, cpt_test=mapped_id):
                             self.assertIn(mapped_id, cpt_test_ids)
 
-    def test_parity_maps_every_migrated_test_to_an_existing_cpt_test(self):
+    def test_parity_maps_migrated_tests_and_tracks_manual_migrations(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
             ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
@@ -1951,7 +2062,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(
             [],
-            migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids),
+            test_parity_errors(inventory, parity_by_id, cpt_test_ids),
         )
 
         required_verdicts = {
@@ -1989,7 +2100,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         }
         self.assertEqual(
             [],
-            migrated_test_parity_errors(
+            test_parity_errors(
                 inventory, {test_id: valid_row}, {test_id}
             ),
         )
@@ -2026,7 +2137,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(case=case):
                 self.assertEqual(
                     expected_errors,
-                    migrated_test_parity_errors(
+                    test_parity_errors(
                         inventory, parity_by_id, {test_id}
                     ),
                 )
@@ -2051,6 +2162,46 @@ class MigrationGuidanceTest(unittest.TestCase):
                     rows[shared_engine_test_id]["Notes"],
                     expected_notes,
                 )
+
+    def test_manual_migration_requires_a_manual_or_retired_parity_row(self):
+        test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenEngineBackedTest#startsProcess"
+        )
+        inventory = [
+            {
+                "Test ID": test_id,
+                "Test kind": "manual migration",
+                "Handling": "Report only",
+            }
+        ]
+        valid_row = {"CPT Test ID(s)": "—", "Verdict": "manual"}
+        self.assertEqual(
+            [],
+            test_parity_errors(inventory, {test_id: valid_row}, set()),
+        )
+        self.assertEqual(
+            [],
+            test_parity_errors(
+                inventory,
+                {test_id: {"CPT Test ID(s)": "—", "Verdict": "retired"}},
+                set(),
+            ),
+        )
+        self.assertEqual(
+            ["Missing parity row for {}".format(test_id)],
+            test_parity_errors(inventory, {}, set()),
+        )
+        self.assertEqual(
+            [
+                "Expected manual or retired verdict for {}".format(test_id)
+            ],
+            test_parity_errors(
+                inventory,
+                {test_id: {"CPT Test ID(s)": "—", "Verdict": "migrated"}},
+                set(),
+            ),
+        )
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
