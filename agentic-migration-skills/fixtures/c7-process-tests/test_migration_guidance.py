@@ -2732,6 +2732,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("runs no test suites", tests_only.lower())
         self.assertIn("test-source compilation is the only test check", tests_only.lower())
 
+    def test_readme_warns_remote_cpt_runtime_must_be_dedicated(self):
+        readme = (
+            REPO_ROOT / "agentic-migration-skills/README.md"
+        ).read_text(encoding="utf-8")
+        runtime_guidance = " ".join(
+            next(
+                paragraph
+                for paragraph in readme.split("\n\n")
+                if paragraph.startswith("By default, CPT starts ")
+            ).split()
+        ).lower()
+
+        self.assertIn("dedicated local camunda 8 test runtime", runtime_guidance)
+        self.assertIn("cpt deletes runtime data between tests", runtime_guidance)
+        self.assertIn("not use a shared or production runtime", runtime_guidance)
+
     def test_w3_walkthrough_matches_remote_engine_parity(self):
         readme = (FIXTURE / "README.md").read_text(encoding="utf-8")
         walkthrough = normalized(
