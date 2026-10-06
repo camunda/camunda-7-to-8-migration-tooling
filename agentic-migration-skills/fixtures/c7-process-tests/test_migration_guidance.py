@@ -1766,7 +1766,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                             normalized(other["Notes"]),
                         )
 
-   def test_inventory_and_parity_match_supported_test_migration_rules(self):
+    def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
             ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
