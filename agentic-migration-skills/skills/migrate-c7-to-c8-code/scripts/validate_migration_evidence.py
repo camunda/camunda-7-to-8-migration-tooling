@@ -347,6 +347,10 @@ def command_runs_test_suite(command):
             ):
                 return True
         return None
+    if executable == "npx":
+        if len(command) > 1 and command[1].casefold() in {"bpmnlint", "dmnlint"}:
+            return False
+        return None
     if executable in UNINSPECTABLE_EXECUTABLES or (
         executable.startswith("python")
         and re.fullmatch(r"python\d+(?:\.\d+)*", executable)

@@ -493,6 +493,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["timeout", "30", "mvn", "test"],
             ["make", "test"],
             ["npm", "test"],
+            ["npx", "jest"],
             [sys.executable, "-c", "import subprocess; subprocess.run(['mvn', 'test'])"],
         )
         for command_args in test_commands:
@@ -510,6 +511,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         command_args = ["env", "MAVEN_OPTS=-Xmx1g", "mvn", "package", "-DskipTests"]
         self.write_scope(test_run_mode="migrate_only")
         completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
+        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("model", "models/converted-c8-process.bpmn", "lint", None),
+                    command=command_args,
+                ),
+            )
+        command.assert_called_once()
+
+    def test_migrate_only_allows_known_bpmn_linter(self):
+        command_args = [
+            "npx",
+            "bpmnlint",
+            "models/converted-c8-process.bpmn",
+        ]
+        self.write_scope(test_run_mode="migrate_only")
+        completed = subprocess.CompletedProcess(command_args, 0, "model is valid")
         with patch.object(gate.subprocess, "run", return_value=completed) as command:
             self.assertEqual(
                 0,

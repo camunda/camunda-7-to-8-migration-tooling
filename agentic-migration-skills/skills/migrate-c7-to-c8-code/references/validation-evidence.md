@@ -132,6 +132,10 @@ goals. It rejects other Maven test plugin goals.
 The recorder rejects non-empty `MAVEN_ARGS` because those arguments can add goals outside the
 submitted command.
 When Maven JVM options set `maven.test.skip=true`, the recorder rejects module `compile` evidence.
+The recorder unwraps simple `env` commands.
+If the recorder cannot inspect a shell, interpreter, or unsupported task-runner command, then it
+rejects the command.
+It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.
 When a Gradle non-test check needs packaging, select a task whose dependency graph contains no test
 tasks.
 The recorder inspects a Gradle dry-run task graph and identifies tasks by Gradle's `Test` type.

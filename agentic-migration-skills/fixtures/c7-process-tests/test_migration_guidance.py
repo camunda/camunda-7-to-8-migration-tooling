@@ -745,6 +745,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             validation_evidence,
         )
         self.assertIn("rejects non-empty `MAVEN_ARGS`", validation_evidence)
+        self.assertIn("It accepts `npx bpmnlint` and `npx dmnlint`", validation_evidence)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("## Test-source compilation", report)
