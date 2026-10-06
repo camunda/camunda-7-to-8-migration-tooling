@@ -1068,7 +1068,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("does not run a process or decision", signal)
         self.assertIn("remote-engine test", requirement)
         self.assertIn("report only", requirement)
-        self.assertIn("shared environment", requirement)
+        self.assertIn(
+            "cpt deletes all runtime data between tests, so the test needs a dedicated "
+            "camunda 8 runtime.",
+            requirement,
+        )
+        self.assertNotIn("shared environment", requirement)
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):

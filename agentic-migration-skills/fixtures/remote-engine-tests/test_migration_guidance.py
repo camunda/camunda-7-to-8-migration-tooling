@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+import xml.etree.ElementTree as ET
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -33,9 +34,23 @@ JAVA_PROPERTIES_REMOTE_RUNTIME = re.compile(
     r"(?m)^[ \t\f]*(?:camunda\.process-test\.runtime-mode|runtimeMode)"
     r"[ \t\f]*(?:[=:][ \t\f]*|[ \t\f]+)remote[ \t\f]*\r?$"
 )
+JAVA_PROPERTIES_UNICODE_ESCAPE = re.compile(
+    r"(?<!\\)(?:\\\\)*\\u([0-9a-fA-F]{4})"
+)
 YAML_REMOTE_RUNTIME = re.compile(
-    r"""(?m)^[ \t]*(?:runtime-mode|camunda\.process-test\.runtime-mode)[ \t]*:[ \t]*"""
-    r"""(?:(['"])remote\1|remote)[ \t]*(?:#.*)?\r?$"""
+    r"""(?m)^[ \t]*"""
+    r"""(?P<key_quote>['"]?)"""
+    r"""(?:runtime-mode|camunda\.process-test\.runtime-mode)(?P=key_quote)"""
+    r"""[ \t]*:[ \t]*"""
+    r"""(?:&[^\s#]+[ \t]+)?"""
+    r"""(?:(?P<value_quote>['"])remote(?P=value_quote)|remote)"""
+    r"""(?:[ \t]+#.*)?[ \t]*\r?$"""
+)
+YAML_REMOTE_RUNTIME_INDIRECTION = re.compile(
+    r"""(?m)^[ \t]*"""
+    r"""(?P<key_quote>['"]?)"""
+    r"""(?:runtime-mode|camunda\.process-test\.runtime-mode)(?P=key_quote)"""
+    r"""[ \t]*:[ \t]*(?:![^\s#]+[ \t]+)?[&*][^\s#]+"""
 )
 
 
@@ -60,13 +75,24 @@ def _java_properties_logical_lines(content):
         yield logical_line
 
 
+def _unescape_java_properties_unicode_escapes(content):
+    return JAVA_PROPERTIES_UNICODE_ESCAPE.sub(
+        lambda match: chr(int(match.group(1), 16)),
+        content,
+    )
+
+
 def _contains_remote_runtime_configuration(content):
     return (
         any(
-            JAVA_PROPERTIES_REMOTE_RUNTIME.search(line) is not None
+            JAVA_PROPERTIES_REMOTE_RUNTIME.search(
+                _unescape_java_properties_unicode_escapes(line)
+            )
+            is not None
             for line in _java_properties_logical_lines(content)
         )
         or YAML_REMOTE_RUNTIME.search(content) is not None
+        or YAML_REMOTE_RUNTIME_INDIRECTION.search(content) is not None
     )
 
 
@@ -198,9 +224,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         first_client_shape = classification.index("| Engine REST calls through")
         for boundary in (
             "| Test is already classified as manual migration | Report only | "
-            "Preserve the existing manual migration verdict. |",
+            "Preserve the existing manual migration verdict and reason. "
+            "Where the target is Camunda 8.8, append `test migration needs "
+            "Camunda 8.9 or later` to the existing reason. |",
             "| Test is already classified as manual redesign | Report only | "
-            "Preserve the existing manual redesign verdict. |",
+            "Preserve the existing manual redesign verdict and reason. |",
             "| Test calls an engine that it does not start",
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
@@ -208,6 +236,27 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         ):
             with self.subTest(boundary=boundary):
                 self.assertLess(classification.index(boundary), first_client_shape)
+        for boundary in (
+            "| Test is already classified as manual migration",
+            "| Test calls an engine that it does not start",
+        ):
+            row = next(
+                row for row in classification.splitlines() if row.startswith(boundary)
+            )
+            self.assertIn(
+                "Where the target is Camunda 8.8, append `test migration needs "
+                "Camunda 8.9 or later`",
+                row,
+            )
+        shared_engine_index = classification.index(
+            "| Test calls an engine that it does not start"
+        )
+        for boundary in (
+            "| Test is already classified as manual migration",
+            "| Test is already classified as manual redesign",
+        ):
+            with self.subTest(boundary=boundary):
+                self.assertLess(classification.index(boundary), shared_engine_index)
 
     def test_camunda_8_8_gate_precedes_in_scope_client_shapes(self):
         classification = REFERENCE.read_text().split("## Scope and classification", 1)[1].split(
@@ -225,9 +274,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| WireMock or another Engine REST stub",
             "| Test calls an engine that it does not start",
             "| Test is already classified as manual migration | Report only | "
-            "Preserve the existing manual migration verdict. |",
+            "Preserve the existing manual migration verdict and reason. "
+            "Where the target is Camunda 8.8, append `test migration needs "
+            "Camunda 8.9 or later` to the existing reason. |",
             "| Test is already classified as manual redesign | Report only | "
-            "Preserve the existing manual redesign verdict. |",
+            "Preserve the existing manual redesign verdict and reason. |",
         ):
             with self.subTest(boundary=boundary):
                 self.assertLess(
@@ -247,7 +298,35 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "## Runtime and build changes", 1
         )[0]
         report_only_rule = next(
-            row for row in classification.splitlines() if "| Report only |" in row
+            row
+            for row in classification.splitlines()
+            if row.startswith("| Test calls an engine that it does not start")
+        )
+        scope_confirmation = reference.split("## Scope confirmation", 1)[1].split(
+            "\n## ", 1
+        )[0]
+        shared_scope_rule = next(
+            row
+            for row in scope_confirmation.splitlines()
+            if row.startswith("| A remote-engine test reads a shared engine URL")
+        )
+        handling_overrides = reference.split("## Handling overrides", 1)[1].split(
+            "\n## ", 1
+        )[0]
+        shared_override_rule = next(
+            row
+            for row in handling_overrides.splitlines()
+            if row.startswith("| A remote-engine test reads a shared engine URL")
+        )
+        shared_reason = (
+            "CPT deletes all runtime data between tests, so the test needs a dedicated "
+            "Camunda 8 runtime."
+        )
+        self.assertIn(shared_reason, shared_scope_rule)
+        self.assertIn(
+            "Where the target is Camunda 8.8, append `test migration needs "
+            "Camunda 8.9 or later`",
+            shared_override_rule,
         )
 
         for boundary in ("does not start", "neither local nor a test-owned container"):
@@ -560,6 +639,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                         )
                     )
 
+    def test_remote_runtime_guard_detects_java_properties_unicode_escapes(self):
+        for setting in (
+            r"runtimeMode=\u0072emote",
+            r"camunda.process-test.runtime-mode=\u0072emote",
+            r"runtime\u004dode=remote",
+        ):
+            with self.subTest(setting=setting):
+                self.assertTrue(_contains_remote_runtime_configuration(setting))
+
+        self.assertFalse(
+            _contains_remote_runtime_configuration(r"runtimeMode=\\u0072emote")
+        )
+
     def test_remote_runtime_guard_detects_java_properties_continuations(self):
         for setting in (
             "runtimeMode=\\\n    remote",
@@ -576,6 +668,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         ):
             with self.subTest(setting=setting):
                 self.assertFalse(_contains_remote_runtime_configuration(setting))
+
+    def test_remote_runtime_guard_detects_yaml_anchors_and_aliases(self):
+        for setting in (
+            "runtime-mode: &mode remote",
+            'camunda.process-test.runtime-mode: &mode "remote"',
+            "runtime-mode: &mode.name remote",
+            "runtime-mode: &mode\n  remote",
+            "mode.name: &mode.name remote\nruntime-mode: *mode.name",
+            "mode: &mode remote\nruntime-mode: *mode",
+            "runtime-mode: *mode",
+        ):
+            with self.subTest(setting=setting):
+                self.assertTrue(_contains_remote_runtime_configuration(setting))
 
     def test_remote_runtime_guard_detects_yaml_values_and_ignores_non_config(self):
         for setting in (

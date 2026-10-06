@@ -148,7 +148,7 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 | `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
-| A remote-engine test reads a shared engine URL from an environment variable and does not run a process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `shared environment` as the reason. |
+| A remote-engine test reads a shared engine URL from an environment variable and does not run a process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
 | A remote test makes only health or metadata calls and does not run a process or decision, without the shared-engine exception | The skill classifies the test as out of scope. |
 | A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
 
@@ -258,7 +258,7 @@ Do not migrate tests during Step 2.
 
 | Condition | Handling | Reason or note |
 |---|---|---|
-| A remote-engine test reads a shared engine URL from an environment variable and does not start the engine | Report only | `shared environment` |
+| A remote-engine test reads a shared engine URL from an environment variable and does not start the engine | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
 
 ## Camunda 8.8 target
 
@@ -780,9 +780,9 @@ The shared-engine row overrides every client-shape row below it.
 | Load, performance, or end-to-end UI test against Camunda 7 | Out of scope | Do not migrate it in this test slice. |
 | Unit test of an external-task handler that starts no engine | Out of scope | Migrate it as ordinary code. |
 | WireMock or another Engine REST stub | Out of scope | Do not migrate it as a remote-engine test. |
-| Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-environment reason below. |
-| Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict. |
-| Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict. |
+| Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict and reason. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to the existing reason. |
+| Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict and reason. |
+| Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
 | Target is Camunda 8.8 and the test would otherwise be in scope | Report only | Record `test migration needs Camunda 8.9 or later` in `MIGRATION_REPORT.md`. |
 | Engine REST calls through RestAssured, RestTemplate, TestRestTemplate, WebClient, HTTP clients, or generated OpenAPI clients | In scope | Replace Engine REST calls with the matching CPT command or assertion. |
 | Java clients that call Engine REST through a Camunda 7 service API, including `camunda-platform-7-rest-client-spring-boot` | In scope | Replace the client calls with Camunda 8 commands and assertions. |
