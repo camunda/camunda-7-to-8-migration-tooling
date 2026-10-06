@@ -1838,6 +1838,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_migrated_mock_fixtures_preserve_component_boundaries(self):
         test_ids = {
+            "engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder",
             "engine-tests:com.camunda.fixture.order.OrderMockitoTest#routesDelegateBpmnError",
             "engine-tests:com.camunda.fixture.order.OrderAutoMockTest#"
             "autoMocksDelegatesAndTracksCoverage",
@@ -1870,6 +1871,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             EXPECTED_C8
             / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
         ).read_text(encoding="utf-8")
+        c8_job_handlers = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderJobHandlers.java"
+        ).read_text(encoding="utf-8")
+        c7_notification_test = java_method_body(c7_order_mock, "routesDelegateBpmnError")
+        c7_notification_setup = java_method_body(c7_order_mock, "registerNotificationService")
         notification_test = java_method_body(c8_order_mock, "routesDelegateBpmnError")
         notification_setup = java_method_body(c8_order_mock, "openSupportingWorkers")
         self.assertIn(
@@ -1880,11 +1887,58 @@ class MigrationGuidanceTest(unittest.TestCase):
             'camunda:expression="${notificationService.notifyPaymentFailed(execution)}"',
             c7_order_model,
         )
-        self.assertIn('mockJobWorker("notify-customer")', notification_test)
-        self.assertIn("notification.getInvocations()", notification_test)
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(any(DelegateExecution.class))",
+            c7_notification_test,
+        )
+        self.assertIn(
+            "OrderJobHandlers.openNotificationWorker(client, notificationService)",
+            notification_setup,
+        )
+        self.assertIn(
+            "return open(client, () -> openNotificationWorker(client, notificationService));",
+            c8_job_handlers,
+        )
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(anyMap())",
+            notification_test,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', notification_test)
         self.assertNotIn("customerNotified", notification_test)
         self.assertIn("OrderJobHandlers.openStockWorker(client)", notification_setup)
         self.assertNotIn("OrderJobHandlers.openWithoutCharge(client)", notification_setup)
+
+        c7_inherited_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_inherited_setup = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/AbstractOrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_inherited_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        inherited_setup = java_method_body(c8_inherited_test, "openWorkers")
+        self.assertIn("extends AbstractOrderProcessTest", c7_inherited_test)
+        self.assertIn(
+            'Mocks.register("notificationService", Mockito.mock(NotificationService.class))',
+            c7_inherited_setup,
+        )
+        self.assertIn(
+            "OrderJobHandlers.NotificationService notificationService",
+            inherited_setup,
+        )
+        self.assertIn(
+            "mock(OrderJobHandlers.NotificationService.class)",
+            inherited_setup,
+        )
+        self.assertIn(
+            "workers = OrderJobHandlers.open(client, notificationService)",
+            inherited_setup,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', c8_inherited_test)
 
         c7_auto_mock = (
             C7_SOURCE
@@ -2313,7 +2367,24 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         self.assertNotIn("engine-test migration procedure is undefined", reference)
         self.assertIn("| modifier | detect by | used by |", reference)
-        self.assertIn("| `mocks` |", reference)
+        raw_reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        self.assertEqual(
+            1,
+            len(
+                re.findall(
+                    r"^\|\s*`mocks`\s*\|",
+                    raw_reference,
+                    flags=re.MULTILINE,
+                )
+            ),
+        )
+        modifiers = raw_reference.split("## Modifiers", 1)[1].split("## Test sources", 1)[0]
+        self.assertIn("[Mock detection](#mock-detection)", modifiers)
+        self.assertNotIn("| mocks |", modifiers)
+        self.assertNotIn(
+            "the skill records modifiers only for process tests and decision tests",
+            normalized(modifiers),
+        )
         self.assertIn("cpt (`io.camunda.process.test.*`)", reference)
         self.assertIn(
             "the test inventory records `mocks` in its `signals` column for every in-scope test method",

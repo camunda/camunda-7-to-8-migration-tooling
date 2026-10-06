@@ -12,12 +12,22 @@ import io.camunda.client.api.worker.JobWorker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 final class OrderJobHandlers {
 
   private OrderJobHandlers() {}
 
   static List<JobWorker> open(CamundaClient client) {
+    return open(client, () -> defaultNotificationWorker(client));
+  }
+
+  static List<JobWorker> open(CamundaClient client, NotificationService notificationService) {
+    return open(client, () -> openNotificationWorker(client, notificationService));
+  }
+
+  private static List<JobWorker> open(
+      CamundaClient client, Supplier<JobWorker> notificationWorkerFactory) {
     List<JobWorker> workers = new ArrayList<>();
     workers.add(openAuditWorker(client));
     workers.add(openStockWorker(client));
@@ -35,17 +45,7 @@ final class OrderJobHandlers {
                         .send()
                         .join())
             .open());
-    workers.add(
-        client.newWorker()
-            .jobType("notify-customer")
-            .handler(
-                (jobClient, job) ->
-                    jobClient
-                        .newCompleteCommand(job)
-                        .variables(Map.of("customerNotified", true))
-                        .send()
-                        .join())
-            .open());
+    workers.add(notificationWorkerFactory.get());
     workers.add(
         client.newWorker()
             .jobType("ship-order")
@@ -58,6 +58,19 @@ final class OrderJobHandlers {
                         .join())
             .open());
     return workers;
+  }
+
+  private static JobWorker defaultNotificationWorker(CamundaClient client) {
+    return client.newWorker()
+        .jobType("notify-customer")
+        .handler(
+            (jobClient, job) ->
+                jobClient
+                    .newCompleteCommand(job)
+                    .variables(Map.of("customerNotified", true))
+                    .send()
+                    .join())
+        .open();
   }
 
   static JobWorker openAuditWorker(CamundaClient client) {
