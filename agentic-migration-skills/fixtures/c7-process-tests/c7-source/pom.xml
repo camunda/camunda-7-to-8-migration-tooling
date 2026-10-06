@@ -18,7 +18,7 @@
 
   <properties>
     <camunda.version>7.24.0</camunda.version>
-    <spring-boot.version>4.1.1</spring-boot.version>
+    <spring-boot.version>3.5.16</spring-boot.version>
     <java.version>21</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <junit.version>5.12.2</junit.version>
