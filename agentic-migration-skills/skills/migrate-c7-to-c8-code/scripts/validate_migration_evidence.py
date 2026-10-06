@@ -1831,7 +1831,7 @@ def suite_requires_c7_baseline(suite, contract, mapping):
         return False
     rows = test_rows_by_id(mapping)
     return any(
-        rows.get(test_id, {}).get("status") == "migrated"
+        rows.get(test_id, {}).get("status") in ("migrated", "retired")
         for test_id in suite_report_only_test_ids(suite, contract)
     )
 
@@ -2130,7 +2130,8 @@ def test_parity_issues(plan, checks, mapping):
         if baseline is None:
             issues.append(f"{suite_key}: test parity ledger has no C7 baseline record")
         elif (
-            baseline.get("test_results") != check.get("test_results")
+            baseline.get("result") != check.get("result")
+            or baseline.get("test_results") != check.get("test_results")
             or baseline.get("coverage_by_process") != check.get("coverage_by_process")
             or baseline.get("coverage_available") != check.get("coverage_available")
         ):
@@ -2173,12 +2174,12 @@ def test_parity_issues(plan, checks, mapping):
             issues.append(f"{test_id}: ledger status must be migrated, retired, manual, or added")
             continue
         if (
-            status == "migrated"
+            status in ("migrated", "retired")
             and inventory_test["handling"] == "Report only"
             and expected_result is None
         ):
             issues.append(
-                f"{test_id}: migrated Report only test requires a captured C7 baseline"
+                f"{test_id}: {status} Report only test requires a captured C7 baseline"
             )
         if status == "manual":
             if test.get("handling") == "Migrate" or expected_result == "passed":

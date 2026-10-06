@@ -838,6 +838,87 @@ class ValidationEvidenceTest(unittest.TestCase):
             issues,
         )
 
+    def test_test_parity_rejects_tampered_baseline_suite_verdict(self):
+        test_id = "app:com.example.OrderTest#testOrder"
+        cpt_test_id = "app:com.example.OrderCptTest#testOrder"
+        suite_key = ("app", "unit")
+        test_result = {"result": "passed", "invocations": ["passed"]}
+        test_results = {test_id: test_result}
+        coverage = {}
+        plan = Namespace(
+            test_contract={
+                "tests": [
+                    {
+                        "id": test_id,
+                        "module": "app",
+                        "test_kind": "process test",
+                        "handling": "Migrate",
+                    }
+                ],
+                "suites": {
+                    suite_key: {
+                        "module": "app",
+                        "test_ids": [test_id],
+                        "migrate_test_ids": [test_id],
+                    }
+                },
+                "test_suites": {test_id: [suite_key]},
+            }
+        )
+        mapping = {
+            "baseline": {
+                "suites": [
+                    {
+                        "module": "app",
+                        "suite": "unit",
+                        "result": "failed",
+                        "test_results": test_results,
+                        "coverage_available": False,
+                        "coverage_by_process": coverage,
+                    }
+                ],
+                "coverage_available": False,
+                "coverage": coverage,
+            },
+            "tests": [
+                {
+                    "c7_id": test_id,
+                    "test_kind": "process test",
+                    "handling": "Migrate",
+                    "c7_result": None,
+                    "status": "migrated",
+                    "c8_ids": [cpt_test_id],
+                }
+            ],
+        }
+        checks = {
+            ("module", "app", "c7_baseline", "unit"): (
+                None,
+                {
+                    "result": "passed",
+                    "test_results": test_results,
+                    "coverage_available": False,
+                    "coverage_by_process": coverage,
+                },
+            ),
+            ("module", "app", "test_repeat", "unit"): (
+                None,
+                {
+                    "test_runs": [
+                        {"test_results": {cpt_test_id: {"result": "skipped"}}},
+                        {"test_results": {cpt_test_id: {"result": "skipped"}}},
+                    ]
+                },
+            ),
+        }
+
+        issues = gate.test_parity_issues(plan, checks, mapping)
+
+        self.assertIn(
+            "('app', 'unit'): test parity ledger differs from its baseline log",
+            issues,
+        )
+
     def test_c7_baseline_tracks_out_of_module_converted_copies(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '
@@ -1538,6 +1619,42 @@ class ValidationEvidenceTest(unittest.TestCase):
             test for test in recorded["tests"] if test.get("c7_id") == self.c7_test_id
         )
         self.assertEqual("passed", recorded_test["c7_result"])
+
+    def test_retired_report_only_test_requires_baseline_when_validation_is_enabled(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": self.c7_test_id,
+                "test_kind": "process test",
+                "handling": "Report only",
+                "c7_result": None,
+                "c8_ids": [],
+                "mocks": {"c7": [], "c8": []},
+                "status": "retired",
+                "retirement": {
+                    "reason": "The behavior is no longer required.",
+                    "approved_by": "migration owner",
+                },
+            },
+            {"status": "added", "c8_ids": [self.c8_test_id]},
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertIn(("project", ".", "test_parity", None), plan.required)
+        self.assertIn(("module", "app", "c7_baseline", "unit"), plan.required)
+        issues = gate.test_parity_issues(plan, {}, mapping)
+        self.assertIn("('app', 'unit'): C7 baseline has not run", issues)
+        self.assertIn(
+            f"{self.c7_test_id}: retired Report only test requires a captured C7 baseline",
+            issues,
+        )
 
     def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):
         self.configure_test_run(
