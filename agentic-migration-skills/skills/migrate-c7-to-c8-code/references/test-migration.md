@@ -377,7 +377,8 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 The OpenRewrite pass adds the CPT dependency and renames assertions. Review every migrated test
 against its Camunda 7 source. A successful compile does not prove behavioral parity.
 
-While #3213 is open, inspect and repair these `ReplaceAssertionsRecipe` cases:
+Recipe releases up to 0.3.10 and 0.2.9 do not include the `ReplaceAssertionsRecipe` fixes from #3238
+and #3234. Where the project uses one of these releases, inspect and repair these cases:
 
 | Recipe output or source | Required check |
 |---|---|
@@ -387,8 +388,8 @@ While #3213 is open, inspect and repair these `ReplaceAssertionsRecipe` cases:
 | Any other assertion chained after `variables()` | Keep the Camunda 7 call with a TODO. Do not replace it with `isCreated()`. |
 | `hasVariables()` with no names | Keep the Camunda 7 call with a TODO. Do not replace it with `hasVariableNames()`, which passes without names. |
 
-While #3214 is open, change assertion imports before `ReplaceAssertionsRecipe` runs or convert the
-assertions by hand afterward:
+Where the project uses one of these releases, change assertion imports before
+`ReplaceAssertionsRecipe` runs or convert the assertions by hand afterward:
 
 | Camunda 7 code | Workaround before the recipe |
 |---|---|

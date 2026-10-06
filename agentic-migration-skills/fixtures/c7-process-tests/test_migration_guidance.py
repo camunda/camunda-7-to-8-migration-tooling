@@ -2043,6 +2043,17 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertTrue(EXPECTED_PARITY.is_file())
         self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
 
+    def test_method_level_deployment_scope_is_preserved(self):
+        relative = "engine-tests/src/test/java/com/camunda/fixture/order/LegacyOrderTest.java"
+        source = (C7_SOURCE / relative).read_text(encoding="utf-8")
+        migrated = (EXPECTED_C8 / relative).read_text(encoding="utf-8")
+        self.assertRegex(source, r"@Deployment\s+public void testStockMissing\(")
+        self.assertNotRegex(migrated, r"@TestDeployment\([^)]*\)\s+class ")
+        self.assertRegex(
+            migrated,
+            r"@Test\s+@TestDeployment\([^)]*\)\s+void testStockMissing\(",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,7 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @CamundaProcessTest
-@TestDeployment(resources = "converted-c8-LegacyOrderTest.testStockMissing.bpmn")
 class LegacyOrderTest {
 
   private CamundaClient client;
@@ -44,6 +43,7 @@ class LegacyOrderTest {
   }
 
   @Test
+  @TestDeployment(resources = "converted-c8-LegacyOrderTest.testStockMissing.bpmn")
   void testStockMissing() {
     ProcessInstanceEvent instance =
         client.newCreateInstanceCommand()
@@ -71,6 +71,7 @@ class LegacyOrderTest {
   }
 
   @Test
+  @TestDeployment(resources = "converted-c8-LegacyOrderTest.testStockMissing.bpmn")
   void completesWhenStockIsAvailable() {
     ProcessInstanceEvent instance =
         client.newCreateInstanceCommand()
