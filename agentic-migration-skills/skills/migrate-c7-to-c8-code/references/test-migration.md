@@ -309,9 +309,13 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
 
 ### Harness and API mappings
 
-The mapping table covers engine-backed tests without Spring. Use the code-conversion pattern
-catalog as the source of truth for exact API mappings. Record any disagreement with the catalog in
-`MIGRATION_REPORT.md`.
+The code-conversion pattern catalog is the source of truth for exact API mappings. Map assertions
+with `40-test-assertions/10-assertions/80-assertion-mapping.md`. Map process start, user-task,
+message, and job calls with the other files in `40-test-assertions/10-assertions/`. Map the test
+harness and deployments with `40-test-assertions/20-test-setup/`. Record any disagreement with the
+catalog in `MIGRATION_REPORT.md`.
+
+The table adds only the rules that engine-backed tests without Spring need beyond the catalog.
 
 | Camunda 7 | CPT 8.9 or later | Note |
 |---|---|---|
@@ -322,30 +326,11 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 | Test-only `camunda.cfg.xml` | Where only the test engine uses it, remove it. | Record plugins, custom history, and other behavior-changing settings. |
 | Class- or method-level `@Deployment(resources = {...})` | Class- or method-level `@TestDeployment(resources = {...})` | Name converted copies. Method-level annotations take precedence. |
 | Implicit `@Deployment` | Explicit `@TestDeployment(resources = "<resolved converted-copy path>")` | Use the path resolved by the Test Inventory. |
-| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns `ProcessInstanceEvent`. Where the test sets a business key, follow the catalog's business-key pattern. |
-| `assertThat(pi).isWaitingAt("A")` | `assertThat(pi).hasActiveElements("A")` | |
-| `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
-| `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Do not use `hasNotActivatedElements`. |
-| `hasPassed("A")` | `hasCompletedElements("A")` | |
-| `hasPassedInOrder("A", "B")` | `hasCompletedElementsInOrder("A", "B")` | |
-| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements` is stricter because it also fails for an active element. Decide per test and record the decision. |
-| `isEnded()` | `isCompleted()` | If the test cancels the instance, then use `isTerminated()`. |
-| `isNotEnded()` or `isActive()` | `isActive()` | |
-| `isStarted()` | `isCreated()` | |
-| `hasVariables("x")` | `hasVariableNames("x")` | |
-| `variables().containsEntry("x", value)` | `hasVariable("x", value)` | Typed or serialized Java values become JSON. See the catalog's process-variable pattern. |
-| `isWaitingFor("message")` | `isWaitingForMessage("message")` | |
-| `task()`, `task("A")`, or `findId("Task name")` | `UserTaskSelectors.byElementId("A")` or `UserTaskSelectors.byTaskName("Task name")` | |
-| `assertThat(task()).isAssignedTo("user")`, `.hasName(...)`, `.hasCandidateGroup(...)`, or `.hasDueDate(...)` | `assertThatUserTask(selector).hasAssignee("user")`, `.hasName(...)`, `.hasCandidateGroup(...)`, or `.hasDueDate(...)` | |
-| `complete(task(), withVariables(...))` or `taskService.complete(id, vars)` | `processTestContext.completeUserTask("A", vars)` or `completeUserTask(selector, vars)` | A string argument is the BPMN element ID. |
-| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the step. |
-| `complete(externalTask(), vars)` or `fetchAndLock(topic, ...)` followed by `complete` | `processTestContext.completeJob(jobType, vars)` | Use the converted topic as the job type. Use `throwBpmnErrorFromJob` for `handleBpmnError`. |
 | `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion. |
 | `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | Assert the timer catch event first. When the timer is a boundary timer, assert the attached task because CPT does not expose the timer as an active element. |
 | `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
 | `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Get `key` from the converted model's message subscription, not the business key. |
 | `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | |
-| `historyService` or `runtimeService` queries used as assertions | CPT assertions | CPT assertions wait for the expected state. Search requests are eventually consistent. |
 | An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | See the semantic differences below. |
 | Process-test-coverage rule or extension | Remove | CPT reports process coverage. The parity subtask compares coverage. |
 | `org.junit.Assert`, `@Before`, `@After`, `@Ignore`, or `@Test(expected = ...)` | JUnit 5 `Assertions` or AssertJ, `@BeforeEach`, `@AfterEach`, `@Disabled`, or `assertThrows` | |

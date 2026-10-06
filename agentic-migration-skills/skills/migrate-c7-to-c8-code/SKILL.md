@@ -485,10 +485,12 @@ Assessment-only and analyze-only runs do not claim readiness.
     `PathMatchingResourcePatternResolver`. Require each entry to match a non-empty subset of one
     resource type in the inventory. Reject any match outside the inventory. Require each inventory
     resource to match exactly one entry. Confirm that the packaged application contains every match.
-    Where a test uses CPT `@TestDeployment`, resolve each entry against the test classpath. Require
-    each entry to resolve at least one resource. Require every resolved resource to match a converted
-    copy or an accepted form in the inventory. Check method-level entries before class-level entries because a method-level
-    annotation takes precedence. Never deploy an original model. A test that disables annotation
+    Where a test uses CPT `@TestDeployment`, resolve the effective annotation for each test method.
+    A method-level annotation replaces the class-level annotation. Resolve each entry of the
+    effective annotation against the test classpath. Require each entry to resolve at least one
+    resource. Require every resolved resource to match a converted copy or an accepted form in the
+    inventory. Require each converted copy and accepted form for the models in the Test Inventory
+    row of that test to match exactly one entry. Never deploy an original model. A test that disables annotation
     deployment does not validate this wiring.
 14. **Build wiring** — for each Maven module in the last row of the "Maven build wiring" table in
     `references/code-transform-checklist.md`, `mvn spring-boot:run` resolves the plugin and

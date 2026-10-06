@@ -225,6 +225,10 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("`@BeforeEach`", reference)
         self.assertIn("`@AfterEach`", reference)
         self.assertIn("accepted forms from the Test Inventory", reference)
+        self.assertIn("40-test-assertions/10-assertions/80-assertion-mapping.md", reference)
+        for duplicated_row in ("| `isEnded()` |", "| `hasNotPassed(\"A\")` |", "| `task()`"):
+            with self.subTest(duplicated_row=duplicated_row):
+                self.assertNotIn(duplicated_row, reference)
         self.assertIn("ProcessEngineTestCase", checklist)
 
     def test_validation_guidance_is_read_only_and_checks_empty_deployments(self):
@@ -241,6 +245,11 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             skill,
         )
         self.assertIn("match a converted copy or an accepted form in the inventory", skill)
+        self.assertIn("resolve the effective annotation for each test method", skill)
+        self.assertIn(
+            "A method-level annotation replaces the class-level annotation.", skill
+        )
+        self.assertIn("to match exactly one entry", skill)
         self.assertNotIn(
             "migrate every process test that uses Camunda 7 engine support without Spring",
             skill,
