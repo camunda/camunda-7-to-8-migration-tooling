@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -16,6 +17,7 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
 PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;")
 CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
@@ -28,6 +30,16 @@ METHOD_RE = re.compile(
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
 TEST_ID_RE = re.compile(r"(?:engine-tests|spring-boot-app|remote-engine):[\w.]+#[A-Za-z_$][\w$]*")
+TEST_KINDS = (
+    "process test",
+    "decision test",
+    "scenario test",
+    "remote-engine test",
+    "manual migration",
+    "manual redesign",
+    "out of scope",
+    "out of scope (Camunda 8)",
+)
 
 
 def test_method_ids(project_root):
@@ -52,26 +64,178 @@ def test_method_ids(project_root):
     return ids
 
 
+def markdown_character_is_escaped(line, index):
+    backslash_count = 0
+    previous = index - 1
+    while previous >= 0 and line[previous] == "\\":
+        backslash_count += 1
+        previous -= 1
+    return backslash_count % 2 == 1
+
+
+def markdown_table_cells(line):
+    line = line.strip()
+    cell_start = 1 if line.startswith("|") else 0
+    line_end = len(line)
+    if (
+        line_end > cell_start
+        and line[line_end - 1] == "|"
+        and not markdown_character_is_escaped(line, line_end - 1)
+    ):
+        line_end -= 1
+
+    cells = []
+    for index in range(cell_start, line_end):
+        if line[index] == "|" and not markdown_character_is_escaped(line, index):
+            cells.append(line[cell_start:index].strip())
+            cell_start = index + 1
+    cells.append(line[cell_start:line_end].strip())
+    return cells
+
+
+def markdown_table_has_delimiter(line):
+    code_delimiter_length = 0
+    index = 0
+    while index < len(line):
+        if line[index] == "`":
+            delimiter_end = index + 1
+            while delimiter_end < len(line) and line[delimiter_end] == "`":
+                delimiter_end += 1
+            delimiter_length = delimiter_end - index
+            if code_delimiter_length == 0:
+                if not markdown_character_is_escaped(line, index):
+                    closing_index = delimiter_end
+                    while closing_index < len(line):
+                        if line[closing_index] == "`":
+                            closing_end = closing_index + 1
+                            while (
+                                closing_end < len(line)
+                                and line[closing_end] == "`"
+                            ):
+                                closing_end += 1
+                            if closing_end - closing_index == delimiter_length:
+                                code_delimiter_length = delimiter_length
+                                break
+                            closing_index = closing_end
+                        else:
+                            closing_index += 1
+            elif delimiter_length == code_delimiter_length:
+                code_delimiter_length = 0
+            index = delimiter_end
+            continue
+
+        if (
+            line[index] == "|"
+            and code_delimiter_length == 0
+            and not markdown_character_is_escaped(line, index)
+        ):
+            return True
+        index += 1
+    return False
+
+
 def markdown_table(path, required_headers):
     lines = path.read_text(encoding="utf-8").splitlines()
     for index, line in enumerate(lines):
-        if not line.startswith("|"):
+        if "|" not in line:
             continue
-        headers = [cell.strip().strip("`") for cell in line.strip("|").split("|")]
+        headers = [cell.strip("`") for cell in markdown_table_cells(line)]
         if headers != required_headers:
             continue
 
         rows = []
         for row in lines[index + 2 :]:
-            if not row.startswith("|"):
+            if "|" not in row:
                 break
-            values = [cell.strip().strip("`") for cell in row.strip("|").split("|")]
-            if len(values) == len(required_headers):
-                rows.append(dict(zip(required_headers, values)))
+            values = [cell.strip("`") for cell in markdown_table_cells(row)]
+            if len(values) != len(required_headers):
+                raise AssertionError(
+                    "Expected {} columns but found {} in {}: {}".format(
+                        len(required_headers), len(values), path, row
+                    )
+                )
+            rows.append(dict(zip(required_headers, values)))
         return rows
     raise AssertionError(
         "Could not find table with headers {} in {}".format(required_headers, path)
     )
+
+
+def reference_table_separator_errors(lines):
+    errors = []
+    for index, header_line in enumerate(lines[:-1]):
+        if not markdown_table_has_delimiter(header_line) or (
+            index > 0 and markdown_table_has_delimiter(lines[index - 1])
+        ):
+            continue
+
+        header_cells = markdown_table_cells(header_line)
+        if len(header_cells) < 2:
+            continue
+
+        separator = lines[index + 1]
+        missing_pipes = "|" not in separator
+        header_has_outer_pipes = (
+            header_line.strip().startswith("|")
+            or header_line.strip().endswith("|")
+        )
+        if missing_pipes:
+            if (
+                not header_has_outer_pipes
+                and not re.fullmatch(r"[\s:-]*-[\s:-]*", separator)
+            ):
+                continue
+
+            separator_cells = separator.split()
+        else:
+            separator_cells = markdown_table_cells(separator)
+
+        if not separator_cells:
+            errors.append(
+                "Invalid table separator on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
+
+        invalid_cells = [
+            cell
+            for cell in separator_cells
+            if not re.fullmatch(r":?-{3,}:?", cell)
+        ]
+        if invalid_cells:
+            errors.append(
+                "Invalid table separator cell on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
+
+        if missing_pipes:
+            if (
+                not header_has_outer_pipes
+                and len(header_cells) != len(separator_cells)
+            ):
+                errors.append(
+                    "Table header and separator must have matching column counts on line {}: {}".format(
+                        index + 1, header_line
+                    )
+                )
+                continue
+            errors.append(
+                "Table separator must contain pipe delimiters on line {}: {}".format(
+                    index + 2, separator
+                )
+            )
+            continue
+
+        if len(header_cells) != len(separator_cells):
+            errors.append(
+                "Table header and separator must have matching column counts on line {}: {}".format(
+                    index + 1, separator
+                )
+            )
+    return errors
 
 
 def normalized(value):
@@ -136,7 +300,352 @@ class MigrationGuidanceTest(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "duplicate Test ID"):
             self.assert_unique_rows(duplicate_rows, "Test ID", "test inventory")
 
-    def test_camunda_8_8_inventory_changes_only_migrated_handling(self):
+    def test_markdown_table_supports_optional_outer_pipes(self):
+        tables = (
+            ("| First | Second |", "|---|---|", "| one | two |"),
+            ("| First | Second", "|---|---", "| one | two"),
+            ("First | Second |", "---|---|", "one | two |"),
+            ("First | Second", "---|---", "one | two"),
+            ("  | First | Second |  ", "  | --- | --- |  ", "  | one | two |  "),
+            ("  First | Second  ", "  --- | ---  ", "  one | two  "),
+        )
+        for header, separator, data in tables:
+            with self.subTest(header=header, separator=separator):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "table.md"
+                    path.write_text(
+                        "\n".join((header, separator, data)),
+                        encoding="utf-8",
+                    )
+                    self.assertEqual(
+                        [{"First": "one", "Second": "two"}],
+                        markdown_table(path, ["First", "Second"]),
+                    )
+
+    def test_markdown_table_preserves_escaped_pipes_in_headers(self):
+        lines = ("| First \\| alias | Second |", "|---|---|", "| left | right |")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "table.md"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            self.assertEqual(
+                [{r"First \| alias": "left", "Second": "right"}],
+                markdown_table(path, [r"First \| alias", "Second"]),
+            )
+
+    def test_markdown_table_preserves_escaped_pipes_in_rows(self):
+        lines = (
+            "| First | Second |",
+            "|---|---|",
+            r"| left \| middle | trailing \|",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "table.md"
+            path.write_text("\n".join(lines), encoding="utf-8")
+            self.assertEqual(
+                [{"First": r"left \| middle", "Second": r"trailing \|"}],
+                markdown_table(path, ["First", "Second"]),
+            )
+
+    def test_reference_tables_have_matching_header_and_separator_columns(self):
+        lines = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8").splitlines()
+        errors = reference_table_separator_errors(lines)
+        self.assertEqual(
+            [],
+            errors,
+            "{}:\n{}".format(TEST_MIGRATION_REFERENCE, "\n".join(errors)),
+        )
+
+    def test_reference_table_separator_supports_escaped_header_pipes(self):
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                [r"| First \| alias | Second |", "|---|---|"]
+            ),
+        )
+
+    def test_reference_table_rejects_malformed_separator_cells(self):
+        header = "| First | Second | Third | Fourth |"
+        for separator in (
+            "|---||---|---|",
+            "||---|---|---|",
+            "|---|---|---||",
+            "|--|--|--|--|",
+            "|--||--|--|",
+            "|---|--|---|---|",
+            "|---|---x|---|---|",
+            "| value | value |",
+        ):
+            with self.subTest(separator=separator):
+                errors = reference_table_separator_errors([header, separator])
+                self.assertTrue(errors)
+                self.assertIn("Invalid table separator cell", errors[0])
+
+    def test_reference_table_separator_cells_support_optional_outer_pipes(self):
+        headers = (
+            "| First | Second |",
+            "| First | Second",
+            "First | Second |",
+            "First | Second",
+            "  | First | Second |  ",
+            "  First | Second  ",
+        )
+        separators = (
+            ("|---|---|", True),
+            ("|---|---", True),
+            ("---|---|", True),
+            ("---|---", True),
+            ("  | --- | --- |  ", True),
+            ("  --- | ---  ", True),
+            ("|---|value|", False),
+            ("|---|value", False),
+            ("---|value|", False),
+            ("--- | value", False),
+            ("  --- | value  ", False),
+        )
+        for header in headers:
+            for separator, valid in separators:
+                with self.subTest(header=header, separator=separator):
+                    errors = reference_table_separator_errors([header, separator])
+                    if valid:
+                        self.assertEqual([], errors)
+                    else:
+                        self.assertTrue(errors)
+                        self.assertIn("Invalid table separator cell", errors[0])
+
+    def test_reference_table_rejects_pipe_less_separators(self):
+        cases = (
+            ("| First | Second |", "--- ---", "pipe delimiters"),
+            ("First | Second", ":--- :---", "pipe delimiters"),
+            ("| First | Second |", "------", "pipe delimiters"),
+            ("| First | Second |", "-- ---", "Invalid table separator cell"),
+            ("| First | Second |", ": :", "Invalid table separator cell"),
+            ("| First | Second |", "", "Invalid table separator"),
+            ("| First | Second |", "  ", "Invalid table separator"),
+        )
+        for header, separator, expected_error in cases:
+            with self.subTest(header=header, separator=separator):
+                errors = reference_table_separator_errors([header, separator])
+                self.assertTrue(errors)
+                self.assertIn(expected_error, errors[0])
+
+    def test_reference_table_rejects_pipe_less_separator_column_mismatches(self):
+        cases = (
+            ("First | Second", "---"),
+            ("First | Second", "---", "one | two"),
+            ("First | Second", "--- --- ---", "one | two"),
+            ("First ` | Second", "---"),
+        )
+        for lines in cases:
+            with self.subTest(lines=lines):
+                errors = reference_table_separator_errors(lines)
+                self.assertTrue(errors)
+                self.assertIn("matching column counts", errors[0])
+
+    def test_reference_table_separator_validator_ignores_prose_with_pipes(self):
+        lines = [
+            "Use `first | second` for the choice.",
+            "---",
+            "The `left | right` text belongs to this example.",
+            "Keep this prose line after another prose line.",
+        ]
+
+        self.assertEqual([], reference_table_separator_errors(lines))
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                ["Use left \\| right for the choice.", "---", "Keep reading."]
+            ),
+        )
+        self.assertEqual(
+            [],
+            reference_table_separator_errors(
+                ["Use input | output mapping for the task.", ": :", "Keep reading."]
+            ),
+        )
+
+    def test_reference_table_data_rows_are_not_separators(self):
+        lines = [
+            "| First | Second |",
+            "|---|---|",
+            "| --- | value |",
+        ]
+
+        self.assertEqual([], reference_table_separator_errors(lines))
+
+    def test_shared_engine_smoke_has_explicit_scope_exception(self):
+        scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        exception_rows = [
+            row for row in scope_rows if "shared engine url" in normalized(row["Signal"])
+        ]
+        self.assertEqual(len(exception_rows), 1)
+        signal = normalized(exception_rows[0]["Signal"])
+        requirement = normalized(exception_rows[0]["Confirmation required"])
+        self.assertIn("from an environment variable", signal)
+        self.assertIn("does not run a process or decision", signal)
+        self.assertIn("remote-engine test", requirement)
+        self.assertIn("report only", requirement)
+        self.assertIn("shared environment", requirement)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            shared_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("SharedEngineSmokeIT#readsConfiguredSharedEngine")
+            ]
+            self.assertEqual(len(shared_rows), 1)
+            self.assertEqual(shared_rows[0]["Test kind"], "remote-engine test")
+            self.assertEqual(shared_rows[0]["Handling"], "Report only")
+            self.assertIn("shared environment", normalized(shared_rows[0]["Notes"]))
+
+    def test_remote_engine_tests_require_process_or_decision_execution(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        remote_engine_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| remote-engine test |")
+        )
+        out_of_scope_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| out of scope |")
+        )
+        self.assertIn("runs a bpmn process or dmn decision", remote_engine_row)
+        self.assertIn(
+            "remote health or metadata probes that run no process or decision are "
+            "also out of scope",
+            out_of_scope_row,
+        )
+        self.assertIn(
+            "unless the shared-engine exception in scope confirmation applies",
+            out_of_scope_row,
+        )
+        confirmation_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        remote_probe = next(
+            row
+            for row in confirmation_rows
+            if "only health or metadata calls" in normalized(row["Signal"])
+        )
+        self.assertIn(
+            "the skill classifies the test as out of scope",
+            normalized(remote_probe["Confirmation required"]),
+        )
+
+        precedence_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Order", "Matching signal", "Test kind"],
+        )
+        shared_engine = next(
+            row
+            for row in precedence_rows
+            if "shared camunda 7 engine url" in normalized(row["Matching signal"])
+        )
+        remote_process = next(
+            row
+            for row in precedence_rows
+            if (
+                "runs a bpmn process or dmn decision against a running camunda 7 "
+                "engine remotely"
+            )
+            in normalized(row["Matching signal"])
+        )
+        self.assertIn(
+            "reads a shared camunda 7 engine url from an environment variable and "
+            "runs no process or decision",
+            normalized(shared_engine["Matching signal"]),
+        )
+        self.assertEqual("remote-engine test", shared_engine["Test kind"])
+        self.assertEqual("remote-engine test", remote_process["Test kind"])
+        self.assertLess(int(shared_engine["Order"]), int(remote_process["Order"]))
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path, handling in (
+            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
+            (EXPECTED_ASSESSMENT_88, "Report only"),
+        ):
+            payment_test = next(
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith(
+                    "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+                )
+            )
+            self.assertEqual("remote-engine test", payment_test["Test kind"])
+            self.assertEqual(handling, payment_test["Handling"])
+
+    def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "clockutil` used to control timers is a supported test utility.",
+            reference,
+        )
+        self.assertIn(
+            "the skill does not assign `manual redesign` based on `clockutil` alone.",
+            reference,
+        )
+
+        manual_redesign_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| manual redesign |")
+        )
+        self.assertIn("unsupported engine internals", manual_redesign_row)
+        self.assertIn("clockutil", manual_redesign_row)
+        self.assertIn("does not trigger this signal by itself", manual_redesign_row)
+
+        confirmation_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Signal", "Confirmation required"],
+        )
+        clockutil_row = next(
+            row
+            for row in confirmation_rows
+            if "clockutil" in normalized(row["Signal"])
+        )
+        self.assertIn(
+            "supported test utility",
+            normalized(clockutil_row["Confirmation required"]),
+        )
+
+        precedence_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Order", "Matching signal", "Test kind"],
+        )
+        engine_internal_row = next(
+            row for row in precedence_rows if row["Order"] == "2"
+        )
+        internal_signal = normalized(engine_internal_row["Matching signal"])
+        self.assertIn("unsupported engine internals", internal_signal)
+        self.assertIn("clockutil", internal_signal)
+        self.assertIn("does not trigger this signal by itself", internal_signal)
+
+        timer_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("org.camunda.bpm.engine.impl.util.ClockUtil", timer_source)
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path, handling in (
+            (EXPECTED_ASSESSMENT, "Migrate"),
+            (EXPECTED_ASSESSMENT_88, "Report only"),
+        ):
+            timer_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("OrderTimerTest#escalatesAfterOneDay")
+            ]
+            self.assertEqual(len(timer_rows), 1)
+            self.assertEqual("process test", timer_rows[0]["Test kind"])
+            self.assertEqual(handling, timer_rows[0]["Handling"])
+
+    def test_camunda_8_8_inventory_marks_every_in_scope_test_report_only(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
         inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
@@ -146,18 +655,27 @@ class MigrationGuidanceTest(unittest.TestCase):
         rows_88 = {row["Test ID"]: row for row in inventory_88}
 
         self.assertEqual(set(rows_89), set(rows_88))
+        version_reason = normalized("test migration needs Camunda 8.9 or later")
         for test_id, row in rows_89.items():
             with self.subTest(test_id=test_id):
                 other = rows_88[test_id]
-                if row["Handling"].startswith("Migrate"):
+                if row["Test kind"] == "manual redesign":
                     self.assertEqual(other["Handling"], "Report only")
-                    self.assertIn(
-                        normalized("test migration needs Camunda 8.9 or later"),
-                        normalized(other["Notes"]),
-                    )
-                else:
+                    self.assertEqual(other["Notes"], row["Notes"])
+                    continue
+
+                if row["Handling"] == "Not part of test migration":
                     self.assertEqual(other["Handling"], row["Handling"])
                     self.assertEqual(other["Notes"], row["Notes"])
+                    continue
+
+                self.assertEqual(other["Handling"], "Report only")
+                self.assertIn(version_reason, normalized(other["Notes"]))
+                if row["Handling"] == "Report only":
+                    self.assertIn(
+                        normalized(row["Notes"].rstrip(".")),
+                        normalized(other["Notes"]),
+                    )
 
     def test_parity_maps_every_migrated_test_to_an_existing_cpt_test(self):
         inventory = markdown_table(
@@ -232,7 +750,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "a test is in scope only when it runs a bpmn process or dmn decision "
+            "a test is eligible for migration only when it runs a bpmn process or dmn "
+            "decision "
             "on a camunda 7 engine.",
             reference,
         )
@@ -242,18 +761,258 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn("| test kind | detect by | handling |", reference)
-        for test_kind in (
-            "process test",
-            "decision test",
-            "scenario test",
-            "remote-engine test",
-            "manual migration",
-            "manual redesign",
-            "out of scope",
-            "out of scope (camunda 8)",
-        ):
+        for test_kind in TEST_KINDS:
             with self.subTest(test_kind=test_kind):
-                self.assertIn("| {} |".format(test_kind), reference)
+                self.assertIn("| {} |".format(normalized(test_kind)), reference)
+
+        for source_directory in (
+            "src/test/java",
+            "src/test/kotlin",
+            "src/test/groovy",
+        ):
+            with self.subTest(source_directory=source_directory):
+                self.assertIn("`{}`".format(source_directory), reference)
+
+    def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        skill = normalized(SKILL_PATH.read_text(encoding="utf-8"))
+        self.assertIn("test cases, including configured cucumber scenarios", skill)
+        for requirement in (
+            "cucumber runner or build configuration",
+            "`.feature` files",
+            "each cucumber `scenario` as one test",
+            "each data row in a cucumber `scenario outline` `examples` table "
+            "as a separate test",
+            "the skill does not inventory step-definition methods, lambda registrations, "
+            "a cucumber runner class, or hook methods as separate tests",
+            "@given",
+            "@when",
+            "@then",
+            "@and",
+            "@but",
+            "the skill reads constructor-registered lambda steps",
+            "`io.cucumber.java8.en`",
+            "the skill follows both forms when it checks for camunda 7 process or decision calls.",
+            "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn process "
+            "or dmn decision",
+            "the cucumber classification includes applicable hooks, not only steps",
+            "list every test with handling `report only` by test id",
+            "when one test matches multiple test kinds",
+            "<module path>:<feature path>#<scenario name>@l<line>",
+            "the skill uses the `scenario` line number in its test id",
+            "uses the outline name and `examples` row's line number in that format",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, reference)
+
+    def test_manual_redesign_is_an_explicit_scope_exception(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "cmmn tests and tests that use unsupported camunda engine internals do not meet this scope rule.",
+            reference,
+        )
+        self.assertIn(
+            "the skill inventories cmmn tests and tests that use unsupported engine internals as "
+            "`manual redesign` with "
+            "`report only` handling.",
+            reference,
+        )
+        scope_confirmation_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| A test uses CMMN")
+        )
+        self.assertIn("unsupported camunda engine internals", scope_confirmation_row)
+        self.assertIn("manual redesign", scope_confirmation_row)
+        self.assertIn("report only", scope_confirmation_row)
+        self.assertIn(
+            "even when it does not run a bpmn process or dmn decision",
+            scope_confirmation_row,
+        )
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            support_case = next(
+                row
+                for row in markdown_table(inventory_path, headers)
+                if row["Test ID"].endswith("SupportCaseTest#startsSupportCase")
+            )
+            self.assertEqual("manual redesign", support_case["Test kind"])
+            self.assertEqual("Report only", support_case["Handling"])
+
+    def test_parsed_dmn_models_are_inventoried(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for requirement in (
+            "every bpmn, dmn, or cmmn model that a test deploys or parses appears in the model inventory.",
+            "link each test id to every model it deploys or parses in the `models` cell.",
+            "trace model resources through test setup and shared helpers.",
+            "`dmnengine.parsedecision(...)`",
+        ):
+            with self.subTest(requirement=requirement):
+                self.assertIn(requirement, reference)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            discount_rows = [
+                row
+                for row in markdown_table(inventory_path, headers)
+                if "DiscountDecisionTest#" in row["Test ID"]
+            ]
+            self.assertTrue(discount_rows)
+            self.assertTrue(all("discount.dmn" in row["Models"] for row in discount_rows))
+
+    def test_model_source_table_includes_standalone_dmn_parsing(self):
+        rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Model source", "Model paths and notes to record", "Handling"],
+        )
+        self.assertEqual(
+            {
+                "Explicit @Deployment(resources = ...)",
+                "Implicit method-level @Deployment",
+                "Implicit class-level @Deployment",
+                "Programmatic deployment",
+                "Spring Boot auto-deployment",
+                "Standalone DMN parsing",
+                "CMMN model deployed by a test",
+                "BPMN model built with the Camunda fluent model API",
+            },
+            {row["Model source"].replace("`", "") for row in rows},
+        )
+
+    def test_expected_inventories_include_complete_test_kind_counts(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            with self.subTest(inventory=inventory_path):
+                inventory_rows = markdown_table(inventory_path, headers)
+                count_rows = markdown_table(inventory_path, ["Test kind", "Count"])
+                self.assert_unique_rows(count_rows, "Test kind", inventory_path)
+                self.assertEqual(len(TEST_KINDS), len(count_rows))
+
+                expected_counts = {
+                    test_kind: sum(row["Test kind"] == test_kind for row in inventory_rows)
+                    for test_kind in TEST_KINDS
+                }
+                reported_counts = {
+                    row["Test kind"]: int(row["Count"])
+                    for row in count_rows
+                }
+                self.assertEqual(set(TEST_KINDS), set(reported_counts))
+                self.assertEqual(expected_counts, reported_counts)
+
+    def test_cucumber_hooks_participate_in_scope_confirmation(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        self.assertIn(
+            "the skill reads applicable cucumber hooks.",
+            reference,
+        )
+        self.assertIn(
+            "the skill uses them to check whether scenarios run bpmn processes or "
+            "dmn decisions on a camunda 7 engine.",
+            reference,
+        )
+        scope_confirmation_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| A Cucumber `Scenario`")
+        )
+        self.assertIn(
+            "its step definitions or applicable hooks run a bpmn process or dmn "
+            "decision on a camunda 7 engine",
+            scope_confirmation_row,
+        )
+        for marker in ("| manual migration |", "| 3 |"):
+            row = next(
+                normalized(line)
+                for line in reference_text.splitlines()
+                if line.startswith(marker)
+            )
+            self.assertIn(
+                "cucumber scenarios use camunda 7 apis to run an engine-backed bpmn "
+                "process or dmn decision",
+                row,
+            )
+            self.assertIn(
+                "the cucumber classification includes applicable hooks, not only steps",
+                row,
+            )
+
+    def test_spock_feature_methods_have_method_based_test_ids(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "the skill includes spock feature methods in groovy classes that extend "
+            "`spock.lang.specification`.",
+            reference,
+        )
+        self.assertIn(
+            "the skill includes these methods even when they have no `@test` annotation.",
+            reference,
+        )
+        self.assertIn(
+            "the skill uses this method-based test id for each spock feature method.",
+            reference,
+        )
+
+    def test_fluent_built_processes_are_manual_migration(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        fluent_model_rule = (
+            "runs an engine-backed process from a bpmn model built with the "
+            "camunda 7 fluent model api"
+        )
+        test_kind_row = next(
+            normalized(line)
+            for line in reference.splitlines()
+            if line.startswith("| manual migration |")
+        )
+        precedence_row = next(
+            normalized(line) for line in reference.splitlines() if line.startswith("| 3 |")
+        )
+        self.assertIn(fluent_model_rule, test_kind_row)
+        self.assertIn(fluent_model_rule, precedence_row)
+
+    def test_jvm_language_rules_exclude_no_engine_unit_tests(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        reference = normalized(reference_text)
+        manual_migration_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| manual migration |")
+        )
+        out_of_scope_row = next(
+            normalized(line)
+            for line in reference_text.splitlines()
+            if line.startswith("| out of scope |")
+        )
+        self.assertIn(
+            "a kotlin or groovy test uses camunda 7 test apis to run an engine-backed "
+            "bpmn process or dmn decision",
+            manual_migration_row,
+        )
+        self.assertIn(
+            "a kotlin or groovy test uses camunda 7 test apis to run an engine-backed "
+            "bpmn process or dmn decision",
+            next(
+                normalized(line)
+                for line in reference_text.splitlines()
+                if line.startswith("| 3 |")
+            ),
+        )
+        self.assertIn(
+            "the skill marks kotlin/groovy tests as `manual migration` only when they "
+            "run an engine-backed bpmn process or dmn decision.",
+            reference,
+        )
+        self.assertIn(
+            "the engine must be camunda 7.",
+            reference,
+        )
+        self.assertIn(
+            "kotlin or groovy tests that use camunda 7 test apis but run no process "
+            "or decision",
+            out_of_scope_row,
+        )
 
     def test_expected_report_files_exist(self):
         self.assertTrue(EXPECTED_ASSESSMENT.is_file())
