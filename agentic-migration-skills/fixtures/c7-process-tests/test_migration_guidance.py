@@ -508,14 +508,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn(
-            "for maven, the skill checks each module's `testsourcedirectory`, compiler "
+            "where a project uses maven, the skill checks each module's `testsourcedirectory`, compiler "
             "include patterns, `resources`, and `testresources` declarations.",
             reference,
         )
         self.assertIn(
-            "for gradle, the skill checks each test source set, test-task include and exclude "
-            "patterns, source-set resource directories, and matching resource-processing tasks such "
-            "as `processresources` and `processtestresources`.",
+            "where a project uses gradle, the skill checks each test source set and its "
+            "test-task include and exclude patterns.",
+            reference,
+        )
+        self.assertIn(
+            "the skill checks source-set resource directories and matching resource-processing "
+            "tasks such as `processresources` and `processtestresources`.",
             reference,
         )
         self.assertIn(
@@ -700,11 +704,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("scenario test inventory", step_two)
         self.assertIn("references/test-migration.md", step_two)
 
-    def test_fulfillment_parity_note_matches_single_run_time_advances(self):
+    def test_fulfillment_parity_note_matches_bounded_time_guidance(self):
         parity = markdown_table(
             EXPECTED_PARITY,
             ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
         )
+        time_rule = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         test_id = (
             "engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#"
             "shouldCompleteWorkAfterTwoDailyReminders"
@@ -716,6 +721,17 @@ class MigrationGuidanceTest(unittest.TestCase):
             "FulfillmentScenarioTest.java"
         ).read_text(encoding="utf-8")
 
+        self.assertIn("steps no longer than the shortest timer period", time_rule)
+        self.assertIn(
+            "one valid schedule uses five 12-hour increments",
+            time_rule,
+        )
+        self.assertIn(
+            "when a scenario stub uses `defer(period, action)`, the skill runs the deferred "
+            "action when the total time increase reaches `period`, not before.",
+            time_rule,
+        )
+        self.assertNotIn("increases time by one day twice", time_rule)
         self.assertEqual(5, cpt_source.count("increaseTime(Duration.ofHours(12))"))
         self.assertIn("one scenario test", notes)
         self.assertIn("five 12-hour steps", notes)
@@ -1170,6 +1186,17 @@ class MigrationGuidanceTest(unittest.TestCase):
             "`references/test-migration.md`.",
             normalized_skill,
         )
+
+    def test_reference_conditional_rules_use_ears_triggers(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        non_ears_for_openers = re.findall(
+            r"(?:^|[.!?]\s+|\|\s*|[-*]\s+)"
+            r"(For\s+(?!each\b|every\b|example\b)[^.!?\n]*)",
+            reference,
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        self.assertEqual([], non_ears_for_openers)
 
     def test_linear_paths_may_replace_cpt_conditionals_with_sequential_calls(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))

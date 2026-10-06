@@ -461,8 +461,9 @@ overlapping classes in `org.camunda.bpm.scenario`. The skill keeps only one of t
 each test classpath. When remaining tests require both artifacts, the skill separates their
 test classpaths. The skill inspects the test calls before classifying the method.
 
-For a scenario test marked `Migrate (lower priority)`, the target is a Java test with Camunda
-Process Test (CPT) and `io.camunda:camunda-process-test-java`. The target is Camunda 8.9 or later.
+When the Step 2 Test Inventory marks a scenario test `Migrate (lower priority)`, the skill targets
+a Java test with Camunda Process Test (CPT) and `io.camunda:camunda-process-test-java`. The target
+is Camunda 8.9 or later.
 The skill does not create CPT instruction-based JSON tests.
 
 When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. The skill
@@ -482,13 +483,14 @@ Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployment dependen
 | A retained manual method needs C7 Scenario setup. | Move migrated methods to a separate CPT class, or retain the Scenario runner, `ProcessScenario` mock, C7 engine rule, and deployments until no retained method needs them. |
 
 Before changing the target build, the skill checks test-source roots, test filters, and resource
-processing in every Maven module or Gradle source set. For Maven, the skill checks each module's
+processing in every Maven module or Gradle source set.
+Where a project uses Maven, the skill checks each module's
 `testSourceDirectory`, compiler include patterns, `resources`, and `testResources` declarations. The
-skill checks resource filters, includes, excludes, and `targetPath` settings. For Gradle, the skill
-checks each test source set, test-task include and exclude patterns, source-set resource directories,
-and matching resource-processing tasks such as `processResources` and `processTestResources`. The
-skill checks their filters and output paths. The skill checks plugins or tasks that copy or generate
-resources.
+skill checks resource filters, includes, excludes, and `targetPath` settings. Where a project uses
+Gradle, the skill checks each test source set and its test-task include and exclude patterns. The
+skill checks source-set resource directories and matching resource-processing tasks such as
+`processResources` and `processTestResources`. The skill checks their filters and output paths. The
+skill checks plugins or tasks that copy or generate resources.
 
 | Source-set condition | Migration action |
 |---|---|
@@ -603,15 +605,14 @@ parity-ledger entry.
 The Scenario runner moves the clock to each due timer, one timer at a time. CPT's
 `increaseTime(duration)` moves the clock once for the full duration. The skill preserves the
 intermediate timer effects by increasing time in steps no longer than the shortest timer period on
-the active path. For a boundary timer, the skill asserts that the attached activity is active.
-For a timer catch event, the skill asserts that the timer event is active. After every step, the
-skill asserts the expected timer effect.
+the active path. When the active path contains a boundary timer, the skill asserts that the attached
+activity is active. When the active path contains a timer catch event, the skill asserts that the
+timer event is active. After each step, the skill asserts the expected timer effect.
 
-The skill runs a deferred action when the total time increase reaches its `defer(period, action)`
-period. It does not run the action before that period.
+When a Scenario stub uses `defer(period, action)`, the skill runs the deferred action when the total
+time increase reaches `period`, not before.
 
-For a daily timer and `defer("P2DT12H", action)`, the skill increases time by one day twice and
-asserts each daily effect. It then increases time by twelve hours and runs the deferred action.
+One valid schedule uses five 12-hour increments for a daily timer and `defer("P2DT12H", action)`.
 
 ## References
 
