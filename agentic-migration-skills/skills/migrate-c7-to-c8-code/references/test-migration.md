@@ -696,7 +696,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
-CPT process coverage from `target/process-test-coverage/report.json` by default. Where a suite writes CPT coverage to another path, set `coverage_reports` to module-relative globs
+CPT process coverage from `target/coverage-report/report.json` by default. Where a suite writes CPT coverage to another path, set `coverage_reports` to module-relative globs
 on the matching module's `test_suites[]` entry in `validation-evidence.json`. The Step 2 inventory's
 `test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
 See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).

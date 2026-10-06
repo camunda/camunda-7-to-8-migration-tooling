@@ -319,7 +319,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ],
         }
         if first_coverage is not None or second_coverage is not None:
-            files["app/target/process-test-coverage/report.json"] = [
+            files["app/target/coverage-report/report.json"] = [
                 first_coverage or '{"processCoverages":[]}',
                 second_coverage or first_coverage or '{"processCoverages":[]}',
             ]
@@ -3703,6 +3703,36 @@ class ValidationEvidenceTest(unittest.TestCase):
             ),
         )
 
+    def test_repeat_evidence_rejects_tampered_test_results(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+        self.assertEqual(
+            0, self.submit(("project", ".", "test_freeze", None), command=[])
+        )
+        key = ("module", "app", "test_repeat", "unit")
+        self.assertEqual(0, self.submit(key, command=self.cpt_command()))
+        log_path = self.root / gate.check_reference(key)
+        original = json.loads(log_path.read_text(encoding="utf-8"))
+        for tampered in ({}, {"result": "unknown"}, {"result": "passed", "invocations": ["ok"]}):
+            with self.subTest(tampered=tampered):
+                check = json.loads(json.dumps(original))
+                for run in check["test_runs"]:
+                    for test_id in run["test_results"]:
+                        run["test_results"][test_id] = tampered
+                write_json(log_path, check)
+                evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+                issues = []
+                gate.load_checks(
+                    self.root, evidence, gate.requirements(self.root, self.plan), issues
+                )
+                self.assertTrue(
+                    any("repeat evidence has an invalid run" in issue for issue in issues),
+                    issues,
+                )
+
     def test_coverage_parity_fails_when_cpt_drops_a_covered_element(self):
         for name in ("models/process.bpmn", "models/converted-c8-process.bpmn"):
             path = self.root / name
@@ -4219,6 +4249,17 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked test parity ledger"):
             gate.read_test_mapping(self.root, required=True)
+        validation.unlink()
+        moved.replace(validation)
+        ledger = self.root / gate.TEST_MAPPING
+        ledger.unlink()
+        ledger.symlink_to(self.root / "missing.json")
+        with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked test parity ledger"):
+            gate.read_test_mapping(self.root)
+        ledger.unlink()
+        moved = self.root / "elsewhere"
+        validation.replace(moved)
+        validation.symlink_to(moved, target_is_directory=True)
         with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked"):
             gate.recorded_test_freeze_digest(self.root, {})
 

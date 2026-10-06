@@ -60,7 +60,7 @@ DEFAULT_C7_COVERAGE_REPORTS = (
     "target/process-test-coverage/**/report.json",
     "target/process_test_coverage/**/*.json",
 )
-DEFAULT_CPT_COVERAGE_REPORTS = ("target/process-test-coverage/report.json",)
+DEFAULT_CPT_COVERAGE_REPORTS = ("target/coverage-report/report.json",)
 TEST_EXECUTION_KINDS = {"tests", "process_path"}
 TEST_LEDGER_CHECK_KINDS = {
     "test_freeze",
@@ -1892,18 +1892,7 @@ def validate_source_snapshot_test_contract(root, inventory):
     return current_test_contract
 
 
-def baseline_suite_has_valid_shape(suite):
-    if (
-        not isinstance(suite.get("module"), str)
-        or not suite["module"]
-        or not isinstance(suite.get("suite"), str)
-        or not suite["suite"]
-        or not isinstance(suite.get("result"), str)
-        or suite["result"] not in ("passed", "failed", "blocked")
-    ):
-        return False
-
-    test_results = suite.get("test_results", {})
+def valid_test_results(test_results):
     if not isinstance(test_results, dict):
         return False
     for test_id, test_result in test_results.items():
@@ -1921,6 +1910,22 @@ def baseline_suite_has_valid_shape(suite):
             for status in invocations
         ):
             return False
+    return True
+
+
+def baseline_suite_has_valid_shape(suite):
+    if (
+        not isinstance(suite.get("module"), str)
+        or not suite["module"]
+        or not isinstance(suite.get("suite"), str)
+        or not suite["suite"]
+        or not isinstance(suite.get("result"), str)
+        or suite["result"] not in ("passed", "failed", "blocked")
+    ):
+        return False
+
+    if not valid_test_results(suite.get("test_results", {})):
+        return False
 
     coverage_by_process = suite.get("coverage_by_process", {})
     if not isinstance(coverage_by_process, dict) or any(
@@ -1938,11 +1943,11 @@ def baseline_suite_has_valid_shape(suite):
 
 def read_test_mapping(root, required=False):
     path = root / TEST_MAPPING
+    reject_symlink_components(root, path, "test parity ledger")
     if not path.exists():
         if required:
             raise EvidenceError(f"Missing test parity ledger: {path}")
         return None
-    reject_symlink_components(root, path, "test parity ledger")
     try:
         path.resolve(strict=True).relative_to(root)
     except (OSError, ValueError) as exc:
@@ -4930,7 +4935,7 @@ def load_checks(root, evidence, plan, issues):
                 for run in test_runs:
                     if (
                         not isinstance(run, dict)
-                        or not isinstance(run.get("test_results"), dict)
+                        or not valid_test_results(run.get("test_results"))
                         or not isinstance(run.get("coverage_by_process"), dict)
                         or not isinstance(run.get("decision_coverage_by_id"), dict)
                         or type(run.get("coverage_available")) is not bool
