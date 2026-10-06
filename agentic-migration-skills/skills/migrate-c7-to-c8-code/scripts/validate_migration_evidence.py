@@ -1765,10 +1765,18 @@ def test_validation_enabled(contract, migrated_test_ids):
     )
 
 
-def module_has_cpt_tests(module, mapping):
+def module_has_added_cpt_tests(module, mapping):
+    if mapping is None:
+        return False
     return any(
-        test_id.startswith(f"{module}:")
-        for test_id in expected_cpt_test_ids(mapping)
+        isinstance(test, dict)
+        and test.get("status") == "added"
+        and isinstance(test.get("c8_ids"), list)
+        and any(
+            isinstance(c8_id, str) and c8_id.startswith(f"{module}:")
+            for c8_id in test["c8_ids"]
+        )
+        for test in mapping["tests"]
     )
 
 
@@ -1787,7 +1795,7 @@ def suite_has_cpt_tests(suite, mapping):
         ):
             return True
     module = suite.get("module")
-    return isinstance(module, str) and module_has_cpt_tests(module, mapping)
+    return isinstance(module, str) and module_has_added_cpt_tests(module, mapping)
 
 
 def normalized_mock(value):
@@ -2634,7 +2642,7 @@ def requirements(root, evidence):
             step2_suite = tests["suites"].get(suite_key)
             if test_enabled and (
                 step2_suite and suite_has_cpt_tests(step2_suite, mapping)
-                or module_has_cpt_tests(path, mapping)
+                or module_has_added_cpt_tests(path, mapping)
             ):
                 check_kind = "test_repeat"
             else:

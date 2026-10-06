@@ -1864,6 +1864,35 @@ class ValidationEvidenceTest(unittest.TestCase):
             gate.current_test_files(self.root, plan, mapping),
         )
 
+    def test_retired_suite_does_not_inherit_sibling_cpt_tests(self):
+        live_test_id = "app:com.example.LiveTest#testLive"
+        retired_test_id = "app:com.example.RetiredTest#testRetired"
+        mapping = {
+            "tests": [
+                {
+                    "c7_id": live_test_id,
+                    "status": "migrated",
+                    "c8_ids": ["app:com.example.LiveCptTest#testLive"],
+                },
+                {
+                    "c7_id": retired_test_id,
+                    "status": "retired",
+                    "c8_ids": [],
+                },
+            ]
+        }
+
+        self.assertTrue(
+            gate.suite_has_cpt_tests(
+                {"module": "app", "test_ids": [live_test_id]}, mapping
+            )
+        )
+        self.assertFalse(
+            gate.suite_has_cpt_tests(
+                {"module": "app", "test_ids": [retired_test_id]}, mapping
+            )
+        )
+
     def test_retiring_migrated_test_replaces_stale_test_evidence(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
