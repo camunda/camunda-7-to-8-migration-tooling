@@ -323,7 +323,9 @@ regardless of evidence kind:
 | Maven | An unknown lifecycle phase or plugin goal | If the recorder cannot establish its test behavior, then reject the command. |
 | Maven | `-DskipTests=false` or another non-true value | Reject a test goal. |
 | Maven | Non-empty `MAVEN_ARGS` or `.mvn/maven.config` | Reject the command because these arguments can add goals that the recorder cannot inspect. |
-| Maven | JVM options, command-line options, or `.mvn/jvm.config` set `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
+| Maven | An explicit `maven.test.skip` command-line value | Use this value ahead of inherited JVM options, `.mvn/jvm.config`, and the active project model. |
+| Maven | Inherited JVM options, `.mvn/jvm.config`, or the active project model sets `maven.test.skip=true` | Reject module `compile` evidence because Maven can skip test-source compilation. |
+| Maven | The recorder cannot inspect the active effective POM | Reject module `compile` evidence because test-source compilation is unverified. |
 | Maven | `spring-boot:run` | Allow the documented application-launch goal. |
 | Java | `java -jar <artifact>.jar` for module `executable_jar` evidence | Allow the documented packaged-application launch command. |
 | Gradle | `-x <task>` or `--exclude-task <task>` | Exclude only the named task from the task graph. |

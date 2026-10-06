@@ -131,8 +131,11 @@ The recorder accepts `-DskipTests` for standard Maven lifecycle phases and Suref
 goals. It rejects other Maven test plugin goals.
 The recorder rejects non-empty `MAVEN_ARGS` or `.mvn/maven.config` because either can add
 arguments outside the submitted command.
-When Maven JVM options, command-line options, or `.mvn/jvm.config` set `maven.test.skip=true`, the
-recorder rejects module `compile` evidence.
+An explicit `maven.test.skip` command-line value takes precedence over inherited JVM options,
+`.mvn/jvm.config`, and the active Maven project model.
+The recorder inspects the active effective POM when the command has no explicit value.
+If inspection fails or the active model sets `maven.test.skip=true`, then it rejects module
+`compile` evidence.
 The recorder unwraps simple `env` commands.
 If the recorder cannot inspect an executable or Maven goal, then it rejects the command.
 It accepts `npx bpmnlint` and `npx dmnlint` as non-test model checks.

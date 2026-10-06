@@ -100,7 +100,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test
 
 # engine-tests-legacy Scenario suite: C7 baseline and consolidated C8 migrated suite
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests-legacy --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test
 
 # Spring Boot suite: C7 baseline and C8 migrated

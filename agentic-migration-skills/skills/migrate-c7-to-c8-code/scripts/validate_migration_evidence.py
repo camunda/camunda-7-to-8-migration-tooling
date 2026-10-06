@@ -104,6 +104,8 @@ MAVEN_SKIP_TESTS_PLUGIN_ARTIFACTS = {
 }
 MAVEN_SKIP_TESTS_PLUGIN_PREFIXES = {"failsafe", "surefire"}
 MAVEN_KNOWN_NON_TEST_PLUGIN_GOALS = {"spring-boot:run"}
+MAVEN_BOOLEAN_TRUE_VALUES = {"true", "1", "yes", "on"}
+MAVEN_BOOLEAN_FALSE_VALUES = {"false", "0", "no", "off"}
 JAVA_EXECUTABLES = {"java", "java.exe"}
 GRADLE_TEST_TASKS = {"test"}
 GRADLE_DRY_RUN_OPTIONS = {"--dry-run", "-m"}
@@ -184,20 +186,21 @@ def _unwrap_env_command(command):
 
 
 def _maven_skips_test_compilation(environment, command=None):
-    skips_test_compilation = any(
+    command_setting = None
+    if command is not None:
+        _, _, command_setting = _maven_command_details(command)
+    if command_setting is not None:
+        return command_setting
+    return any(
         _maven_option_skips_test_compilation(environment.get(name, ""))
         for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")
     )
-    if command is not None:
-        _, _, command_skips_test_compilation = _maven_command_details(command)
-        skips_test_compilation = skips_test_compilation or command_skips_test_compilation
-    return skips_test_compilation
 
 
 def _maven_command_details(command):
     arguments = []
     skip_tests = False
-    skip_test_compilation = False
+    skip_test_compilation = None
     index = 1
     while index < len(command):
         argument = command[index]
@@ -216,9 +219,15 @@ def _maven_command_details(command):
             if name == "skipTests":
                 skip_tests = not separator or value.casefold() == "true"
             elif name == "maven.test.skip":
-                skip_test_compilation = (
-                    not separator or value.casefold() in {"true", "1", "yes"}
-                )
+                normalized_value = value.casefold()
+                if not separator or normalized_value in MAVEN_BOOLEAN_TRUE_VALUES:
+                    skip_test_compilation = True
+                elif normalized_value in MAVEN_BOOLEAN_FALSE_VALUES:
+                    skip_test_compilation = False
+                else:
+                    raise EvidenceError(
+                        f"Question 8 cannot inspect `maven.test.skip` value {value!r}"
+                    )
             index += 1
             continue
         if argument in MAVEN_OPTIONS_WITH_VALUES:
@@ -258,7 +267,9 @@ def _read_maven_project_configuration(root, filename):
         ) from exc
 
 
-def _maven_project_jvm_config_skips_test_compilation(root):
+def _maven_project_jvm_config_skips_test_compilation(root, command=None):
+    if command is not None and _maven_command_details(command)[2] is not None:
+        return False
     options = _read_maven_project_configuration(root, "jvm.config")
     if options is None:
         return False
@@ -280,6 +291,184 @@ def _maven_project_maven_config_has_arguments(root):
         raise EvidenceError(
             "Question 8 cannot inspect Maven project arguments in `.mvn/maven.config`"
         ) from exc
+
+
+def _maven_command_uses_pom(command, root, expected_pom):
+    pom_argument = None
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        if argument in {"-f", "--file"}:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven POM options")
+            pom_argument = command[index + 1]
+            index += 2
+            continue
+        if argument.startswith("--file="):
+            pom_argument = argument.partition("=")[2]
+            index += 1
+            continue
+        if argument in MAVEN_OPTIONS_WITH_VALUES:
+            index += 2
+            continue
+        index += 1
+    if pom_argument is None:
+        return False
+    pom_path = Path(pom_argument)
+    if not pom_path.is_absolute():
+        pom_path = root / pom_path
+    try:
+        return pom_path.resolve() == expected_pom.resolve()
+    except (OSError, RuntimeError):
+        return False
+
+
+def _maven_effective_pom_command(command, target, output_path, root, module_pom):
+    command = list(command)
+    result = [command[0]]
+    project_selected = False
+    select_target = target != "." and not _maven_command_uses_pom(
+        command,
+        root,
+        module_pom,
+    )
+    index = 1
+    while index < len(command):
+        argument = command[index]
+        if argument == "--":
+            raise EvidenceError("Question 8 cannot inspect Maven options after `--`")
+        if argument in {"-am", "--also-make", "-amd", "--also-make-dependents"}:
+            index += 1
+            continue
+        if argument in {"-pl", "--projects"}:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven project options")
+            if select_target and not project_selected:
+                result.extend((argument, target))
+                project_selected = True
+            index += 2
+            continue
+        if argument.startswith("--projects="):
+            if select_target and not project_selected:
+                result.append(f"--projects={target}")
+                project_selected = True
+            index += 1
+            continue
+        if argument in MAVEN_OPTIONS_WITH_VALUES | {
+            "-gs",
+            "--global-settings",
+        }:
+            if index + 1 >= len(command):
+                raise EvidenceError("Question 8 cannot inspect incomplete Maven options")
+            result.extend((argument, command[index + 1]))
+            index += 2
+            continue
+        if argument.startswith(
+            (
+                "--activate-profiles=",
+                "--define=",
+                "--file=",
+                "--global-settings=",
+                "--settings=",
+            )
+        ) or argument.startswith("-"):
+            result.append(argument)
+        index += 1
+    if select_target and not project_selected:
+        result.extend(("-pl", target))
+    result.extend(("-q", "help:effective-pom", f"-Doutput={output_path}"))
+    return result
+
+
+def _maven_active_model_skips_test_compilation(
+    root,
+    target,
+    command,
+    environment,
+    timeout,
+):
+    if _maven_command_details(command)[2] is not None:
+        return False
+    module_pom = project_path(
+        root,
+        (Path(target) / "pom.xml").as_posix(),
+        "Maven module POM",
+        must_exist=True,
+    )
+    if not module_pom.is_file():
+        raise EvidenceError(
+            f"Question 8 cannot inspect the active Maven model for module {target!r}: "
+            "its POM is not a file"
+        )
+    with tempfile.TemporaryDirectory(prefix=".maven-effective-pom-", dir=root) as temporary:
+        output_path = Path(temporary) / "effective-pom.xml"
+        inspect_command = _maven_effective_pom_command(
+            command,
+            target,
+            output_path,
+            root,
+            module_pom,
+        )
+        try:
+            completed = subprocess.run(
+                inspect_command,
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise EvidenceError(
+                f"Question 8 could not inspect the active Maven model for module "
+                f"{target!r}: effective POM inspection timed out"
+            ) from exc
+        except OSError as exc:
+            raise EvidenceError(
+                f"Question 8 could not inspect the active Maven model for module "
+                f"{target!r}: {exc}"
+            ) from exc
+        if completed.returncode != 0:
+            detail = (completed.stdout or "").strip()
+            if len(detail) > 1000:
+                detail = detail[-1000:]
+            reason = f": {detail}" if detail else ""
+            raise EvidenceError(
+                f"Question 8 could not inspect the active Maven model for module "
+                f"{target!r} (exit code {completed.returncode}){reason}"
+            )
+        try:
+            model = ET.parse(output_path).getroot()
+        except (OSError, ET.ParseError) as exc:
+            raise EvidenceError(
+                f"Question 8 could not inspect the active Maven model for module "
+                f"{target!r}: invalid effective POM"
+            ) from exc
+    if model.tag.rsplit("}", 1)[-1] != "project":
+        raise EvidenceError(
+            f"Question 8 could not inspect the active Maven model for module "
+            f"{target!r}: effective POM has no project root"
+        )
+    values = [
+        (property_node.text or "").strip().casefold()
+        for properties in model
+        if properties.tag.rsplit("}", 1)[-1] == "properties"
+        for property_node in properties
+        if property_node.tag.rsplit("}", 1)[-1] == "maven.test.skip"
+    ]
+    false_values = MAVEN_BOOLEAN_FALSE_VALUES | {""}
+    if any(
+        value not in MAVEN_BOOLEAN_TRUE_VALUES | false_values
+        for value in values
+    ):
+        raise EvidenceError(
+            f"Question 8 could not establish the active Maven model value of "
+            f"`maven.test.skip` for module {target!r}"
+        )
+    return any(value in MAVEN_BOOLEAN_TRUE_VALUES for value in values)
 
 
 def _gradle_command_details(command):
@@ -410,12 +599,12 @@ def command_compiles_test_sources(command):
     unwrapped = _unwrap_env_command(command)
     if unwrapped is None:
         return False
-    command, _ = unwrapped
+    command, environment = unwrapped
     executable = _command_executable(command)
     if executable in MAVEN_EXECUTABLES:
-        arguments, skip_tests, skip_test_compilation = _maven_command_details(command)
-        if skip_test_compilation:
+        if _maven_skips_test_compilation(environment, command):
             return False
+        arguments, skip_tests, _ = _maven_command_details(command)
         phases = {argument.split("@", 1)[0] for argument in arguments if ":" not in argument}
         return "test-compile" in phases or (
             skip_tests and bool(phases & MAVEN_TEST_SOURCE_COMPILATION_PHASES)
@@ -2195,11 +2384,14 @@ def record(root, args):
                 and executable in MAVEN_EXECUTABLES
                 and (
                     _maven_skips_test_compilation(command_environment, direct_command)
-                    or _maven_project_jvm_config_skips_test_compilation(root)
+                    or _maven_project_jvm_config_skips_test_compilation(
+                        root,
+                        direct_command,
+                    )
                 )
             ):
                 raise EvidenceError(
-                    f"{key}: Question 8 Maven options skip test-source compilation"
+                    f"{key}: Question 8 Maven configuration skips test-source compilation"
                 )
             if (
                 key[0] == "module"
@@ -2208,6 +2400,21 @@ def record(root, args):
             ):
                 raise EvidenceError(
                     f"{key}: Question 8 Migrate tests only requires test-source compilation evidence"
+                )
+            if (
+                key[0] == "module"
+                and key[2] == "compile"
+                and executable in MAVEN_EXECUTABLES
+                and _maven_active_model_skips_test_compilation(
+                    root,
+                    key[1],
+                    direct_command,
+                    command_environment,
+                    args.timeout,
+                )
+            ):
+                raise EvidenceError(
+                    f"{key}: Question 8 Maven configuration skips test-source compilation"
                 )
             if test_execution is None:
                 remaining_test_capable_tasks = inspect_gradle_test_tasks(

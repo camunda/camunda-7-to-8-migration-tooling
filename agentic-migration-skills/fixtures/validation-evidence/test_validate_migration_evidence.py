@@ -154,6 +154,40 @@ class ValidationEvidenceTest(unittest.TestCase):
         with redirect_stdout(StringIO()):
             self.assertEqual(0, gate.initialize(self.root))
 
+    def write_maven_project(self, target, content=""):
+        pom = self.root / target / "pom.xml"
+        pom.write_text(
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+            "<modelVersion>4.0.0</modelVersion>"
+            f"{content}</project>",
+            encoding="utf-8",
+        )
+
+    def maven_subprocess(self, active_model_skip=None):
+        def run(command, **kwargs):
+            if "help:effective-pom" in command:
+                properties = (
+                    "<properties><maven.test.skip>"
+                    f"{active_model_skip}"
+                    "</maven.test.skip></properties>"
+                    if active_model_skip is not None
+                    else ""
+                )
+                output_path = next(
+                    argument.partition("=")[2]
+                    for argument in command
+                    if argument.startswith("-Doutput=")
+                )
+                Path(output_path).write_text(
+                    '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+                    f"{properties}</project>",
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(command, 0, "")
+            return subprocess.CompletedProcess(command, 0, "test sources compiled")
+
+        return run
+
     def timer_observation(self, key):
         expected = gate.requirements(self.root, self.plan).timer_starts[key]
         return {
@@ -382,8 +416,12 @@ class ValidationEvidenceTest(unittest.TestCase):
             }
             if test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile":
                 command_args = ["mvn", "test-compile"]
-                completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-                with patch.object(gate.subprocess, "run", return_value=completed):
+                self.write_maven_project(key[1])
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ):
                     self.assertEqual(
                         0,
                         self.submit(key, command=command_args, **options),
@@ -580,10 +618,14 @@ class ValidationEvidenceTest(unittest.TestCase):
         for command_args in maven_commands:
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
-                completed = subprocess.CompletedProcess(command_args, 0, "non-test build ran")
-                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                self.write_maven_project("app")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ) as command:
                     self.assertEqual(0, self.submit(compile_key, command=command_args))
-                command.assert_called_once()
+                self.assertEqual(2, command.call_count)
 
     def test_migrate_only_rejects_main_source_only_compilation(self):
         compile_key = ("module", "app", "compile", None)
@@ -618,10 +660,160 @@ class ValidationEvidenceTest(unittest.TestCase):
                 with patch.object(gate.subprocess, "run", return_value=completed) as command:
                     with self.assertRaisesRegex(
                         gate.EvidenceError,
-                        "Maven options skip test-source compilation",
+                        "Maven configuration skips test-source compilation",
                     ):
                         self.submit(compile_key, command=command_args)
                     command.assert_not_called()
+
+    def test_migrate_only_honors_maven_cli_property_over_inherited_jvm_options(self):
+        self.write_scope(test_run_mode="migrate_only")
+        for jvm_option in (
+            "MAVEN_OPTS",
+            "JAVA_TOOL_OPTIONS",
+            "JDK_JAVA_OPTIONS",
+            "_JAVA_OPTIONS",
+        ):
+            command_args = [
+                "env",
+                f"{jvm_option}=-Dmaven.test.skip=true",
+                "mvn",
+                "test",
+                "-Dmaven.test.skip=false",
+            ]
+            with self.subTest(jvm_option=jvm_option):
+                completed = subprocess.CompletedProcess(command_args, 0, "tests ran")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=completed,
+                ) as command:
+                    with self.assertRaisesRegex(gate.EvidenceError, "test execution"):
+                        self.submit(
+                            ("model", "models/converted-c8-process.bpmn", "lint", None),
+                            command=command_args,
+                        )
+                command.assert_not_called()
+
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            "<properties><maven.test.skip>true</maven.test.skip></properties>",
+        )
+        (self.root / ".mvn").mkdir(parents=True, exist_ok=True)
+        (self.root / ".mvn" / "jvm.config").write_text(
+            "-Dmaven.test.skip=true\n",
+            encoding="utf-8",
+        )
+        for jvm_option in (
+            "MAVEN_OPTS",
+            "JAVA_TOOL_OPTIONS",
+            "JDK_JAVA_OPTIONS",
+            "_JAVA_OPTIONS",
+        ):
+            compile_args = [
+                "env",
+                f"{jvm_option}=-Dmaven.test.skip=true",
+                "mvn",
+                "-pl",
+                "app",
+                "test-compile",
+                "-Dmaven.test.skip=false",
+            ]
+            completed = subprocess.CompletedProcess(compile_args, 0, "test sources compiled")
+            with self.subTest(compile_jvm_option=jvm_option):
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    return_value=completed,
+                ) as command:
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("module", "app", "compile", None),
+                            command=compile_args,
+                        ),
+                    )
+                command.assert_called_once()
+
+    def test_migrate_only_rejects_maven_test_compilation_skipped_by_active_model(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project(
+            "app",
+            """
+            <profiles>
+              <profile>
+                <id>skip-test-sources</id>
+                <activation><activeByDefault>true</activeByDefault></activation>
+                <properties><maven.test.skip>true</maven.test.skip></properties>
+              </profile>
+            </profiles>
+            """,
+        )
+        command_args = [
+            "mvn",
+            "-pl",
+            "app",
+            "-Pskip-test-sources",
+            "-Dactivate.skip=true",
+            "test-compile",
+        ]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_skip="true"),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven configuration skips test-source compilation",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+        inspected_command = command.call_args.args[0]
+        self.assertIn("-Pskip-test-sources", inspected_command)
+        self.assertIn("-Dactivate.skip=true", inspected_command)
+        self.assertIn("help:effective-pom", inspected_command)
+        self.assertIn("app", inspected_command)
+        self.assertNotIn("test-compile", inspected_command)
+
+    def test_migrate_only_fails_closed_when_maven_model_inspection_fails(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-pl", "app", "test-compile"]
+        inspection_failed = subprocess.CompletedProcess(
+            command_args,
+            1,
+            "Maven help plugin is unavailable",
+        )
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=inspection_failed,
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "could not inspect the active Maven model",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+
+    def test_migrate_only_inspects_a_module_pom_without_a_reactor_selector(self):
+        self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
+        command_args = ["mvn", "-f", "app/pom.xml", "test-compile"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(active_model_skip="true"),
+        ) as command:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven configuration skips test-source compilation",
+            ):
+                self.submit(("module", "app", "compile", None), command=command_args)
+        command.assert_called_once()
+        inspected_command = command.call_args.args[0]
+        self.assertIn("app/pom.xml", inspected_command)
+        self.assertNotIn("-pl", inspected_command)
 
     def test_migrate_only_rejects_maven_project_jvm_config_skipping_test_compilation(self):
         compile_key = ("module", "app", "compile", None)
@@ -640,7 +832,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 with patch.object(gate.subprocess, "run") as command:
                     with self.assertRaisesRegex(
                         gate.EvidenceError,
-                        "Maven options skip test-source compilation",
+                        "Maven configuration skips test-source compilation",
                     ):
                         self.submit(compile_key, command=command_args)
                 command.assert_not_called()
@@ -711,14 +903,18 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_migrate_only_accepts_maven_process_test_classes_as_compile_evidence(self):
         self.write_scope(test_run_mode="migrate_only")
+        self.write_maven_project("app")
         command_args = ["mvn", "-pl", "app", "process-test-classes", "-DskipTests"]
-        completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-        with patch.object(gate.subprocess, "run", return_value=completed) as command:
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_subprocess(),
+        ) as command:
             self.assertEqual(
                 0,
                 self.submit(("module", "app", "compile", None), command=command_args),
             )
-        command.assert_called_once()
+        self.assertEqual(2, command.call_count)
 
     def test_migrate_only_allows_gradle_aggregate_when_dry_run_has_no_test_tasks(self):
         graph_output = (
@@ -965,13 +1161,22 @@ class ValidationEvidenceTest(unittest.TestCase):
         ):
             with self.subTest(command=command_args):
                 self.write_scope(test_run_mode="migrate_only")
-                completed = subprocess.CompletedProcess(command_args, 0, "test sources compiled")
-                with patch.object(gate.subprocess, "run", return_value=completed) as command:
+                self.write_maven_project("app")
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_subprocess(),
+                ) as command:
                     self.assertEqual(
                         0,
                         self.submit(("module", "app", "compile", None), command=command_args),
                     )
-                command.assert_called_once()
+                expected_calls = (
+                    1
+                    if gate._maven_command_details(command_args)[2] is not None
+                    else 2
+                )
+                self.assertEqual(expected_calls, command.call_count)
 
     def test_migrate_only_allows_gradle_test_source_compilation(self):
         self.write_scope(test_run_mode="migrate_only")

@@ -732,8 +732,16 @@ class MigrationGuidanceTest(unittest.TestCase):
             test_migration,
         )
         self.assertIn(
-            "| Maven | JVM options, command-line options, or `.mvn/jvm.config` "
-            "set `maven.test.skip=true` |",
+            "| Maven | An explicit `maven.test.skip` command-line value |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | Inherited JVM options, `.mvn/jvm.config`, or the active project model "
+            "sets `maven.test.skip=true` |",
+            test_migration,
+        )
+        self.assertIn(
+            "| Maven | The recorder cannot inspect the active effective POM |",
             test_migration,
         )
         self.assertIn(
@@ -841,7 +849,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         deferred_suite_commands = (
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests test',
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario unit-c8-migrated -- mvn -pl engine-tests test',
-            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests-legacy --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test',
+            'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl engine-tests-legacy test',
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target engine-tests --kind tests --scenario legacy-scenario-c8-migrated -- mvn -pl engine-tests -Dtest=FulfillmentScenarioTest,ScenarioMappingEdgeCasesTest test',
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c7-baseline -- mvn -f ../c7-baseline/agentic-migration-skills/fixtures/c7-process-tests/c7-source/pom.xml -pl spring-boot-app test',
             'python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target spring-boot-app --kind tests --scenario spring-boot-c8-migrated -- mvn -pl spring-boot-app test',
