@@ -39,7 +39,10 @@ Start each walkthrough from a fresh copy of `c7-source`.
 | W7 | Start from the result of W3. Apply each negative change separately, rerun the recorded checks, then rerun the gate. | N1, N2, and N3 produce the results in the table below. |
 
 The `Signals` column records the source-derived `mocks` modifier for process and decision tests
-with supported mock signals. A user-provided marker or a dependency alone does not trigger it.
+with supported component mock signals. A user-provided marker or a dependency alone does not
+trigger it.
+A `ProcessScenario` harness mock alone does not trigger it. A Scenario stub that replaces a BPMN
+component does.
 
 ## Negative cases
 

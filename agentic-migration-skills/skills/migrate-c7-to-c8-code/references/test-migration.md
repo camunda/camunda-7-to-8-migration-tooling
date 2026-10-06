@@ -55,14 +55,19 @@ a dependency alone.
 
 | Modifier | Detect by | Used by |
 |---|---|---|
-| `mocks` | A source-level mock or test double used by an in-scope test qualifies. Examples include a Mockito mock, a C7 `register...Mock` helper, or `autoMock(...)`. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. When the registered value is a test double, the skill counts the call as mock evidence. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+| `mocks` | A source-level mock or test double that replaces a project collaborator or BPMN component qualifies. Examples include a Mockito mock of a collaborator, a C7 `register...Mock` helper, `autoMock(...)`, or a Scenario behavior that stubs a BPMN component. Treat `Mocks.register(...)` and `CamundaMockito.registerMockInstance(...)` as registry bindings, not mock evidence by themselves. When the registered value is a test double, the skill counts the call as mock evidence. A Spring `@MockBean` or `@MockitoBean` used by the process qualifies whether it mocks a collaborator, delegate, or listener. | The [mock boundary](#mock-boundary) and [C7 mock API mapping](#c7-mock-api-mapping). |
+
+The skill does not treat a `ProcessScenario` mock used only to drive and verify a Scenario test
+as a component mock signal.
+The skill applies the [Scenario-to-CPT mapping](#scenario-to-cpt-mapping) to that harness.
 
 Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
 The skill applies the mock-boundary and mapping rules to every in-scope test method with a detected
-mock signal. The skill checks each test method and its class-level mock declarations. The skill checks
-inherited and local setup and teardown methods. The skill checks helper methods called by these
-methods.
+component mock signal.
+The skill checks each test method and its class-level component mock declarations.
+The skill checks inherited and local setup and teardown methods.
+The skill checks helper methods called by these methods.
 For each registry call, the skill traces the registered value to its declaration or factory.
 The fixture's `new OrderAuditListener()` registers a real listener, not a test double.
 
@@ -798,7 +803,7 @@ One valid schedule uses five 12-hour increments for a daily timer and `defer("P2
 
 ## Mock boundary
 
-Migrate every in-scope test that uses a supported C7 mock API.
+Migrate every in-scope test that uses a supported C7 mock API to replace a component or collaborator.
 When test source uses mock operations from `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`,
 or `camunda-bpm-mockito` (`org.camunda.bpm.extension.mockito`), the skill recognizes the APIs as
 equivalent C7 mock APIs.
@@ -811,7 +816,7 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 |---|---|---|
 | A whole delegate or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition/@type` in the converted copy. |
 | A whole execution listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| A whole user-task listener, so no project code ran for that listener | `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
+| A whole user-task listener, so no project code ran for that listener | Call `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation that the C7 test handles. | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
 | A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
 | A C7 process-flow test already mocks a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. This existing C7 decision mock is a same-boundary migration and needs no additional approval. |
@@ -839,9 +844,9 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 | `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
 | `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | When the test checks a BPMN error code or message, the skill preserves it. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
-| `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type. Use `completeJobOfUserTaskListener(...)` for each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
+| `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type. Call `completeJobOfUserTaskListener(...)` once for every matching activation of each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
 | `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, the skill calls `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
+| `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, the skill calls `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation. | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
 | `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | When outputs depend on parent variables, the skill uses the function overload. |
 | A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
 | `verifyJavaDelegateMock("name").executed()` | `assertThat(mock.getInvocations()).isEqualTo(1)` | Read the count only after a waiting CPT assertion on the related element. |
@@ -851,7 +856,7 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 | `verifyExecutionListenerMock("name").executed(times(n))` | `assertThat(mock.getInvocations()).isEqualTo(n)` | Read the count only after a waiting CPT assertion on the related element. |
 | `verifyExecutionListenerMock("name").executedNever()` | `assertThat(mock.getInvocations()).isZero()` | Read the count only after a waiting CPT assertion on the related element. |
 | `verifyTaskListenerMock("name").executed()` | Increment an `AtomicInteger` in the `completeJobOfUserTaskListener` result callback. Assert the count is `1`. | Read the count only after a waiting CPT assertion on the related task or process. |
-| `verifyTaskListenerMock("name").executed(times(n))` | Increment an `AtomicInteger` in each matching listener-job result callback. Assert the count is `n`. | Complete each matching listener job and read the count only after a waiting CPT assertion on the related task or process. |
+| `verifyTaskListenerMock("name").executed(times(n))` | Increment an `AtomicInteger` in each matching listener-job result callback. Assert the count is `n`. | Call `completeJobOfUserTaskListener(...)` once for every matching listener-job activation. Read the count only after a waiting CPT assertion on the related task or process. |
 | `verifyTaskListenerMock("name").executedNever()` | Do not complete a matching listener job. | Assert that the same CPT checkpoint succeeds without a matching blocking listener job. If no waiting assertion proves the absence, then ask the user before claiming parity. |
 | `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and `job.getVariablesAsMap()` | Read the activated job after a waiting CPT assertion. |
 | `Mocks.reset()` or `@After` engine-mock cleanup | Remove the engine-mock cleanup | CPT resets runtime data after each test. |
@@ -883,12 +888,15 @@ camunda.client.worker.override.<job type>.enabled=false
 Add one override for every mocked job type. Otherwise, the real worker and mock can handle the same
 job.
 
-Where the migrated worker is not a Spring bean, the test opens the real worker in `@BeforeEach`.
+When the C7 test mocks a collaborator of a real delegate, the skill opens the matching non-Spring worker in `@BeforeEach`.
 The test uses the injected CPT client:
 
 ```java
 client.newWorker().jobType(type).handler(handler).open();
 ```
+
+When a C7 test mocks a whole delegate or listener, the skill uses the matching CPT job mock.
+The skill does not open the real worker for that component.
 
 CPT closes its injected client after each test. Closing the client also closes workers that the test
 opened through it.

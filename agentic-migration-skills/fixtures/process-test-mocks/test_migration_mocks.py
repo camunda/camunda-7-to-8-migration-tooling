@@ -518,9 +518,20 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             'verifyTaskListenerMock("reviewTaskListener").executedNever();',
             c7_test,
         )
+        task_listener_mapping = guidance.split(
+            '| `registerTaskListenerMock("listener")` |', 1
+        )[1].split("\n|", 1)[0]
+        self.assertIn(
+            "once for every matching listener-job activation",
+            task_listener_mapping,
+        )
         self.assertIn("AtomicInteger listenerInvocations", c8_test)
         self.assertIn("assertThat(listenerInvocations.get()).isEqualTo(1)", c8_test)
         self.assertIn("assertThat(listenerInvocations.get()).isEqualTo(2)", c8_test)
+        twice_test = c8_test.split(
+            "void registersAndVerifiesTaskListenerMockTwice()", 1
+        )[1].split("\n  @Test", 1)[0]
+        self.assertEqual(2, twice_test.count("completeJobOfUserTaskListener"))
         c7_twice = (
             FIXTURE / "c7-source/src/test/resources/task-listener-twice.bpmn"
         ).read_text(encoding="utf-8")
@@ -563,6 +574,31 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         )[1].split("\n  private ProcessInstanceEvent start", 1)[0]
         self.assertIn("CamundaAssert.assertThat(instance).isCompleted()", never_test)
         self.assertNotIn("completeJobOfUserTaskListener", never_test)
+
+    def test_non_spring_worker_is_opened_only_for_collaborator_mocks(self):
+        guidance = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
+        ).read_text(encoding="utf-8")
+        worker_guidance = guidance.split("## Real workers and Spring", 1)[1].split(
+            "## Parity ledger", 1
+        )[0]
+        normalized_guidance = worker_guidance.lower()
+
+        self.assertIn(
+            "when a c7 test mocks a whole delegate or listener, the skill uses the matching "
+            "cpt job mock",
+            normalized_guidance,
+        )
+        self.assertIn(
+            "when the c7 test mocks a collaborator of a real delegate, the skill opens the "
+            "matching non-spring worker in `@beforeeach`",
+            normalized_guidance,
+        )
+        self.assertIn(
+            "the skill does not open the real worker for that component",
+            normalized_guidance,
+        )
 
     def test_expected_build_removes_c7_mock_libraries_but_keeps_mockito(self):
         pom = (FIXTURE / "expected-c8/pom.xml").read_text(encoding="utf-8")

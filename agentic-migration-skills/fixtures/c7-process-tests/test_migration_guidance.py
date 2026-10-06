@@ -1635,10 +1635,6 @@ class MigrationGuidanceTest(unittest.TestCase):
             "engine-tests:com.camunda.fixture.order.OrderAutoMockTest#"
             "autoMocksDelegatesAndTracksCoverage",
             "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldStartMessageProcess",
-            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldStartMessageProcess",
-            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
             "shouldCountCompletedVisitsSeparately",
             "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
             "shouldCountCompletedVisitsSeparately",
@@ -1659,8 +1655,24 @@ class MigrationGuidanceTest(unittest.TestCase):
             C7_SOURCE
             / "engine-tests/src/test/java/com/camunda/fixture/order/FulfillmentScenarioTest.java"
         ).read_text(encoding="utf-8")
+        scenario_mapping_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/ScenarioMappingEdgeCasesTest.java"
+        ).read_text(encoding="utf-8")
+        message_start_test = scenario_mapping_test.split(
+            "public void shouldStartMessageProcess()", 1
+        )[1].split("\n  }", 1)[0]
         self.assertIn("@Mock private ProcessScenario process;", scenario_test)
         self.assertIn('.withMockedProcess("shipping")', scenario_test)
+        self.assertIn("@Mock private ProcessScenario process;", scenario_mapping_test)
+        self.assertIn("Scenario.run(process).startByMessage", message_start_test)
+        self.assertNotIn("waitsAt", message_start_test)
+        self.assertNotIn("withMockedProcess", message_start_test)
+        self.assertIn(
+            "the skill does not treat a `processscenario` mock used only to drive and verify "
+            "a scenario test as a component mock signal",
+            normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")),
+        )
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
 
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
