@@ -1151,6 +1151,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
         )
 
+    def test_skill_scope_rules_use_ears_triggers(self):
+        skill = MIGRATION_SKILL.read_text(encoding="utf-8")
+        normalized_skill = normalized(skill)
+        unqualified_scope_rules = [
+            line.strip()
+            for line in skill.splitlines()
+            if re.match(
+                r"^\s*For\b(?!\s+(?:each|every|example)\b)",
+                line,
+                flags=re.IGNORECASE,
+            )
+        ]
+
+        self.assertEqual([], unqualified_scope_rules)
+        self.assertIn(
+            "when code migration includes camunda platform scenario tests, follow "
+            "`references/test-migration.md`.",
+            normalized_skill,
+        )
+
     def test_linear_paths_may_replace_cpt_conditionals_with_sequential_calls(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
 
