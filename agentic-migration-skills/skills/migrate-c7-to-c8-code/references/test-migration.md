@@ -310,6 +310,7 @@ Record the user's Question 8 answer in the `MIGRATION_REPORT.md` decision log.
 When the user selects **Migrate tests only**, record `test_run_mode: "migrate_only"` in
 `.camunda-migration/validation/step2-inventory.json`. When the user selects **Run tests**, record
 `test_run_mode: "run"` there. The validation script reads this field.
+The validator requires `test_run_mode` whenever the Test Inventory contains tests.
 
 ## Step 3 order
 

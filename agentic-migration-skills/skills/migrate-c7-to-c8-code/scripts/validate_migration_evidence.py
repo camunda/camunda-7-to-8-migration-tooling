@@ -903,10 +903,14 @@ def test_id_parts(test_id):
     return module, class_name, method
 
 
-def test_report_inventory(root):
+def test_report_inventory(root, *, required=True):
     path = root / REPORT
     if not path.is_file():
-        raise EvidenceError("test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory")
+        if required:
+            raise EvidenceError(
+                "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
+            )
+        return []
     lines = path.read_text(encoding="utf-8").splitlines()
     columns = None
     rows = []
@@ -972,7 +976,18 @@ def test_report_inventory(root):
                 }
             )
     if columns is None:
-        raise EvidenceError("test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory")
+        if required:
+            raise EvidenceError(
+                "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
+            )
+        if any(
+            re.match(r"^#{1,6}\s+test inventory(?:\s|$)", line.strip(), re.IGNORECASE)
+            for line in lines
+        ):
+            raise EvidenceError(
+                "MIGRATION_REPORT.md Test Inventory has no valid table"
+            )
+        return []
     ids = [row["id"] for row in rows]
     if len(ids) != len(set(ids)):
         raise EvidenceError("Test Inventory IDs must be unique")
@@ -1029,6 +1044,10 @@ def test_directory_roots(root, module, module_paths, values, label):
 def test_contract(root, inventory):
     mode = read_test_run_mode(inventory)
     if mode is None:
+        if test_report_inventory(root, required=False):
+            raise EvidenceError(
+                "Step 2 test_run_mode is required when the Test Inventory contains tests"
+            )
         return {
             "mode": None,
             "tests": [],

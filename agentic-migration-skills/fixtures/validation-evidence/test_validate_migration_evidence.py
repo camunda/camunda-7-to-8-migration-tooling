@@ -1805,6 +1805,84 @@ class ValidationEvidenceTest(unittest.TestCase):
             )
         )
 
+    def test_retired_report_only_without_test_run_mode_cannot_reach_ready(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": self.c7_test_id,
+                "test_kind": "process test",
+                "handling": "Report only",
+                "c7_result": None,
+                "c8_ids": [],
+                "status": "retired",
+                "retirement": {
+                    "reason": "The behavior is no longer required.",
+                    "approved_by": "migration owner",
+                },
+            }
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+        inventory.pop("test_run_mode")
+        write_json(inventory_path, inventory)
+
+        plan = gate.requirements(self.root, self.plan)
+        if not plan.issues:
+            self.complete_required_checks()
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        self.assertIn(
+            "Step 2 test_run_mode is required when the Test Inventory contains tests",
+            summary["issues"],
+        )
+
+    def test_migrate_test_inventory_requires_an_explicit_test_run_mode(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory.pop("test_run_mode")
+        write_json(inventory_path, inventory)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertIn(
+            "Step 2 test_run_mode is required when the Test Inventory contains tests",
+            plan.issues,
+        )
+
+    def test_missing_test_run_mode_rejects_a_malformed_test_inventory(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_handling="Report only",
+        )
+        report_path = self.root / gate.REPORT
+        report = report_path.read_text(encoding="utf-8")
+        malformed_report = report.replace(
+            "| Test ID | File | Test kind | Signals | Models | Handling | Notes |",
+            "| Test ID | File | Test kind | Signals | Models | Disposition | Notes |",
+        )
+        self.assertNotEqual(report, malformed_report)
+        report_path.write_text(malformed_report, encoding="utf-8")
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory.pop("test_run_mode")
+        write_json(inventory_path, inventory)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any("MIGRATION_REPORT.md Test Inventory" in issue for issue in plan.issues),
+            plan.issues,
+        )
+
     def test_c7_baseline_can_be_captured_before_mapping_report_only_tests(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
