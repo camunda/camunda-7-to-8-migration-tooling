@@ -256,7 +256,7 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
+When the skill reaches Step 2, it follows `references/test-migration.md` for the test inventory procedure.
 
 #### Model Inventory
 
@@ -311,9 +311,7 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
-Present test counts by kind and the number eligible for CPT migration.
-Present the number selected for CPT migration.
-List every `Report only` Test ID and its reason.
+When the skill presents test counts, CPT eligibility, and `Report only` findings, it follows `references/test-migration.md`.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.

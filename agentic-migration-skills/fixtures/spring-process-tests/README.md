@@ -26,11 +26,14 @@ the test as `Report only` and records the manual migration reason.
 The `standalone-task-only` case creates and completes a task without a BPMN process instance.
 The expected report marks it out of scope because task completion alone does not prove process execution.
 
-Run the static fixture checks from the repository root:
+Run the Spring process-test fixture suite from the repository root:
 
 ```sh
 python3 agentic-migration-skills/fixtures/spring-process-tests/test_spring_process_tests.py
 ```
+
+The suite also runs a Maven test for the manual C7 fixture. It requires JDK 17 or later,
+Maven, and resolvable fixture dependencies.
 
 Run the CPT tests with Java 21 and Docker:
 
