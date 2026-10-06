@@ -832,6 +832,7 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 
 | C7 test code | CPT test code | Required behavior |
 |---|---|---|
+| `Mocks.register("bean", mock)` for a direct `camunda:expression` implementation | `mockJobWorker(type)` | Treat the expression bean as the whole service-task implementation, not as a collaborator. |
 | `Mocks.register("svc", mock)` for a `camunda:expression` collaborator | Keep the real worker and provide the same Mockito mock to it | Preserve the collaborator boundary. |
 | `Mocks.register("delegate", mock)` for a whole `camunda:delegateExpression` | `mockJobWorker(type)` | Use the converted task's job type. |
 | `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read the input variables from the activated job. Keep the invocation verification. |
@@ -844,7 +845,7 @@ If the real worker cannot run, then the skill asks the user before it adds a moc
 | `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
 | `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | When the test checks a BPMN error code or message, the skill preserves it. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
-| `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type. Call `completeJobOfUserTaskListener(...)` once for every matching activation of each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
+| `autoMock("process.bpmn")` | Use `mockJobWorker(type)` for every converted service-task and execution-listener type that the C7 helper mocks. Where the C7 test registers a concrete component before `autoMock`, keep that component real in CPT. Call `completeJobOfUserTaskListener(...)` once for every matching activation of each retained user-task listener. | Read each `type` from its own extension declaration in the converted copy. |
 | `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
 | `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, the skill calls `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation. | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
 | `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | When outputs depend on parent variables, the skill uses the function overload. |

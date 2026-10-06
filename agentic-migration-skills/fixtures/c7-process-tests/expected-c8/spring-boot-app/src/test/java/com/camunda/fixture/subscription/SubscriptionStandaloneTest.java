@@ -11,9 +11,10 @@ import static io.camunda.process.test.api.CamundaAssert.assertThat;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
-import io.camunda.client.api.worker.JobWorker;
 import io.camunda.process.test.api.CamundaProcessTest;
+import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
+import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -22,29 +23,21 @@ import org.junit.jupiter.api.Test;
 class SubscriptionStandaloneTest {
 
   private CamundaClient client;
+  private CamundaProcessTestContext processTestContext;
 
   @Test
   void startsSubscriptionWithoutSpring() {
-    try (JobWorker worker =
-        client.newWorker()
-            .jobType("activate-subscription")
-            .handler(
-                (jobClient, job) ->
-                    jobClient
-                        .newCompleteCommand(job)
-                        .variables(Map.of("activated", true))
-                        .send()
-                        .join())
-            .open()) {
-      ProcessInstanceEvent instance =
-          client.newCreateInstanceCommand()
-              .bpmnProcessId("subscription")
-              .latestVersion()
-              .variables(Map.of("subscriptionId", "sub-standalone"))
-              .send()
-              .join();
+    JobWorkerMock activationMock =
+        processTestContext.mockJobWorker("activate-subscription").thenComplete();
+    ProcessInstanceEvent instance =
+        client.newCreateInstanceCommand()
+            .bpmnProcessId("subscription")
+            .latestVersion()
+            .variables(Map.of("subscriptionId", "sub-standalone"))
+            .send()
+            .join();
 
-      assertThat(instance).hasActiveElements("Task_WelcomeCall");
-    }
+    assertThat(instance).hasActiveElements("Task_WelcomeCall");
+    org.assertj.core.api.Assertions.assertThat(activationMock.getInvocations()).isEqualTo(1);
   }
 }

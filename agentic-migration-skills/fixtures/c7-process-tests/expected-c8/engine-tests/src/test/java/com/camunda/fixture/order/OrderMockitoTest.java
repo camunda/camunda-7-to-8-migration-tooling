@@ -16,8 +16,6 @@ import io.camunda.process.test.api.CamundaProcessTest;
 import io.camunda.process.test.api.CamundaProcessTestContext;
 import io.camunda.process.test.api.TestDeployment;
 import io.camunda.process.test.api.mock.JobWorkerMockBuilder.JobWorkerMock;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,16 +32,16 @@ class OrderMockitoTest {
 
   private CamundaClient client;
   private CamundaProcessTestContext processTestContext;
-  private List<JobWorker> workers;
+  private JobWorker stockWorker;
 
   @BeforeEach
   void openSupportingWorkers() {
-    workers = new ArrayList<>(OrderJobHandlers.openWithoutCharge(client));
+    stockWorker = OrderJobHandlers.openStockWorker(client);
   }
 
   @AfterEach
   void closeWorkers() {
-    workers.forEach(JobWorker::close);
+    stockWorker.close();
   }
 
   @Test
@@ -85,12 +83,15 @@ class OrderMockitoTest {
     processTestContext.mockJobWorker("order-audit").thenComplete();
     JobWorkerMock charge =
         processTestContext.mockJobWorker("charge-payment").thenThrowBpmnError("PAYMENT_FAILED");
+    JobWorkerMock notification =
+        processTestContext.mockJobWorker("notify-customer").thenComplete();
 
     ProcessInstanceEvent instance = startOrderAtApproval();
     processTestContext.completeUserTask("Task_Approve", Map.of("approved", true));
 
     assertThat(instance).isCompleted().hasCompletedElements("End_PaymentFailed");
     org.assertj.core.api.Assertions.assertThat(charge.getInvocations()).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThat(notification.getInvocations()).isEqualTo(1);
   }
 
   @Test

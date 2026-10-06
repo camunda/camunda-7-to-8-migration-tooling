@@ -19,17 +19,7 @@ final class OrderJobHandlers {
 
   static List<JobWorker> open(CamundaClient client) {
     List<JobWorker> workers = new ArrayList<>();
-    workers.add(
-        client.newWorker()
-            .jobType("order-audit")
-            .handler(
-                (jobClient, job) ->
-                    jobClient
-                        .newCompleteCommand(job)
-                        .variables(Map.of("auditStarted", true))
-                        .send()
-                        .join())
-            .open());
+    workers.add(openAuditWorker(client));
     workers.add(openStockWorker(client));
     workers.add(
         client.newWorker()
@@ -70,21 +60,17 @@ final class OrderJobHandlers {
     return workers;
   }
 
-  static List<JobWorker> openWithoutCharge(CamundaClient client) {
-    List<JobWorker> workers = new ArrayList<>();
-    workers.add(openStockWorker(client));
-    workers.add(
-        client.newWorker()
-            .jobType("notify-customer")
-            .handler(
-                (jobClient, job) ->
-                    jobClient
-                        .newCompleteCommand(job)
-                        .variables(Map.of("customerNotified", true))
-                        .send()
-                        .join())
-            .open());
-    return workers;
+  static JobWorker openAuditWorker(CamundaClient client) {
+    return client.newWorker()
+        .jobType("order-audit")
+        .handler(
+            (jobClient, job) ->
+                jobClient
+                    .newCompleteCommand(job)
+                    .variables(Map.of("auditStarted", true))
+                    .send()
+                    .join())
+        .open();
   }
 
   static JobWorker openStockWorker(CamundaClient client) {
