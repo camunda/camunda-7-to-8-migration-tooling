@@ -106,6 +106,8 @@ The default Camunda 7 coverage paths are `target/process-test-coverage/**/report
 Where a suite uses custom test source or resource directories, list each project-relative path in
 `test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
 Each configured root must exist as a directory when the freeze check runs.
+Where a configured root uses generated files under `target` or `build`, generate those files before
+`init`.
 
 ## Camunda 7 baseline
 
@@ -117,6 +119,8 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 Use the exact command recorded in `step2-inventory.json`. The validator rejects a different
 command. The validator rejects a baseline run after any Step 2 source file changes.
+The Step 2 source snapshot hashes each existing Test Inventory file and every file under each
+configured test source or resource root, including roots under `target` and `build`.
 
 The validator parses JUnit XML with Python's standard library. It reads Surefire files from
 `target/surefire-reports/TEST-*.xml`. It reads Failsafe files from `target/failsafe-reports/`.
@@ -273,7 +277,7 @@ The validator hashes each existing file named by a `Migrate` Test Inventory row.
 every file under `src/test/` in each module with an in-scope `Migrate` test.
 For suites with migrated tests, it hashes every file under configured `test_source_roots` and
 `test_resource_roots`.
-The source snapshot locks these root settings before migration starts.
+The source snapshot also locks the configured root paths before migration starts.
 The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
 unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
 rejects it.

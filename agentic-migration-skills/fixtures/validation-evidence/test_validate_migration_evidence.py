@@ -751,6 +751,57 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("failed", baseline["result"])
         self.assertIn("C7 baseline must run before source changes", baseline["reason"])
 
+    def test_c7_baseline_snapshot_tracks_inventory_tests_under_build_directories(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        test_file = "app/target/generated-test-sources/java/com/example/OrderTest.java"
+        self.configure_test_run(junit, test_file_path=test_file)
+        (self.root / test_file).write_text("class OrderTest { int changed; }\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            f"C7 baseline must run before source changes: {test_file}",
+        ):
+            self.record_c7_baseline()
+        self.assertFalse(
+            (self.root / "app/target/surefire-reports/TEST-com.example.OrderTest.xml").exists()
+        )
+
+    def test_c7_baseline_snapshot_tracks_configured_root_contents_under_build_directories(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        source_root = "app/target/generated-test-sources"
+        resource_root = "app/target/generated-test-resources"
+        files = {
+            f"{source_root}/com/example/GeneratedOrderTest.java": "class GeneratedOrderTest {}\n",
+            f"{resource_root}/order.json": "{}\n",
+        }
+        for path, content in files.items():
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+        self.configure_test_run(
+            junit,
+            test_source_roots=[source_root],
+            test_resource_roots=[resource_root],
+        )
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+
+        for path, content in files.items():
+            with self.subTest(path=path):
+                target = self.root / path
+                target.write_text(content + "changed\n", encoding="utf-8")
+                with self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    f"C7 baseline must run before source changes: {path}",
+                ):
+                    gate.verify_unchanged_source(self.root, inventory)
+                target.write_text(content, encoding="utf-8")
+
     def test_snapshot_and_computed_evidence_errors_name_their_method(self):
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
         key = ("project", ".", "test_freeze", None)
@@ -2060,6 +2111,18 @@ class ValidationEvidenceTest(unittest.TestCase):
                 issues,
             )
             frozen_path.write_text(original, encoding="utf-8")
+
+    def test_test_freeze_tracks_inventory_tests_under_build_directories(self):
+        inventory_file = (
+            "app/target/generated-test-sources/java/com/example/OrderTest.java"
+        )
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_file_path=inventory_file,
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+        self.assertIn(inventory_file, gate.current_test_files(self.root, plan))
 
     def test_test_suite_roots_are_locked_by_source_snapshot(self):
         self.configure_test_run(

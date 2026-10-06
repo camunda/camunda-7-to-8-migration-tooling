@@ -217,11 +217,45 @@ def file_digest(path):
         raise EvidenceError(f"Cannot read migration input {path}: {exc}") from exc
 
 
-def collect_source_files(root, modules, models):
+def add_existing_source_file_hash(root, value, label, hashes):
+    path = project_path(root, value, label)
+    candidate = root
+    for part in Path(value).parts:
+        candidate = candidate / part
+        if candidate.is_symlink():
+            raise EvidenceError(f"Cannot scan symlinked source file: {candidate}")
+    if not path.exists():
+        return
+    if not path.is_file():
+        raise EvidenceError(f"{label} is not a regular file: {value}")
+    hashes[Path(value).as_posix()] = file_digest(path)
+
+
+def collect_source_files(root, modules, models, test_contract=None):
     hashes = {}
     module_paths = set(modules)
     for module in modules:
         scan_module(root, module, module_paths, hashes)
+    if test_contract is not None and test_contract["mode"] == "run":
+        module_paths = set(test_contract["modules"])
+        for test in test_contract["tests"]:
+            add_existing_source_file_hash(
+                root, test["file"], "Test Inventory file", hashes
+            )
+        for suite in test_contract["suites"].values():
+            module = suite["module"]
+            for root_type in ("test_source_roots", "test_resource_roots"):
+                for value in suite[root_type]:
+                    path = project_path(
+                        root, value, f"{module} {suite['name']} {root_type}"
+                    )
+                    if not path.exists():
+                        continue
+                    if not path.is_dir():
+                        raise EvidenceError(
+                            f"{module} {suite['name']} {root_type} is not a directory: {value}"
+                        )
+                    scan_test_root(root, module, module_paths, path, hashes)
     for model in models:
         path = project_path(root, model, "source model", must_exist=True)
         if path.is_symlink() or not path.is_file():
@@ -352,10 +386,15 @@ def initialize(root, reset_source_snapshot=False):
                 "The C7 test baseline cannot be captured after this migration run started; "
                 "restore the C7 baseline before init --reset-source-snapshot"
             )
-        source_files = collect_source_files(root, modules, models)
+        current_test_contract = (
+            test_contract(root, inventory) if "test_run_mode" in inventory else None
+        )
+        source_files = collect_source_files(
+            root, modules, models, current_test_contract
+        )
         test_contract_snapshot = (
-            source_test_contract(test_contract(root, inventory))
-            if "test_run_mode" in inventory
+            source_test_contract(current_test_contract)
+            if current_test_contract is not None
             else None
         )
         inventory["source_files"] = source_files
@@ -1426,6 +1465,11 @@ def current_test_files(root, plan, mapping=None):
                 roots_by_module[module].add(path.relative_to(root))
     for module in modules:
         hashes = {}
+        for test in migrated_tests:
+            if test["module"] == module:
+                add_existing_source_file_hash(
+                    root, test["file"], "Test Inventory file", hashes
+                )
         scan_module(root, module, module_paths, hashes)
         for test_root in sorted(roots_by_module[module]):
             scan_test_root(root, module, module_paths, root / test_root, hashes)
@@ -3032,10 +3076,21 @@ def verify_unchanged_source(root, inventory):
     expected = inventory.get("source_files")
     if not isinstance(expected, dict):
         raise EvidenceError("Step 2 inventory lacks the C7 source file snapshot")
+    current_test_contract = (
+        test_contract(root, inventory) if "test_run_mode" in inventory else None
+    )
+    current_test_contract_snapshot = (
+        source_test_contract(current_test_contract)
+        if current_test_contract is not None
+        else None
+    )
+    if current_test_contract_snapshot != inventory.get("source_snapshot_test_contract"):
+        raise EvidenceError("Test Inventory or C7 suite commands changed after the Step 2 snapshot")
     current = collect_source_files(
         root,
         strings(inventory.get("modules"), "Step 2 modules"),
         strings(inventory.get("models"), "Step 2 models"),
+        current_test_contract,
     )
     changed = sorted(
         path
@@ -3046,13 +3101,6 @@ def verify_unchanged_source(root, inventory):
         raise EvidenceError(
             "C7 baseline must run before source changes: " + ", ".join(changed[:10])
         )
-    current_test_contract = (
-        source_test_contract(test_contract(root, inventory))
-        if "test_run_mode" in inventory
-        else None
-    )
-    if current_test_contract != inventory.get("source_snapshot_test_contract"):
-        raise EvidenceError("Test Inventory or C7 suite commands changed after the Step 2 snapshot")
     digest = source_snapshot_digest(
         inventory["modules"],
         inventory["models"],
