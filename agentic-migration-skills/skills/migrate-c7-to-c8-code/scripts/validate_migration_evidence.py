@@ -938,15 +938,20 @@ def looks_like_test_inventory_id(value):
 
 def test_inventory_table_candidate(lines):
     expected_columns = {"test id", "file", "test kind", "handling"}
-    for index, line in enumerate(lines):
-        cells = markdown_cells(line)
+    index = 0
+    while index < len(lines):
+        cells = markdown_cells(lines[index])
         if not cells:
+            index += 1
             continue
         names = [plain_markdown_cell(cell).casefold() for cell in cells]
-        candidate_header = len(expected_columns & set(names)) >= 2
-        test_id_headers = {
-            column for column, name in enumerate(names) if name == "test id"
-        }
+        name_set = set(names)
+        if expected_columns.issubset(name_set):
+            index += 1
+            while index < len(lines) and markdown_cells(lines[index]):
+                index += 1
+            continue
+
         values = [plain_markdown_cell(cell) for cell in cells]
         test_id_columns = [
             column
@@ -959,13 +964,20 @@ def test_inventory_table_candidate(lines):
             for column, value in enumerate(values)
         ):
             return True
-        if not candidate_header:
+
+        if len(expected_columns & name_set) < 2:
+            index += 1
             continue
-        for candidate in lines[index + 1:]:
-            row = markdown_cells(candidate)
+        test_id_headers = {
+            column for column, name in enumerate(names) if name == "test id"
+        }
+        row_index = index + 1
+        while row_index < len(lines):
+            row = markdown_cells(lines[row_index])
             if not row:
                 break
             if all(re.fullmatch(r":?-{3,}:?", cell) for cell in row):
+                row_index += 1
                 continue
             row_values = [plain_markdown_cell(cell) for cell in row]
             if any(
@@ -977,6 +989,8 @@ def test_inventory_table_candidate(lines):
                 for column, value in enumerate(row_values)
             ):
                 return True
+            row_index += 1
+        index = row_index
     return False
 
 
@@ -989,6 +1003,10 @@ def test_report_inventory(root, *, required=True):
             )
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
+    if test_inventory_table_candidate(lines):
+        raise EvidenceError(
+            "MIGRATION_REPORT.md Test Inventory table has no valid header"
+        )
     columns = None
     rows = []
     for index, line in enumerate(lines):
@@ -1056,10 +1074,6 @@ def test_report_inventory(root, *, required=True):
         if required:
             raise EvidenceError(
                 "test_run_mode is run but MIGRATION_REPORT.md has no Test Inventory"
-            )
-        if test_inventory_table_candidate(lines):
-            raise EvidenceError(
-                "MIGRATION_REPORT.md Test Inventory table has no valid header"
             )
         if any(
             re.match(r"^#{1,6}\s+test inventory(?:\s|$)", line.strip(), re.IGNORECASE)

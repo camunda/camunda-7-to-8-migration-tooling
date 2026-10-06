@@ -1883,7 +1883,9 @@ class ValidationEvidenceTest(unittest.TestCase):
             plan.issues,
         )
 
-    def assert_missing_test_run_mode_rejects_malformed_inventory(self, heading, test_id=None):
+    def assert_missing_test_run_mode_rejects_malformed_inventory(
+        self, heading, test_id=None, include_empty_table=False
+    ):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
             test_handling="Report only",
@@ -1903,6 +1905,14 @@ class ValidationEvidenceTest(unittest.TestCase):
             malformed_report = malformed_report.replace("## Test Inventory\n\n", "")
         else:
             malformed_report = malformed_report.replace("## Test Inventory", heading)
+        if include_empty_table:
+            malformed_report = (
+                "# Migration report\n\n"
+                "## Test Inventory\n\n"
+                "| Test ID | File | Test kind | Handling |\n"
+                "|---|---|---|---|\n\n"
+                + malformed_report.replace("# Migration report\n\n", "", 1)
+            )
         self.assertNotEqual(report, malformed_report)
         report_path.write_text(malformed_report, encoding="utf-8")
         inventory_path = self.root / gate.INVENTORY
@@ -1928,6 +1938,12 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def test_missing_test_run_mode_rejects_malformed_inventory_with_renamed_heading(self):
         self.assert_missing_test_run_mode_rejects_malformed_inventory("## Test Cases")
+
+    def test_missing_test_run_mode_rejects_malformed_inventory_after_empty_table(self):
+        self.assert_missing_test_run_mode_rejects_malformed_inventory(
+            None,
+            include_empty_table=True,
+        )
 
     def test_missing_test_run_mode_rejects_malformed_cucumber_inventory_without_heading(self):
         self.assert_missing_test_run_mode_rejects_malformed_inventory(
