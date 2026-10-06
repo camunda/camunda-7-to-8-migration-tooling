@@ -1063,6 +1063,50 @@ def test_contract(root, inventory):
     }
 
 
+def baseline_suite_has_valid_shape(suite):
+    if (
+        not isinstance(suite.get("module"), str)
+        or not suite["module"]
+        or not isinstance(suite.get("suite"), str)
+        or not suite["suite"]
+        or not isinstance(suite.get("result"), str)
+        or suite["result"] not in ("passed", "failed", "blocked")
+    ):
+        return False
+
+    test_results = suite.get("test_results", {})
+    if not isinstance(test_results, dict):
+        return False
+    for test_id, test_result in test_results.items():
+        if (
+            not isinstance(test_id, str)
+            or not test_id
+            or not isinstance(test_result, dict)
+            or not isinstance(test_result.get("result"), str)
+            or test_result["result"] not in TEST_RESULTS
+        ):
+            return False
+        invocations = test_result.get("invocations", [])
+        if not isinstance(invocations, list) or any(
+            not isinstance(status, str) or status not in TEST_RESULTS
+            for status in invocations
+        ):
+            return False
+
+    coverage_by_process = suite.get("coverage_by_process", {})
+    if not isinstance(coverage_by_process, dict) or any(
+        not isinstance(process_id, str)
+        or not process_id
+        or not isinstance(elements, list)
+        or any(not isinstance(element, str) or not element for element in elements)
+        for process_id, elements in coverage_by_process.items()
+    ):
+        return False
+    if "coverage_available" in suite and type(suite["coverage_available"]) is not bool:
+        return False
+    return True
+
+
 def read_test_mapping(root, required=False):
     path = root / TEST_MAPPING
     if not path.exists():
@@ -1096,7 +1140,10 @@ def read_test_mapping(root, required=False):
         baseline["suites"] = []
     if (
         not isinstance(baseline["suites"], list)
-        or any(not isinstance(suite, dict) for suite in baseline["suites"])
+        or any(
+            not isinstance(suite, dict) or not baseline_suite_has_valid_shape(suite)
+            for suite in baseline["suites"]
+        )
     ) or (
         "coverage" in baseline and not isinstance(baseline["coverage"], dict)
     ) or (

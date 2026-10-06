@@ -611,6 +611,77 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(check["reports"])
         self.assertTrue((self.root / check["reports"][0]).is_file())
 
+    def test_report_rejects_null_baseline_test_results_without_crashing(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+
+        mapping = gate.read_test_mapping(self.root, required=True)
+        mapping["baseline"]["suites"][0]["test_results"] = None
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        self.assertEqual(1, self.audit())
+        summary = self.summary()
+        self.assertEqual("NOT READY", summary["gate"])
+        self.assertIn(
+            "Test parity ledger baseline has an invalid shape",
+            summary["issues"],
+        )
+
+    def test_read_test_mapping_rejects_malformed_baseline_suite_payloads(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        valid_mapping = gate.read_test_mapping(self.root, required=True)
+        test_id = self.c7_test_id
+        malformed_suites = (
+            ("test results must be an object", lambda suite: suite.update(test_results=None)),
+            (
+                "each test result must be an object",
+                lambda suite: suite["test_results"].update({test_id: None}),
+            ),
+            (
+                "test results must use a known verdict",
+                lambda suite: suite["test_results"][test_id].update(result="unknown"),
+            ),
+            (
+                "invocations must be status arrays",
+                lambda suite: suite["test_results"][test_id].update(invocations=None),
+            ),
+            (
+                "invocation statuses must be known",
+                lambda suite: suite["test_results"][test_id].update(invocations=[None]),
+            ),
+            ("module must be a string", lambda suite: suite.update(module=[])),
+            ("suite must be a string", lambda suite: suite.update(suite=[])),
+            (
+                "suite verdict must be known",
+                lambda suite: suite.update(result="unknown"),
+            ),
+            (
+                "coverage must be an object",
+                lambda suite: suite.update(coverage_by_process=None),
+            ),
+            (
+                "coverage values must be string arrays",
+                lambda suite: suite.update(coverage_by_process={"p": None}),
+            ),
+        )
+
+        for name, corrupt in malformed_suites:
+            with self.subTest(name=name):
+                mapping = json.loads(json.dumps(valid_mapping))
+                corrupt(mapping["baseline"]["suites"][0])
+                write_json(self.root / gate.TEST_MAPPING, mapping)
+
+                with self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    "Test parity ledger baseline has an invalid shape",
+                ):
+                    gate.read_test_mapping(self.root, required=True)
+
     def test_c7_baseline_tracks_out_of_module_converted_copies(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '
