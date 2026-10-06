@@ -227,6 +227,17 @@ def collect_source_files(root, modules, models):
         if path.is_symlink() or not path.is_file():
             raise EvidenceError(f"Source model is not a regular file: {model}")
         hashes[Path(model).as_posix()] = file_digest(path)
+        converted_model = Path(model).with_name(f"converted-c8-{Path(model).name}")
+        converted_candidate = root / converted_model
+        if converted_candidate.is_symlink():
+            raise EvidenceError(f"Converted copy is not a regular file: {converted_model}")
+        if converted_candidate.exists():
+            if not converted_candidate.is_file():
+                raise EvidenceError(f"Converted copy is not a regular file: {converted_model}")
+            converted_path = project_path(
+                root, converted_model.as_posix(), "converted copy", must_exist=True
+            )
+            hashes[converted_model.as_posix()] = file_digest(converted_path)
     for name in (
         "pom.xml",
         "build.gradle",

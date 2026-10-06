@@ -594,6 +594,49 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(check["reports"])
         self.assertTrue((self.root / check["reports"][0]).is_file())
 
+    def test_c7_baseline_tracks_out_of_module_converted_copies(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.configure_test_run(junit)
+        converted_copy = self.root / "models/converted-c8-process.bpmn"
+        original = converted_copy.read_text(encoding="utf-8")
+        converted_copy.unlink()
+
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+        converted_copy.write_text(original, encoding="utf-8")
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "C7 baseline must run before source changes: models/converted-c8-process.bpmn",
+        ):
+            self.record_c7_baseline()
+        self.assertFalse(
+            (self.root / "app/target/surefire-reports/TEST-com.example.OrderTest.xml").exists()
+        )
+
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        converted_copy.write_text(original + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "C7 baseline must run before source changes: models/converted-c8-process.bpmn",
+        ):
+            gate.verify_unchanged_source(self.root, inventory)
+
+        converted_copy.write_text(original, encoding="utf-8")
+        with redirect_stdout(StringIO()):
+            self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        converted_copy.unlink()
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "C7 baseline must run before source changes: models/converted-c8-process.bpmn",
+        ):
+            gate.verify_unchanged_source(self.root, inventory)
+
     def test_c7_baseline_rechecks_source_snapshot_after_the_command(self):
         junit = (
             '<testsuite><testcase classname="com.example.OrderTest" '
@@ -1789,9 +1832,6 @@ class ValidationEvidenceTest(unittest.TestCase):
             model["path"] for model in self.plan["models"]
         ]
         self.write_scope()
-        self.configure_test_run(
-            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
-        )
         for path, process_id, job_type in (
             ("models/converted-c8-process.bpmn", "p", "charge"),
             ("models/converted-c8-other.bpmn", "q", "invoice"),
@@ -1800,6 +1840,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                 bpmn_with_job_types(process_id, job_type),
                 encoding="utf-8",
             )
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
         self.assertEqual(0, self.record_c7_baseline())
         self.map_test_to_cpt(
             mocks_c7=['autoMock("process.bpmn")'],

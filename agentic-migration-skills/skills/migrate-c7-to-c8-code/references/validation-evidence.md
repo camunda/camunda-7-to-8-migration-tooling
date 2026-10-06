@@ -34,6 +34,8 @@ check logs without replacing the source snapshot. Run `init` before code convers
 due-date locations and operations in the Step 2 inventory. Never rewrite that inventory during
 the same migration. The gate detects retained operations in the same source file even when
 arguments, line numbers, or formatting change.
+After `init`, the source snapshot detects additions, changes, and removals of each source model's
+sibling `converted-c8-*` copy, even outside selected modules.
 
 When the user selects `Run tests` and the Test Inventory has tests marked `Migrate`, add
 `test_run_mode: "run"` and `test_suites` to the Step 2 inventory. Set each suite's `module`, `name`,
