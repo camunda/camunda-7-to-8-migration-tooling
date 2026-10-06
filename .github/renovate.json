@@ -6,6 +6,9 @@
     "maintenance/0.2",
     "maintenance/0.3",
   ],
+  "ignorePaths": [
+    "agentic-migration-skills/fixtures/**"
+  ],
   "packageRules": [
     {
       "description": "Ignore SNAPSHOT versions for all packages.",
@@ -57,12 +60,6 @@
       "matchPackageNames": [
         "io.camunda**{/,}**"
       ]
-    },
-    {
-      "description": "Disable major updates for agentic-migration-skills fixtures. CI does not build these fixtures, and the Camunda 7 fixtures must stay on the Spring Boot line that Camunda 7 supports.",
-      "matchFileNames": ["agentic-migration-skills/fixtures/**"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
     },
     {
       "description": "Automerge all updates with green CI.",
