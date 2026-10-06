@@ -151,7 +151,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "| Modifier | Detect by | Used by |",
             "mocks",
             "org.camunda.community.mockito.*",
-            "When test source uses `org.camunda.community.mockito.*`, the skill records `mocks` in that test's `Signals` column.",
+            "The skill recognizes mock-replacement APIs from `org.camunda.community.mockito.*` as equivalent C7 mock APIs.",
             "coverage",
             "time",
             "Spring",

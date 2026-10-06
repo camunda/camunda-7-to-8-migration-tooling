@@ -1378,8 +1378,8 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual([], unqualified_scope_rules)
         self.assertIn(
-            "when code migration includes camunda platform scenario tests, follow "
-            "`references/test-migration.md`.",
+            "the skill follows `references/test-migration.md` for every test inventory row "
+            "whose `handling` value instructs migration, including process-test mocks.",
             normalized_skill,
         )
 
@@ -1717,6 +1717,40 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(inventory=inventory_path):
                 self.assertNotIn("mocks", signals)
 
+    def test_delegate_execution_fake_alone_does_not_add_mocks_modifier(self):
+        test_id = (
+            "engine-tests:com.camunda.fixture.order.ChargePaymentDelegateFakeTest"
+            "#writesPaymentReference"
+        )
+        c7_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "ChargePaymentDelegateFakeTest.java"
+        ).read_text(encoding="utf-8")
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+
+        self.assertIn("DelegateExecutionFake.of()", c7_test)
+        self.assertIn(
+            "do not count a `delegateexecutionfake` alone as mock evidence",
+            reference,
+        )
+        self.assertNotIn(
+            "when test source uses `org.camunda.community.mockito.*`, the skill records `mocks`",
+            reference,
+        )
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            row = next(row for row in rows if row["Test ID"] == test_id)
+            signals = {
+                normalized(signal.strip().strip("`"))
+                for signal in row["Signals"].split(";")
+            }
+            with self.subTest(inventory=inventory_path):
+                self.assertIn("delegateexecutionfake", signals)
+                self.assertNotIn("mocks", signals)
+
     def test_concrete_listener_side_effect_is_preserved_in_cpt_fixture(self):
         c7_test = (
             C7_SOURCE
@@ -1749,6 +1783,11 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn(
             "the skill follows `references/test-migration.md` for every test inventory row "
             "whose `handling` value instructs migration, including process-test mocks.",
+            normalized(part_a),
+        )
+        self.assertEqual(1, normalized(part_a).count("references/test-migration.md"))
+        self.assertNotIn(
+            "when code migration includes camunda platform scenario tests, follow",
             normalized(part_a),
         )
         for duplicated_rule in (
@@ -2059,9 +2098,18 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertNotIn("newWorker()", subscription_test)
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "`mocks.register(\"bean\", mock)` for a direct `camunda:expression` implementation",
+            "`mocks.register(\"bean\", mock)` for a `camunda:expression` target",
             reference,
         )
+        self.assertIn(
+            "keep the real mapped worker and inject the same mockito mock into the expression service",
+            reference,
+        )
+        self.assertIn(
+            "treat the expression service as a collaborator. do not call `mockjobworker(type)`",
+            reference,
+        )
+        self.assertNotIn("whole delegate or expression bean", reference)
         self.assertIn(
             "the last registration for a bean sets the effective boundary",
             reference,

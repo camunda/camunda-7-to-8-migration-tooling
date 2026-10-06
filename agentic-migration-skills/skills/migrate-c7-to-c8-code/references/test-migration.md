@@ -60,6 +60,7 @@ a dependency alone.
 The skill does not treat a `ProcessScenario` mock used only to drive and verify a Scenario test
 as a component mock signal.
 The skill applies the [Scenario-to-CPT mapping](#scenario-to-cpt-mapping) to that harness.
+Do not count a `DelegateExecutionFake` alone as mock evidence.
 
 Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone as evidence for the `mocks` modifier.
 
@@ -784,9 +785,7 @@ A `mocks` signal alone does not qualify a `Report only` test for migration.
 When test source uses mock operations from `camunda-platform-7-mockito`, `io.holunda.c7:c7-mockito`,
 or `camunda-bpm-mockito` (`org.camunda.bpm.extension.mockito`), the skill recognizes the APIs as
 equivalent C7 mock APIs.
-When test source uses `org.camunda.community.mockito.*`, the skill records `mocks` in that test's
-`Signals` column.
-The skill recognizes those APIs as equivalent C7 mock APIs.
+The skill recognizes mock-replacement APIs from `org.camunda.community.mockito.*` as equivalent C7 mock APIs.
 Where a C7 test uses `org.camunda.bpm.engine.test.mock.Mocks`, configure `MockExpressionManager`
 in its test engine.
 
@@ -794,10 +793,10 @@ The skill identifies what each C7 mock replaced before it chooses a CPT mock:
 
 | C7 mock replaced | CPT replacement | Boundary rule |
 |---|---|---|
-| A whole delegate or expression bean, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition/@type` in the converted copy. |
+| A whole delegate, so no project code ran for that task | `processTestContext.mockJobWorker(type)` | Read `type` from the task's `zeebe:taskDefinition/@type` in the converted copy. |
 | A whole execution listener, so no project code ran for that listener | `processTestContext.mockJobWorker(type)` | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
 | A whole user-task listener, so no project code ran for that listener | Call `processTestContext.completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation that the C7 test handles. | Read `type` from the matching `zeebe:taskListener/@type` in the converted copy. Do not use a `zeebe:taskDefinition/@type`. |
-| A collaborator called by a real delegate, expression, or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
+| An expression target or a collaborator called by a real delegate or worker | Run the real worker and inject the same Mockito mock into its collaborator. | Do not mock the worker. |
 | A called process | `processTestContext.mockChildProcess(processId, output)` | Preserve the called process ID and output variables. |
 | A C7 process-flow test already mocks a business-rule task | `processTestContext.mockDmnDecision(decisionId, output)` | Preserve the decision ID and the result shape established by the C7 business-rule mapping. This existing C7 decision mock is a same-boundary migration and needs no additional approval. |
 | A C7 process-flow test does not mock a business-rule task | No CPT decision mock by default | Ask the user before adding a CPT decision mock. Record an approved addition in `mock_changes`. |
@@ -814,8 +813,7 @@ A whole-component mock must not start the real C8 worker for the mocked componen
 
 | C7 test code | CPT test code | Required behavior |
 |---|---|---|
-| `Mocks.register("bean", mock)` for a direct `camunda:expression` implementation | `mockJobWorker(type)` | Treat the expression bean as the whole service-task implementation, not as a collaborator. |
-| `Mocks.register("svc", mock)` for a `camunda:expression` collaborator | Keep the real worker and provide the same Mockito mock to it | Preserve the collaborator boundary. |
+| `Mocks.register("bean", mock)` for a `camunda:expression` target or collaborator | Keep the real mapped worker and inject the same Mockito mock into the expression service. | Treat the expression service as a collaborator. Do not call `mockJobWorker(type)`. |
 | `Mocks.register("delegate", mock)` for a whole `camunda:delegateExpression` | `mockJobWorker(type)` | Use the converted task's job type. |
 | `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read the input variables from the activated job. Keep the invocation verification. |
 | `doAnswer(...)` on a whole delegate with input-dependent outputs | `.withHandler(handler)` | Read the activation variables and complete the job with the matching outputs. |
