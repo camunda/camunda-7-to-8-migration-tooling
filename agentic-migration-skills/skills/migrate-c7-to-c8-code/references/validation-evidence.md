@@ -143,12 +143,8 @@ Set custom `test_source_roots` and `test_resource_roots` in the Step 2 inventory
 Each root must be project-relative and inside its suite module. Each root must exist when the
 freeze check runs.
 
-The validator stores SHA-256 hashes in `test-mapping.json`. During production-code migration, do not
-edit a frozen test file. Ask the user before a test change. Record an approved `test_changes` entry
-with the file, reason, old hash, new hash, and approver. The gate rejects an unapproved change.
-The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
-unchanged after the first freeze. If those hashes differ from the logged digest, then validation
-fails.
+The validator stores freeze hashes and approvals in `test-mapping.json`. Follow
+`references/test-migration.md` for the frozen-test change policy and required `test_changes` fields.
 
 For each migrated suite, run the CPT command twice with `test_repeat`:
 

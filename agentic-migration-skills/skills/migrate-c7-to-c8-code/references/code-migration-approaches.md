@@ -25,8 +25,6 @@ One class does not predict the rest of the project.
 When the Test Inventory has a test marked `Migrate` and `test_run_mode` is `run`, follow the phase
 order in `references/test-migration.md`.
 
-Do not change frozen tests during production-code migration without user approval.
-
 ## Approach A - OpenRewrite + AI
 
 Use this approach for repeated, supported, primarily syntactic transformations or a deterministic
