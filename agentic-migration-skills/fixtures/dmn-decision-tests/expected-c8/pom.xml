@@ -13,7 +13,7 @@
     <camunda.version>8.9.21</camunda.version>
     <camunda.process-test.camunda-docker-image-version>${camunda.version}</camunda.process-test.camunda-docker-image-version>
     <junit.version>6.0.3</junit.version>
-    <assertj.version>3.27.3</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
     <jackson.version>2.22.3</jackson.version>
   </properties>
 
