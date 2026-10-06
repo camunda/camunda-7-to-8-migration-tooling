@@ -32,10 +32,14 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 `init` assigns a new run ID and marks previous readiness `NOT READY`. Run it again to invalidate old
 check logs without replacing the source snapshot. Run `init` before code conversion to capture
 due-date locations and operations in the Step 2 inventory. Do not change its scope, run ID, or
-source snapshot during the migration. For deferred test verification, change only `test_run_mode`
-from `migrate_only` to `run` as described in `references/test-migration.md`. Do not run `init` for
-this transition because it clears earlier validation checks. The gate detects retained operations
-in the same source file even when arguments, line numbers, or formatting change.
+source snapshot during the migration. For deferred test verification, change `test_run_mode` from
+`migrate_only` to `run` as described in `references/test-migration.md`. When deferred verification
+starts and the initial `migrate_only` inventory has no `test_suites`, add the C7 suite commands and
+Test Inventory IDs during this transition. Keep the Test Inventory unchanged. Do not run `init` for
+this transition because it clears earlier validation checks. The gate detects retained operations in
+the same source file even when arguments, line numbers, or formatting change.
+The validator allows added suite entries only when the source snapshot has none. It binds each C7
+baseline check to its suite definition.
 After `init`, the source snapshot detects additions, changes, and removals of each source model's
 sibling `converted-c8-*` copy, even outside selected modules.
 

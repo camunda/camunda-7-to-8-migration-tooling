@@ -238,7 +238,7 @@ def collect_source_files(
     module_paths = set(modules)
     for module in modules:
         scan_module(root, module, module_paths, hashes)
-    if test_contract is not None and test_contract["mode"] == "run":
+    if test_contract is not None and test_contract["mode"] in TEST_RUN_MODES:
         module_paths = set(test_contract["modules"])
         for test in test_contract["tests"]:
             add_existing_source_file_hash(
@@ -308,11 +308,38 @@ def source_test_contract_matches_snapshot(current, snapshot):
         or current.get("mode") != "run"
     ):
         return False
-    return {
-        key: value for key, value in current.items() if key != "mode"
-    } == {
-        key: value for key, value in snapshot.items() if key != "mode"
+    if (
+        current.get("tests") != snapshot.get("tests")
+        or current.get("modules") != snapshot.get("modules")
+    ):
+        return False
+    return (
+        current.get("suites") == snapshot.get("suites")
+        or snapshot.get("suites") == []
+    )
+
+
+def test_suite_snapshot(suite):
+    snapshot = {
+        "module": suite["module"],
+        "name": suite["name"],
+        "command": suite["command"],
+        "test_ids": suite["test_ids"],
+        "reports": suite["reports"],
+        "coverage_reports": suite["coverage_reports"],
     }
+    for root_type in ("test_source_roots", "test_resource_roots"):
+        roots = suite.get(root_type, [])
+        if roots:
+            snapshot[root_type] = roots
+    return snapshot
+
+
+def test_suite_snapshot_digest(suite):
+    content = json.dumps(
+        test_suite_snapshot(suite), sort_keys=True, separators=(",", ":")
+    )
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def test_contract_snapshot(test_contract, *, include_modules):
@@ -324,21 +351,9 @@ def test_contract_snapshot(test_contract, *, include_modules):
     }
     if include_modules:
         snapshot["modules"] = test_contract["modules"]
-    snapshot["suites"] = []
-    for suite in test_contract["suites"].values():
-        suite_snapshot = {
-            "module": suite["module"],
-            "name": suite["name"],
-            "command": suite["command"],
-            "test_ids": suite["test_ids"],
-            "reports": suite["reports"],
-            "coverage_reports": suite["coverage_reports"],
-        }
-        for root_type in ("test_source_roots", "test_resource_roots"):
-            roots = suite.get(root_type, [])
-            if roots:
-                suite_snapshot[root_type] = roots
-        snapshot["suites"].append(suite_snapshot)
+    snapshot["suites"] = [
+        test_suite_snapshot(suite) for suite in test_contract["suites"].values()
+    ]
     return snapshot
 
 
@@ -1156,14 +1171,6 @@ def test_contract(root, inventory):
             "test_suites": {},
             "modules": inventory.get("modules", []),
         }
-    if mode != "run":
-        return {
-            "mode": mode,
-            "tests": [],
-            "suites": {},
-            "test_suites": {},
-            "modules": inventory.get("modules", []),
-        }
 
     tests = test_report_inventory(root, required=False)
     module_paths = set(strings(inventory.get("modules"), "Step 2 modules"))
@@ -1245,9 +1252,12 @@ def test_contract(root, inventory):
             "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
         }
 
-    for test_id in migrate_ids:
-        if not test_suites.get(test_id):
-            raise EvidenceError(f"{test_id}: no Step 2 test suite records this migrated test")
+    if mode == "run":
+        for test_id in migrate_ids:
+            if not test_suites.get(test_id):
+                raise EvidenceError(
+                    f"{test_id}: no Step 2 test suite records this migrated test"
+                )
     return {
         "mode": mode,
         "tests": tests,
@@ -1268,7 +1278,7 @@ def validate_source_snapshot_test_contract(root, inventory):
         raise EvidenceError(
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot"
         )
-    if current_test_contract["mode"] == "run":
+    if current_test_contract["mode"] in TEST_RUN_MODES:
         missing_snapshot_files = sorted(
             {
                 test["file"]
@@ -3735,6 +3745,13 @@ def record_c7_baseline(root, args):
         "coverage_available": bool(coverage_paths),
         "output": output,
     }
+    source_test_contract_snapshot = inventory.get("source_snapshot_test_contract")
+    if (
+        isinstance(source_test_contract_snapshot, dict)
+        and source_test_contract_snapshot.get("mode") == "migrate_only"
+        and source_test_contract_snapshot.get("suites") == []
+    ):
+        check["step2_suite_contract_sha256"] = test_suite_snapshot_digest(suite)
     write_check_log(root, key, check)
     if args.action == "run" and result == "passed":
         status_counts = {
@@ -4187,6 +4204,25 @@ def load_checks(root, evidence, plan, issues):
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
+            source_test_contract_snapshot = inventory.get(
+                "source_snapshot_test_contract"
+            )
+            if (
+                key[2] == "c7_baseline"
+                and plan.test_contract["mode"] == "run"
+                and isinstance(source_test_contract_snapshot, dict)
+                and source_test_contract_snapshot.get("mode") == "migrate_only"
+                and source_test_contract_snapshot.get("suites") == []
+            ):
+                suite = plan.test_contract["suites"].get((key[1], key[3]))
+                if (
+                    suite is None
+                    or check.get("step2_suite_contract_sha256")
+                    != test_suite_snapshot_digest(suite)
+                ):
+                    raise EvidenceError(
+                        f"{key}: C7 baseline suite contract changed after recording"
+                    )
             if (
                 mapping is not None
                 and key not in plan.allowed

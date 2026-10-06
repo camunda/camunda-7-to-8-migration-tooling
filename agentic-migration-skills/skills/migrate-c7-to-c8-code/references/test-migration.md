@@ -350,7 +350,7 @@ A **Run tests** inventory includes `test_suites`:
 }
 ```
 
-A **Migrate tests only** inventory can omit `test_suites`:
+Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
 
 ```json
 {
@@ -363,9 +363,10 @@ A **Migrate tests only** inventory can omit `test_suites`:
 
 Where Question 8 does not apply, the skill omits `test_run_mode`.
 
-Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in that suite.
-Assign every `Migrate` test to at least one suite. Use a distinct `name` for each suite in a module.
-The validator uses `command` for the Camunda 7 baseline. It runs the command without a shell.
+Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in each suite.
+When `test_run_mode` is `run`, assign every `Migrate` test to at least one suite. Use a distinct
+`name` for each suite in a module. The validator uses `command` for the Camunda 7 baseline. It runs
+the command without a shell.
 Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
 
 Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
@@ -377,6 +378,8 @@ The default Camunda 7 coverage paths are `target/process-test-coverage/**/report
 Where a suite uses custom test source or resource directories, list each project-relative path in
 `test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
 When the freeze check runs, each configured root must exist as a directory.
+Where a deferred suite uses custom test roots under `target` or `build`, declare those roots in the
+initial `migrate_only` inventory so the source snapshot includes their files.
 Where a configured root uses generated files under `target` or `build`, generate those files before
 `init`.
 
@@ -684,9 +687,12 @@ module commands:
 
 1. Create a separate worktree from the Step 2 baseline with
    `git worktree add ../c7-baseline <baseline-commit>`.
-2. Change only `test_run_mode` from `migrate_only` to `run` in
-   `.camunda-migration/validation/step2-inventory.json`. Keep its scope, run ID, and source snapshot.
-   Do not run `init`, because it clears earlier validation checks.
+2. Change `test_run_mode` from `migrate_only` to `run` in
+   `.camunda-migration/validation/step2-inventory.json`. When deferred verification starts and the
+   initial inventory has no `test_suites`, add one C7 suite entry for each independently runnable
+   suite. Record its exact C7 command and every Test Inventory ID. Keep the Test Inventory, scope,
+   run ID, and source snapshot unchanged. Do not run `init`, because it clears earlier validation
+   checks.
 3. When any reserved suite entry requires Docker, the skill records the Docker probe before running
    the first Docker-dependent suite:
    `python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind docker_info -- docker info`.

@@ -3981,6 +3981,120 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.assertEqual("blocked", check["result"])
             self.assertEqual("declined by user (Question 8)", check["reason"])
 
+    def test_migrate_only_preserves_inventory_for_deferred_test_verification(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_file_path="app/target/generated-test-sources/com/example/OrderTest.java",
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        suite = inventory.pop("test_suites")[0]
+        inventory["test_run_mode"] = "migrate_only"
+        write_json(inventory_path, inventory)
+        with redirect_stdout(StringIO()):
+            self.assertEqual(
+                0, gate.initialize(self.root, reset_source_snapshot=True)
+            )
+
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        snapshot = inventory["source_snapshot_test_contract"]
+        self.assertEqual(
+            [self.c7_test_id], [test["id"] for test in snapshot["tests"]]
+        )
+        self.assertIn(self.c7_test_file_path, inventory["source_files"])
+
+        inventory["test_run_mode"] = "run"
+        inventory["test_suites"] = [suite]
+        write_json(inventory_path, inventory)
+        contract = gate.validate_source_snapshot_test_contract(self.root, inventory)
+        self.assertEqual([self.c7_test_id], [test["id"] for test in contract["tests"]])
+        gate.verify_unchanged_source(self.root, inventory)
+
+    def test_migrate_only_rejects_malformed_test_inventory(self):
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Disposition |\n"
+            "|---|---|---|---|\n"
+            "| app:com.example.OrderTest#testOrder | "
+            "app/src/test/java/com/example/OrderTest.java | process test | Migrate |\n",
+            encoding="utf-8",
+        )
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertTrue(
+            any(
+                "MIGRATION_REPORT.md Test Inventory table has no valid header" in issue
+                for issue in plan.issues
+            ),
+            plan.issues,
+        )
+
+    def test_deferred_baseline_check_detects_suite_contract_changes(self):
+        key = ("module", "app", "c7_baseline", "unit")
+        suite = {
+            "module": "app",
+            "name": "unit",
+            "command": ["mvn", "-pl", "app", "test"],
+            "test_ids": ["app:com.example.OrderTest#testOrder"],
+            "reports": ["target/surefire-reports/TEST-*.xml"],
+            "coverage_reports": [],
+            "test_source_roots": [],
+            "test_resource_roots": [],
+            "migrate_test_ids": ["app:com.example.OrderTest#testOrder"],
+        }
+        inventory = {
+            "run_id": "deferred-run",
+            "source_snapshot_sha256": "source-snapshot",
+            "source_snapshot_test_contract": {
+                "mode": "migrate_only",
+                "tests": [],
+                "modules": ["app"],
+                "suites": [],
+            },
+        }
+        write_json(self.root / gate.INVENTORY, inventory)
+        reference = gate.check_reference(key)
+        write_json(
+            self.root / reference,
+            {
+                "run_id": inventory["run_id"],
+                "type": key[0],
+                "target": key[1],
+                "kind": key[2],
+                "scenario": key[3],
+                "method": "command",
+                "command": suite["command"],
+                "exit_code": 0,
+                "result": "passed",
+                "reason": None,
+                "source_digest": "source-snapshot",
+                "output": "C7 baseline recorded",
+                "step2_suite_contract_sha256": gate.test_suite_snapshot_digest(suite),
+            },
+        )
+        evidence = {"checks": [reference]}
+        plan = Namespace(
+            allowed={key},
+            required={},
+            source_digest="current-source",
+            test_contract={"mode": "run", "suites": {("app", "unit"): suite}},
+        )
+        issues = []
+        gate.load_checks(self.root, evidence, plan, issues)
+        self.assertEqual([], issues)
+
+        changed_suite = dict(suite, command=["mvn", "-pl", "app", "verify"])
+        plan.test_contract["suites"][("app", "unit")] = changed_suite
+        issues = []
+        gate.load_checks(self.root, evidence, plan, issues)
+        self.assertIn(
+            f"{key}: C7 baseline suite contract changed after recording",
+            issues,
+        )
+
     def test_migrate_only_does_not_require_docker_probe_for_unrun_suites(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
         self.write_scope(test_run_mode="migrate_only")
