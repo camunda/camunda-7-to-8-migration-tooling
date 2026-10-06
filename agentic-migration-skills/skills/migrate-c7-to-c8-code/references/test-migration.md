@@ -243,7 +243,7 @@ columns in this order:
 | Test ID | File | Test kind | Signals | Models | Handling | Notes |
 |---|---|---|---|---|---|---|
 
-Keep the Test Inventory table as the only table in its section. The validator reads every table row
+Keep the Test Inventory table as the only table in its section. Start every table row with `|`. The validator reads every table row
 between the `Test Inventory` heading and the next heading as an inventory row.
 Add a `Test kind counts` table under its own heading in `MIGRATION_REPORT.md` with the columns
 `Test kind` and `Count`.

@@ -4192,6 +4192,36 @@ class ValidationEvidenceTest(unittest.TestCase):
                 ):
                     gate.test_report_inventory(self.root, required=False)
 
+    def test_test_inventory_rejects_rows_without_outer_pipes(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        report_path = self.root / gate.REPORT
+        lines = report_path.read_text(encoding="utf-8").splitlines()
+        pipeless = [
+            line.strip().strip("|") if line.lstrip().startswith("|") else line
+            for line in lines
+        ]
+        report_path.write_text("\n".join(pipeless) + "\n", encoding="utf-8")
+
+        with self.assertRaisesRegex(gate.EvidenceError, "rows must start with \\|"):
+            gate.test_report_inventory(self.root, required=False)
+
+    def test_validator_owned_reads_reject_symlinked_parent_directories(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+        validation = (self.root / gate.TEST_MAPPING).parent
+        moved = self.root / "elsewhere"
+        validation.replace(moved)
+        validation.symlink_to(moved, target_is_directory=True)
+
+        with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked test parity ledger"):
+            gate.read_test_mapping(self.root, required=True)
+        with self.assertRaisesRegex(gate.EvidenceError, "Refusing symlinked"):
+            gate.recorded_test_freeze_digest(self.root, {})
+
     def test_migrate_only_rejects_malformed_test_inventory(self):
         self.write_scope(test_run_mode="migrate_only")
         (self.root / gate.REPORT).write_text(

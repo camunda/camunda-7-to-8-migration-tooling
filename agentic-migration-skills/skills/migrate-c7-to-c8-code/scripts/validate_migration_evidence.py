@@ -1628,6 +1628,11 @@ def test_inventory_section(lines):
             )
     if not starts:
         return None
+    for line in lines[start:end]:
+        if "|" in line and not markdown_cells(line):
+            raise EvidenceError(
+                "MIGRATION_REPORT.md Test Inventory rows must start with |"
+            )
     return [line for line in lines[start:end] if markdown_cells(line)]
 
 
@@ -1937,8 +1942,7 @@ def read_test_mapping(root, required=False):
         if required:
             raise EvidenceError(f"Missing test parity ledger: {path}")
         return None
-    if path.is_symlink():
-        raise EvidenceError(f"Refusing to read symlinked test parity ledger: {path}")
+    reject_symlink_components(root, path, "test parity ledger")
     try:
         path.resolve(strict=True).relative_to(root)
     except (OSError, ValueError) as exc:
@@ -2334,8 +2338,7 @@ def recorded_test_freeze_digest(root, mapping):
     key = ("project", ".", "test_freeze", None)
     reference = check_reference(key)
     log_path = root / reference
-    if log_path.is_symlink():
-        raise EvidenceError(f"{key}: validator-owned test freeze evidence cannot be a symlink")
+    reject_symlink_components(root, log_path, "validator-owned test freeze evidence")
     if not log_path.exists():
         return None
     path = project_path(root, reference, "validator-owned test freeze evidence", must_exist=True)
@@ -4810,6 +4813,7 @@ def load_checks(root, evidence, plan, issues):
             ]
     for index, reference in enumerate(references):
         try:
+            reject_symlink_components(root, root / reference, "check evidence")
             path = project_path(root, reference, "check evidence", must_exist=True)
             if not path.is_file() or path.is_symlink() or not path.is_relative_to(root / LOGS):
                 raise EvidenceError(f"Check evidence must be a file in {LOGS}: {reference}")
