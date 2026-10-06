@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -37,6 +38,11 @@ TEST_APPLICATION = (
 EXPECTED_MANUAL_REPORT = (
     FIXTURE / "manual-without-bootstrap/expected-c8/MIGRATION_REPORT.md"
 )
+EXPECTED_STANDALONE_REPORT = (
+    FIXTURE / "standalone-task-only/expected-c8/MIGRATION_REPORT.md"
+)
+MANUAL_SOURCE = FIXTURE / "manual-without-bootstrap/c7-source"
+MANUAL_POM = MANUAL_SOURCE / "pom.xml"
 MANUAL_SOURCE_TEST = (
     FIXTURE
     / "manual-without-bootstrap/c7-source/src/test/java/org/camunda/bpm/example/manual/ManualSpringProcessTest.java"
@@ -69,7 +75,64 @@ EXPECTED_APPLICATION = (
 )
 
 
+TEST_KINDS = (
+    "out of scope (Camunda 8)",
+    "manual redesign",
+    "manual migration",
+    "scenario test",
+    "remote-engine test",
+    "decision test",
+    "process test",
+    "out of scope",
+)
+
+
+class ManualSpringFixtureTest(unittest.TestCase):
+    def test_manual_without_bootstrap_runs_spring_process(self):
+        completed = subprocess.run(
+            ["mvn", "-B", "-ntp", "-f", str(MANUAL_POM), "test"],
+            cwd=MANUAL_SOURCE,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=300,
+        )
+        self.assertEqual(
+            0,
+            completed.returncode,
+            completed.stdout + "\n" + completed.stderr,
+        )
+        self.assertIn("Tests run: 1", completed.stdout)
+
+    def test_expected_reports_include_every_test_kind_count(self):
+        for report_path, counted_kind in (
+            (EXPECTED_MANUAL_REPORT, "process test"),
+            (EXPECTED_STANDALONE_REPORT, "out of scope"),
+        ):
+            with self.subTest(report=report_path):
+                report = report_path.read_text()
+                count_section = report.split("### Test kind counts", 1)[1]
+                counts = {}
+                for line in count_section.splitlines():
+                    if not line.startswith("|"):
+                        continue
+                    cells = [cell.strip() for cell in line.strip("|").split("|")]
+                    if len(cells) == 2 and cells[0] in TEST_KINDS:
+                        counts[cells[0]] = int(cells[1])
+
+                expected_counts = {test_kind: 0 for test_kind in TEST_KINDS}
+                expected_counts[counted_kind] = 1
+                self.assertEqual(expected_counts, counts)
+
+
 class SpringProcessTestFixtureTest(unittest.TestCase):
+    def test_readme_documents_maven_fixture_test_prerequisites(self):
+        readme = (FIXTURE / "README.md").read_text()
+
+        self.assertIn("runs a Maven test for the manual C7 fixture", readme)
+        self.assertIn("JDK 17 or later", readme)
+        self.assertIn("resolvable fixture dependencies", readme)
+
     def test_reference_covers_boot_variants_and_deployment_rules(self):
         reference = " ".join(REFERENCE.read_text().split())
         package_readme = PACKAGE_README.read_text()
@@ -111,7 +174,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             inventory_lines,
             [
                 "#### Test Inventory",
-                "When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.",
+                "When the skill reaches Step 2, it follows `references/test-migration.md` for the test inventory procedure.",
             ],
         )
 
@@ -126,8 +189,8 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
         self.assertIn(
-            "The skill follows `references/test-migration.md` for every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.",
-            skill,
+            "The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine, Camunda 7 decision-test CPT mapping, and Spring process-test migration.",
+            " ".join(skill.split()),
         )
 
     def test_inventory_reference_defines_kinds_modifiers_models_and_report(self):
@@ -151,7 +214,6 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "| Modifier | Detect by | Used by |",
             "mocks",
             "org.camunda.community.mockito.*",
-            "The skill recognizes mock-replacement APIs from `org.camunda.community.mockito.*` as equivalent C7 mock APIs.",
             "coverage",
             "time",
             "Spring",
@@ -197,7 +259,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The first matching row assigns one test kind and handling.",
             "The skill classifies tests by executed engine behavior, not assertion type.",
             "Test rules, extensions, dependencies, and API references alone do not prove that a test executed a BPMN process or DMN decision.",
-            "When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps that test in scope.",
+            "When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps the test in scope.",
             "The skill records assertion gaps in the Test Inventory's Notes column for migration review.",
             "The skill verifies that a direct service call resolves to a real C7 engine in the test or its shared configuration.",
             "The skill requires a completed task's `processInstanceId` to identify an executed BPMN process before `TaskService.complete(...)` is a process-test signal.",
@@ -263,6 +325,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "When the target is Camunda 8.9 or later, the skill migrates every test with test kind `decision test`.",
             normalized_reference,
         )
+        self.assertIn("Decision-test migration", REFERENCE.read_text())
         self.assertIn(
             "| Migrate to CPT | Report only |",
             normalized_reference,
@@ -336,7 +399,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             with self.subTest(artifact=artifact):
                 self.assertIn(artifact, reference)
         self.assertIn(
-            "If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.",
+            "When production code or an unmigrated test uses a dependency, the skill keeps it.",
             reference,
         )
 
@@ -644,7 +707,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         manual_cells = [cell.strip() for cell in manual_row.split("|")[1:-1]]
         self.assertEqual(manual_cells[5].lower(), "report only")
         self.assertIn("manual migration", manual_cells[6].lower())
-        self.assertIn("counts by test kind: process test 1", inventory)
+        self.assertIn("### test kind counts", expected_report)
         self.assertTrue(MANUAL_PROCESS.is_file())
         self.assertTrue(MANUAL_WORKER.is_file())
         namespace = {

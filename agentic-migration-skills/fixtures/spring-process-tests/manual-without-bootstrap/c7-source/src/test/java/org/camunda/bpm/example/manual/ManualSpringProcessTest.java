@@ -8,7 +8,9 @@
 package org.camunda.bpm.example.manual;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
+import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.junit.Test;
@@ -22,9 +24,14 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 public class ManualSpringProcessTest {
 
   @Autowired private RuntimeService runtimeService;
+  @Autowired private RepositoryService repositoryService;
 
   @Test
   public void startsAProcessWithTheSpringEngine() {
+    assertNotNull(
+        repositoryService.createProcessDefinitionQuery()
+            .processDefinitionKey("manual-process")
+            .singleResult());
     ProcessInstance processInstance = runtimeService.startProcessInstanceByKey("manual-process");
 
     assertEquals(

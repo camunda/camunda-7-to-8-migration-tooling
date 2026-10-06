@@ -23,7 +23,7 @@
     <junit.version>6.0.3</junit.version>
     <junit4.version>4.13.2</junit4.version>
     <assertj.version>3.27.7</assertj.version>
-    <h2.version>2.2.224</h2.version>
+    <h2.version>2.5.252</h2.version>
   </properties>
 
   <build>

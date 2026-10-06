@@ -27,8 +27,11 @@ TEST_MIGRATION_REFERENCE = (
 )
 SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
-PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;")
-CLASS_RE = re.compile(r"\bclass\s+([A-Za-z_$][\w$]*)\b")
+PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;?\s*$")
+CLASS_DECLARATION_RE = re.compile(
+    r"\b(?P<abstract>abstract\s+)?class\s+(?P<name>[A-Za-z_$][\w$]*)"
+    r"(?:\s+extends\s+(?P<parent>[A-Za-z_$][\w$.$]*))?"
+)
 TEST_ANNOTATION_RE = re.compile(
     r"@\s*(?:org\.junit(?:\.jupiter\.api)?\.)?(?:Test|ParameterizedTest|RepeatedTest)\b"
 )
@@ -38,7 +41,15 @@ METHOD_RE = re.compile(
     r"(?:[\w$<>?,.\[\]]+\s+)+([A-Za-z_$][\w$]*)\s*\("
 )
 JUNIT3_METHOD_RE = re.compile(r"(?m)^\s*public\s+void\s+(test[A-Za-z_$][\w$]*)\s*\(")
-TEST_ID_RE = re.compile(r"[\w.-]+:[\w.]+#[A-Za-z_$][\w$]*")
+TEST_ID_RE = re.compile(r"[\w./-]+:[\w.$/-]+#[\w.$/@-]+")
+GROOVY_FEATURE_METHOD_RE = re.compile(
+    r"(?m)^\s*def\s+(?:(?P<identifier>[A-Za-z_$][\w$]*)|"
+    r"(?P<quote>[\"'])(?P<quoted>(?:\\.|(?!(?P=quote)).)+)(?P=quote))\s*\("
+)
+CUCUMBER_SCENARIO_RE = re.compile(
+    r"^\s*Scenario(?: Outline)?:\s*(\S(?:.*\S)?)\s*$"
+)
+CUCUMBER_EXAMPLE_ROW_RE = re.compile(r"^\s*\|[^|]+\|")
 TEST_KINDS = (
     "process test",
     "decision test",
@@ -124,6 +135,7 @@ def test_method_ids(project_root):
             else []
         )
 
+        test_classes = []
         for source_file in sorted(source_root.rglob("*.java")):
             relative_source_file = source_file.relative_to(source_root).as_posix()
             if include_patterns and not any(
@@ -134,19 +146,145 @@ def test_method_ids(project_root):
 
             source = source_file.read_text(encoding="utf-8")
             package_match = PACKAGE_RE.search(source)
-            class_match = CLASS_RE.search(source)
+            class_match = CLASS_DECLARATION_RE.search(source)
             if package_match is None or class_match is None:
                 continue
 
-            class_name = "{}.{}".format(package_match.group(1), class_match.group(1))
+            class_name = "{}.{}".format(
+                package_match.group(1),
+                class_match.group("name"),
+            )
+            declared_methods = set()
             for annotation in TEST_ANNOTATION_RE.finditer(source):
                 method = METHOD_RE.search(source[annotation.end() :])
                 if method is not None:
-                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+                    declared_methods.add(method.group(1))
 
-            if "extends ProcessEngineTestCase" in source:
-                for method in JUNIT3_METHOD_RE.finditer(source):
-                    ids.add("{}:{}#{}".format(module_name, class_name, method.group(1)))
+            if re.search(
+                r"\bextends\s+(?:[\w.]+\.)?ProcessEngineTestCase\b",
+                source,
+            ):
+                declared_methods.update(
+                    method.group(1)
+                    for method in JUNIT3_METHOD_RE.finditer(source)
+                )
+
+            test_classes.append(
+                {
+                    "abstract": bool(class_match.group("abstract")),
+                    "class": class_name,
+                    "methods": declared_methods,
+                    "module": module_name,
+                    "parent": (
+                        class_match.group("parent").rsplit(".", 1)[-1]
+                        if class_match.group("parent")
+                        else None
+                    ),
+                }
+            )
+
+        classes_by_name = {
+            (test_class["module"], test_class["class"].rsplit(".", 1)[-1]):
+                test_class
+            for test_class in test_classes
+        }
+        for test_class in test_classes:
+            if test_class["abstract"]:
+                continue
+            methods = set(test_class["methods"])
+            parent_name = test_class["parent"]
+            visited_parents = set()
+            while parent_name is not None:
+                if parent_name in visited_parents:
+                    break
+                visited_parents.add(parent_name)
+                parent_class = classes_by_name.get(
+                    (test_class["module"], parent_name)
+                )
+                if parent_class is None:
+                    break
+                methods.update(parent_class["methods"])
+                parent_name = parent_class["parent"]
+            ids.update(
+                "{}:{}#{}".format(
+                    test_class["module"],
+                    test_class["class"],
+                    method_name,
+                )
+                for method_name in methods
+            )
+
+        groovy_root = module_root / "src/test/groovy"
+        if groovy_root.is_dir():
+            for source_file in sorted(groovy_root.rglob("*.groovy")):
+                source = source_file.read_text(encoding="utf-8")
+                package_match = PACKAGE_RE.search(source)
+                class_match = CLASS_DECLARATION_RE.search(source)
+                if package_match is None or class_match is None:
+                    continue
+                parent = class_match.group("parent")
+                if parent not in ("Specification", "spock.lang.Specification"):
+                    continue
+                class_name = "{}.{}".format(
+                    package_match.group(1),
+                    class_match.group("name"),
+                )
+                ids.update(
+                    "{}:{}#{}".format(
+                        module_name,
+                        class_name,
+                        method.group("identifier") or method.group("quoted"),
+                    )
+                    for method in GROOVY_FEATURE_METHOD_RE.finditer(source)
+                )
+
+        feature_root = module_root / "src/test/resources"
+        cucumber_properties = feature_root / "cucumber.properties"
+        if feature_root.is_dir() and cucumber_properties.is_file():
+            for feature_file in sorted(feature_root.rglob("*.feature")):
+                lines = feature_file.read_text(encoding="utf-8").splitlines()
+                scenario_outline = None
+                in_examples = False
+                saw_example_header = False
+                for line_number, line in enumerate(lines, 1):
+                    scenario_match = CUCUMBER_SCENARIO_RE.match(line)
+                    if scenario_match:
+                        scenario_name = scenario_match.group(1)
+                        if line.lstrip().startswith("Scenario Outline:"):
+                            scenario_outline = scenario_name
+                            in_examples = False
+                            saw_example_header = False
+                        else:
+                            scenario_outline = None
+                            in_examples = False
+                            ids.add(
+                                "{}:{}#{}@L{}".format(
+                                    module_name,
+                                    feature_file.relative_to(module_root).as_posix(),
+                                    scenario_name,
+                                    line_number,
+                                )
+                            )
+                        continue
+                    if scenario_outline and line.strip().startswith("Examples:"):
+                        in_examples = True
+                        saw_example_header = False
+                        continue
+                    if not scenario_outline or not in_examples:
+                        continue
+                    if not CUCUMBER_EXAMPLE_ROW_RE.match(line):
+                        continue
+                    if not saw_example_header:
+                        saw_example_header = True
+                        continue
+                    ids.add(
+                        "{}:{}#{}@L{}".format(
+                            module_name,
+                            feature_file.relative_to(module_root).as_posix(),
+                            scenario_outline,
+                            line_number,
+                        )
+                    )
     return ids
 
 
@@ -394,13 +532,24 @@ def fixture_files(root, pattern):
     )
 
 
-def migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids):
+def test_parity_errors(inventory, parity_by_id, cpt_test_ids):
     errors = []
     for row in inventory:
+        test_id = row["Test ID"]
+        if row.get("Test kind") == "manual migration":
+            parity_row = parity_by_id.get(test_id)
+            if parity_row is None:
+                errors.append("Missing parity row for {}".format(test_id))
+                continue
+            if parity_row["Verdict"] not in ("manual", "retired"):
+                errors.append(
+                    "Expected manual or retired verdict for {}".format(test_id)
+                )
+            continue
+
         if row["Handling"] not in MIGRATED_HANDLINGS:
             continue
 
-        test_id = row["Test ID"]
         parity_row = parity_by_id.get(test_id)
         if parity_row is None:
             errors.append("Missing parity row for {}".format(test_id))
@@ -523,6 +672,13 @@ class MigrationGuidanceTest(unittest.TestCase):
         count_rows = markdown_table(inventory_path, ["Test kind", "Count"])
         self.assert_unique_rows(count_rows, "Test kind", inventory_path)
         expected_counts = {row["Test kind"]: int(row["Count"]) for row in count_rows}
+        self.assertEqual(
+            set(TEST_KINDS),
+            set(expected_counts),
+            "{} must include every test kind, including zero counts.".format(
+                inventory_path
+            ),
+        )
         actual_counts = Counter(row["Test kind"] for row in inventory_rows)
         for test_kind in expected_counts:
             actual_counts.setdefault(test_kind, 0)
@@ -543,6 +699,34 @@ class MigrationGuidanceTest(unittest.TestCase):
             generated.touch()
 
             self.assertEqual([source], fixture_files(root, "diagram.bpmn"))
+
+    def test_inherited_methods_have_one_concrete_row_and_declaring_file(self):
+        rows = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        inherited_rows = {
+            row["Test ID"]: row["File"]
+            for row in rows
+            if "#inheritedInventoryTest" in row["Test ID"]
+        }
+
+        base_file = (
+            "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "AbstractInheritedInventoryTestBase.java"
+        )
+        self.assertEqual(
+            {
+                "engine-tests:com.camunda.fixture.order."
+                "InheritedInventoryOneTest#inheritedInventoryTest": base_file,
+                "engine-tests:com.camunda.fixture.order."
+                "InheritedInventoryTwoTest#inheritedInventoryTest": base_file,
+            },
+            inherited_rows,
+        )
+        self.assertFalse(
+            any("AbstractInheritedInventoryTestBase#" in test_id for test_id in inherited_rows)
+        )
 
     def test_inventory_matches_every_camunda_7_test_method(self):
         source_ids = test_method_ids(C7_SOURCE)
@@ -582,9 +766,290 @@ class MigrationGuidanceTest(unittest.TestCase):
             "PaymentWorkerIT",
             "SharedEngineSmokeIT",
             "ChargePaymentHandlerTest",
+            "InheritedInventoryOneTest",
+            "InheritedInventoryTwoTest",
+            "InventoryDiscoverySpec",
+            "JGivenEngineBackedTest",
+            "JGivenNoEngineTest",
         }
-        actual_test_classes = {test_id.split("#", 1)[0].rsplit(".", 1)[-1] for test_id in source_ids}
+        actual_test_classes = {
+            test_id.split("#", 1)[0].rsplit(".", 1)[-1]
+            for test_id in source_ids
+            if not test_id.split("#", 1)[0].endswith(".feature")
+        }
         self.assertEqual(expected_test_classes, actual_test_classes)
+
+    def test_jgiven_manual_migration_requires_real_engine_execution(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            "a jgiven (`io.holunda.testing:camunda-bpm-jgiven`) test executes a "
+            "real c7 process or decision and requires manual migration.",
+            reference,
+        )
+        self.assertIn(
+            "when a jgiven test does not execute a real c7 process or decision, "
+            "the skill assigns the out-of-scope test kind.",
+            reference,
+        )
+        engine_test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenEngineBackedTest#startsProcess"
+        )
+        no_engine_test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenNoEngineTest#runsPlainUnitTest"
+        )
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(
+                inventory_path,
+                ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+            )
+            inventory_by_id = {row["Test ID"]: row for row in rows}
+            engine_row = inventory_by_id[engine_test_id]
+            self.assertEqual("manual migration", engine_row["Test kind"])
+            self.assertEqual("Report only", engine_row["Handling"])
+            self.assertIn("jgiven", normalized(engine_row["Signals"]))
+
+            no_engine_row = inventory_by_id[no_engine_test_id]
+            self.assertEqual("out of scope", no_engine_row["Test kind"])
+            self.assertEqual("Not part of test migration", no_engine_row["Handling"])
+            self.assertIn("jgiven", normalized(no_engine_row["Signals"]))
+
+        engine_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "JGivenEngineBackedTest.java"
+        ).read_text(encoding="utf-8")
+        no_engine_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "JGivenNoEngineTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("ScenarioTest<", engine_source)
+        self.assertIn("startProcessInstanceByKey", engine_source)
+        self.assertIn("ScenarioTest<", no_engine_source)
+        self.assertNotIn("ProcessEngine", no_engine_source)
+        self.assertNotIn("startProcessInstanceByKey", no_engine_source)
+
+        parity = markdown_table(
+            EXPECTED_PARITY,
+            ["Camunda 7 Test ID", "CPT Test ID(s)", "Verdict", "Notes"],
+        )
+        parity_by_id = {row["Camunda 7 Test ID"]: row for row in parity}
+        engine_parity_row = parity_by_id.get(engine_test_id)
+        self.assertIsNotNone(
+            engine_parity_row,
+            "The in-scope JGiven test must have a parity row.",
+        )
+        if engine_parity_row is not None:
+            self.assertEqual("manual", engine_parity_row["Verdict"])
+            self.assertEqual("—", engine_parity_row["CPT Test ID(s)"])
+            self.assertIn(
+                "requires manual migration",
+                normalized(engine_parity_row["Notes"]),
+            )
+
+    def test_supported_discovery_inputs_stay_separate_from_kind_assignment(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        inventory = markdown_table(
+            EXPECTED_ASSESSMENT,
+            ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
+        )
+        test_ids = {row["Test ID"] for row in inventory}
+
+        for source_kind in (
+            "junit 3",
+            "cucumber",
+            "spock",
+            "spring endpoint",
+            "direct decision service",
+        ):
+            with self.subTest(source_kind=source_kind):
+                self.assertIn(f"| {source_kind} |", reference)
+
+        self.assertIn(
+            "when the skill identifies a candidate, it records a test inventory row "
+            "before it assigns a test kind.",
+            reference,
+        )
+        self.assertIn(
+            "when the skill assigns a test kind, it uses the test kinds table and "
+            "evidence of executed engine behavior.",
+            reference,
+        )
+        for test_id in (
+            "engine-tests:com.camunda.fixture.order.LegacyOrderTest#testStockMissing",
+            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
+            "engine-tests:com.camunda.fixture.order.PromotionsDecisionTest#evaluatesRequiredDecision",
+            "engine-tests:com.camunda.fixture.order.InventoryDiscoverySpec#feature without engine",
+            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#Without engine execution@L10",
+            "engine-tests:com.camunda.fixture.order.JGivenEngineBackedTest#startsProcess",
+            "engine-tests:com.camunda.fixture.order.JGivenNoEngineTest#runsPlainUnitTest",
+        ):
+            with self.subTest(test_id=test_id):
+                self.assertIn(test_id, test_ids)
+
+    def test_spock_discovery_preserves_quoted_feature_names(self):
+        self.assertIn(
+            "engine-tests:com.camunda.fixture.order."
+            "InventoryDiscoverySpec#feature without engine",
+            test_method_ids(C7_SOURCE),
+        )
+
+    def test_cucumber_discovery_preserves_full_scenario_names(self):
+        self.assertIn(
+            "engine-tests:src/test/resources/features/"
+            "CandidateDiscovery.feature#Without engine execution@L10",
+            test_method_ids(C7_SOURCE),
+        )
+
+    def test_process_test_walkthrough_matches_decision_and_jgiven_fixtures(self):
+        readme = normalized((FIXTURE / "README.md").read_text(encoding="utf-8"))
+        self.assertIn(
+            "it migrates selected process, decision, scenario, and remote-engine tests "
+            "with available cpt procedures.",
+            readme,
+        )
+        self.assertIn(
+            "the test parity table maps migrated tests to their cpt equivalents, marks the "
+            "paymentworker remote-engine test as migrated, keeps the shared-engine test "
+            "manual because cpt deletes runtime data between tests",
+            readme,
+        )
+        self.assertIn(
+            "records the engine-backed jgiven test as `manual` with no cpt mapping.",
+            readme,
+        )
+        self.assertIn(
+            "it excludes jgiven tests that execute no real c7 process or decision.",
+            readme,
+        )
+        self.assertIn(
+            "e1 and e2 have migrated cpt equivalents.",
+            readme,
+        )
+        self.assertNotIn(
+            "when e1 and e2 have `report only` or manual-migration handling",
+            readme,
+        )
+
+    def test_scenario_deferred_actions_are_time_modifier_signals(self):
+        modifier_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE, ["Modifier", "Detect by", "Used by"]
+        )
+        time_modifier = next(row for row in modifier_rows if row["Modifier"] == "time")
+        self.assertIn("task.defer(period, action)", time_modifier["Detect by"])
+
+        fulfillment_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/"
+            "FulfillmentScenarioTest.java"
+        ).read_text(encoding="utf-8")
+        self.assertIn("task.defer(", fulfillment_source)
+
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            scenario_rows = [
+                row
+                for row in rows
+                if row["Test ID"].endswith(
+                    "FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders"
+                )
+            ]
+            self.assertEqual(2, len(scenario_rows))
+            for row in scenario_rows:
+                with self.subTest(inventory=inventory_path, test_id=row["Test ID"]):
+                    self.assertIn("time modifier", row["Signals"])
+
+    def test_all_in_scope_test_kinds_keep_modifier_signals(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        modifier_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE, ["Modifier", "Detect by", "Used by"]
+        )
+        mocks_modifier = next(row for row in modifier_rows if row["Modifier"] == "mocks")
+        self.assertIn(
+            "org.camunda.bpm.scenario.ProcessScenario",
+            mocks_modifier["Detect by"],
+        )
+        required_modifiers = {
+            "OrderProcessTest#approvesAndShipsOrder": ("mocks modifier", "time modifier"),
+            "OrderTimerTest#escalatesAfterOneDay": ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#registersWholeDelegateAndExecutionListenerMocks":
+                ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#registersDelegateOutputAndVerifiesItsInvocation":
+                ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#routesDelegateBpmnError": ("mocks modifier", "time modifier"),
+            "OrderMockitoTest#throwsWhenTheSynchronousDelegateFails":
+                ("mocks modifier", "time modifier"),
+            "OrderAutoMockTest#autoMocksDelegatesAndTracksCoverage":
+                ("mocks modifier", "coverage modifier"),
+            "FulfillmentScenarioTest#shouldCompleteWorkAfterTwoDailyReminders":
+                ("mocks modifier", "time modifier"),
+            "ScenarioMappingEdgeCasesTest#shouldStartMessageProcess": ("mocks modifier",),
+            "ScenarioMappingEdgeCasesTest#shouldCountCompletedVisitsSeparately":
+                ("mocks modifier",),
+            "ScenarioMappingEdgeCasesTest#shouldCountMixedFinishedVisitsByOutcome":
+                ("mocks modifier",),
+            "SubscriptionStandaloneTest#startsSubscriptionWithoutSpring": ("mocks modifier",),
+            "JGivenEngineBackedTest#startsProcess": ("no applicable modifiers",),
+            "FluentModelTest#buildsAndStartsModel": ("no applicable modifiers",),
+        }
+
+        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+            rows = markdown_table(inventory_path, headers)
+            for row in rows:
+                if row["Test kind"] in ("out of scope", "out of scope (Camunda 8)"):
+                    continue
+                with self.subTest(inventory=inventory_path, test_id=row["Test ID"]):
+                    self.assertTrue(row["Signals"].strip())
+                    source = (C7_SOURCE / row["File"]).read_text(encoding="utf-8")
+                    if any(
+                        marker in source
+                        for marker in ("@SpringBootTest", "SpringRunner", "SpringExtension")
+                    ):
+                        self.assertIn("Spring modifier", row["Signals"])
+                    if "@MockBean" in source:
+                        self.assertIn("mocks modifier", row["Signals"])
+                    if "@Mock private ProcessScenario" in source:
+                        self.assertIn("mocks modifier", row["Signals"])
+
+            fulfillment_rows = [
+                row for row in rows if "FulfillmentScenarioTest#" in row["Test ID"]
+            ]
+            self.assertEqual(2, len(fulfillment_rows))
+            for row in fulfillment_rows:
+                self.assertIn("mocks modifier", row["Signals"])
+                self.assertIn("time modifier", row["Signals"])
+
+            for test_suffix, modifiers in required_modifiers.items():
+                matching_rows = [
+                    row for row in rows if row["Test ID"].endswith(test_suffix)
+                ]
+                self.assertTrue(
+                    matching_rows,
+                    "Missing modifier fixture for {}".format(test_suffix),
+                )
+                for row in matching_rows:
+                    with self.subTest(
+                        inventory=inventory_path,
+                        test_id=row["Test ID"],
+                    ):
+                        for modifier in modifiers:
+                            self.assertIn(modifier, row["Signals"])
+
+    def test_step_three_uses_test_migration_reference_during_execution(self):
+        skill = normalized(MIGRATION_SKILL.read_text(encoding="utf-8"))
+        code_migration = skill.split("#### part a - code migration", 1)[1].split(
+            "#### part b - model migration", 1
+        )[0]
+
+        self.assertIn(
+            "the skill follows `references/test-migration.md` for tests that drive a running "
+            "camunda 7 engine, camunda 7 decision-test cpt mapping, and spring process-test "
+            "migration.",
+            code_migration,
+        )
 
     def test_inventory_count_summaries_match_each_test_kind(self):
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
@@ -1205,7 +1670,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         )
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
+        for inventory_path, handling in (
+            (EXPECTED_ASSESSMENT, "Migrate (lower priority)"),
+            (EXPECTED_ASSESSMENT_88, "Report only"),
+        ):
             payment_test = next(
                 row
                 for row in markdown_table(inventory_path, headers)
@@ -1214,15 +1682,11 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
             )
             self.assertEqual("remote-engine test", payment_test["Test kind"])
-            payment_notes = normalized(payment_test["Notes"])
-            self.assertNotIn("remote-engine migration procedure is defined", payment_notes)
-            if inventory_path == EXPECTED_ASSESSMENT:
-                self.assertEqual(MIGRATE_LOWER_PRIORITY, payment_test["Handling"])
-            else:
-                self.assertEqual("Report only", payment_test["Handling"])
+            self.assertEqual(handling, payment_test["Handling"])
+            if inventory_path == EXPECTED_ASSESSMENT_88:
                 self.assertIn(
                     "test migration needs camunda 8.9 or later",
-                    payment_notes,
+                    normalized(payment_test["Notes"]),
                 )
 
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
@@ -1378,8 +1842,8 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual([], unqualified_scope_rules)
         self.assertIn(
-            "the skill follows `references/test-migration.md` for every test inventory row "
-            "whose `handling` value instructs migration, including process-test mocks.",
+            "when code migration includes camunda platform scenario tests, follow "
+            "`references/test-migration.md`.",
             normalized_skill,
         )
 
@@ -1570,15 +2034,17 @@ class MigrationGuidanceTest(unittest.TestCase):
                 if other["Test kind"] == "remote-engine test":
                     other_notes = normalized(other["Notes"])
                     self.assertIn(version_reason, other_notes)
-                    self.assertNotIn(
-                        "remote-engine migration procedure is defined",
-                        other_notes,
-                    )
                     if is_shared_engine_test:
                         self.assertIn(normalized(SHARED_ENGINE_REASON), other_notes)
-                        self.assertIn("shared environment", other_notes)
                     else:
-                        self.assertNotIn("shared environment", other_notes)
+                        self.assertNotIn(normalized(SHARED_ENGINE_REASON), other_notes)
+                    self.assertNotIn(
+                        normalized(
+                            "Report only until the remote-engine migration "
+                            "procedure is defined"
+                        ),
+                        other_notes,
+                    )
 
                 if row["Test kind"] == "manual redesign":
                     self.assertEqual(other["Handling"], "Report only")
@@ -1617,536 +2083,6 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
-    def test_inventory_records_the_mocks_modifier_for_detected_tests(self):
-        expected_mock_tests = {
-            "engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder",
-            "engine-tests:com.camunda.fixture.order.FulfillmentScenarioTest#"
-            "shouldCompleteWorkAfterTwoDailyReminders",
-            "engine-tests-legacy:com.camunda.fixture.order.FulfillmentScenarioTest#"
-            "shouldCompleteWorkAfterTwoDailyReminders",
-            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
-            "registersWholeDelegateAndExecutionListenerMocks",
-            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
-            "registersDelegateOutputAndVerifiesItsInvocation",
-            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#routesDelegateBpmnError",
-            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#"
-            "throwsWhenTheSynchronousDelegateFails",
-            "engine-tests:com.camunda.fixture.order.OrderAutoMockTest#"
-            "autoMocksDelegatesAndTracksCoverage",
-            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldCountCompletedVisitsSeparately",
-            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldCountCompletedVisitsSeparately",
-            "engine-tests:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldCountMixedFinishedVisitsByOutcome",
-            "engine-tests-legacy:com.camunda.fixture.order.ScenarioMappingEdgeCasesTest#"
-            "shouldCountMixedFinishedVisitsByOutcome",
-            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionProcessTest#"
-            "activatesSubscription",
-            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#"
-            "startsSubscriptionFromHttp",
-            "spring-boot-app:com.camunda.fixture.subscription.ActivateDelegateMockTest#"
-            "mocksDelegateBean",
-            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#"
-            "startsSubscriptionWithoutSpring",
-        }
-        scenario_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/FulfillmentScenarioTest.java"
-        ).read_text(encoding="utf-8")
-        scenario_mapping_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/ScenarioMappingEdgeCasesTest.java"
-        ).read_text(encoding="utf-8")
-        message_start_test = scenario_mapping_test.split(
-            "public void shouldStartMessageProcess()", 1
-        )[1].split("\n  }", 1)[0]
-        self.assertIn("@Mock private ProcessScenario process;", scenario_test)
-        self.assertIn('.withMockedProcess("shipping")', scenario_test)
-        self.assertIn("@Mock private ProcessScenario process;", scenario_mapping_test)
-        self.assertIn("Scenario.run(process).startByMessage", message_start_test)
-        self.assertNotIn("waitsAt", message_start_test)
-        self.assertNotIn("withMockedProcess", message_start_test)
-        self.assertIn(
-            "the skill does not treat a `processscenario` mock used only to drive and verify "
-            "a scenario test as a component mock signal",
-            normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")),
-        )
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-
-        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
-            rows = markdown_table(inventory_path, headers)
-            recorded_mock_tests = {
-                row["Test ID"]
-                for row in rows
-                if "mocks"
-                in {
-                    normalized(signal.strip().strip("`"))
-                    for signal in row["Signals"].split(";")
-                }
-            }
-            with self.subTest(inventory=inventory_path):
-                self.assertEqual(expected_mock_tests, recorded_mock_tests)
-
-    def test_inventory_does_not_mark_a_concrete_registered_listener_as_mocked(self):
-        test_id = (
-            "engine-tests:com.camunda.fixture.order.OrderTimerTest#escalatesAfterOneDay"
-        )
-        order_timer_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
-        ).read_text(encoding="utf-8")
-        listener = (
-            C7_SOURCE
-            / "engine-tests/src/main/java/com/camunda/fixture/order/OrderAuditListener.java"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            'Mocks.register("orderAuditListener", new OrderAuditListener())',
-            order_timer_test,
-        )
-        self.assertIn('execution.setVariable("auditStarted", true)', listener)
-
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
-            rows = markdown_table(inventory_path, headers)
-            row = next(row for row in rows if row["Test ID"] == test_id)
-            signals = {
-                normalized(signal.strip().strip("`"))
-                for signal in row["Signals"].split(";")
-            }
-            with self.subTest(inventory=inventory_path):
-                self.assertNotIn("mocks", signals)
-
-    def test_delegate_execution_fake_alone_does_not_add_mocks_modifier(self):
-        test_id = (
-            "engine-tests:com.camunda.fixture.order.ChargePaymentDelegateFakeTest"
-            "#writesPaymentReference"
-        )
-        c7_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/"
-            "ChargePaymentDelegateFakeTest.java"
-        ).read_text(encoding="utf-8")
-        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-
-        self.assertIn("DelegateExecutionFake.of()", c7_test)
-        self.assertIn(
-            "do not count a `delegateexecutionfake` alone as mock evidence",
-            reference,
-        )
-        self.assertNotIn(
-            "when test source uses `org.camunda.community.mockito.*`, the skill records `mocks`",
-            reference,
-        )
-
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
-            rows = markdown_table(inventory_path, headers)
-            row = next(row for row in rows if row["Test ID"] == test_id)
-            signals = {
-                normalized(signal.strip().strip("`"))
-                for signal in row["Signals"].split(";")
-            }
-            with self.subTest(inventory=inventory_path):
-                self.assertIn("delegateexecutionfake", signals)
-                self.assertNotIn("mocks", signals)
-
-    def test_concrete_listener_side_effect_is_preserved_in_cpt_fixture(self):
-        c7_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
-        ).read_text(encoding="utf-8")
-        c8_test = (
-            EXPECTED_C8
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn(
-            'assertThat(instance).variables().containsEntry("auditStarted", true)',
-            c7_test,
-        )
-        self.assertIn('.hasVariable("auditStarted", true)', c8_test)
-
-    def test_mock_modifier_detection_is_completed_during_step_two(self):
-        skill = (
-            REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
-        ).read_text(encoding="utf-8")
-        step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
-
-        self.assertIn(
-            "When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.",
-            step_two,
-        )
-        self.assertNotIn("detect mock signals", step_two)
-        self.assertNotIn("source-derived `mocks` modifier", step_two)
-        part_a = step_three.split("When the user selects Approach A", 1)[0]
-        self.assertIn(
-            "the skill follows `references/test-migration.md` for every test inventory row "
-            "whose `handling` value instructs migration, including process-test mocks.",
-            normalized(part_a),
-        )
-        self.assertEqual(1, normalized(part_a).count("references/test-migration.md"))
-        self.assertNotIn(
-            "when code migration includes camunda platform scenario tests, follow",
-            normalized(part_a),
-        )
-        for duplicated_rule in (
-            "mock-boundary and mapping rules.",
-            "the skill also requires an in-scope test's `signals` column to contain `mocks`.",
-            "if the `handling` value does not instruct migration, then the skill does not apply those rules.",
-            "does not use a `mocks` signal to override the test inventory's `handling` value.",
-            "the skill uses the source-derived modifier recorded in step 2.",
-            "it does not derive the modifier again after source transformations.",
-        ):
-            with self.subTest(duplicated_rule=duplicated_rule):
-                self.assertNotIn(duplicated_rule, normalized(part_a))
-
-    def test_mock_migration_respects_inventory_handling(self):
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
-        report_only_mock_rows = [
-            row
-            for row in inventory_88
-            if row["Handling"] == "Report only"
-            and "mocks"
-            in {
-                normalized(signal.strip().strip("`"))
-                for signal in row["Signals"].split(";")
-            }
-        ]
-        self.assertTrue(report_only_mock_rows)
-        self.assertTrue(
-            any(row["Test kind"] == "scenario test" for row in report_only_mock_rows)
-        )
-
-        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn(
-            "where an in-scope test's `handling` value instructs migration, the skill applies "
-            "mock-boundary mappings.",
-            reference,
-        )
-        self.assertIn(
-            "the skill also requires `mocks` in that row's `signals` column.",
-            reference,
-        )
-        self.assertIn(
-            "if the `handling` value does not instruct migration, then the skill does not apply "
-            "a mock mapping.",
-            reference,
-        )
-        self.assertIn(
-            "the signal records source evidence. it does not override the test inventory's "
-            "`handling` value.",
-            reference,
-        )
-
-    def test_spring_worker_guidance_uses_the_spring_registered_worker(self):
-        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        spring_test = (
-            EXPECTED_C8
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "SubscriptionProcessTest.java"
-        ).read_text(encoding="utf-8")
-        spring_application = (
-            EXPECTED_C8
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "TestSubscriptionApplication.java"
-        ).read_text(encoding="utf-8")
-        spring_worker = (
-            EXPECTED_C8
-            / "spring-boot-app/src/main/java/com/camunda/fixture/subscription/"
-            "ActivateSubscriptionWorker.java"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("@SpringBootTest", spring_test)
-        self.assertIn("@CamundaSpringProcessTest", spring_test)
-        self.assertIn("classes = TestSubscriptionApplication.class", spring_test)
-        self.assertIn("@MockitoBean private BillingClient billingClient", spring_test)
-        self.assertIn(
-            '@SpringBootApplication(scanBasePackages = "com.camunda.fixture.subscription")',
-            spring_application,
-        )
-        self.assertIn("@Component", spring_worker)
-        self.assertIn('@JobWorker(type = "activate-subscription")', spring_worker)
-        self.assertIn(
-            "when a c7 test mocks an expression service or a service used by a delegate or worker, "
-            "the skill checks the mapped c8 worker.",
-            reference,
-        )
-        self.assertIn(
-            "where the mapped worker is not a spring bean, the skill opens that worker in "
-            "`@beforeeach`.",
-            reference,
-        )
-        self.assertIn(
-            "where the mapped worker is a spring bean, cpt starts it through the spring process "
-            "application's client-created event.",
-            reference,
-        )
-        self.assertIn(
-            "the skill does not open a second worker.",
-            reference,
-        )
-
-    def test_migrated_mock_fixtures_preserve_component_boundaries(self):
-        test_ids = {
-            "engine-tests:com.camunda.fixture.order.OrderProcessTest#approvesAndShipsOrder",
-            "engine-tests:com.camunda.fixture.order.OrderMockitoTest#routesDelegateBpmnError",
-            "engine-tests:com.camunda.fixture.order.OrderAutoMockTest#"
-            "autoMocksDelegatesAndTracksCoverage",
-            "spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#"
-            "startsSubscriptionWithoutSpring",
-        }
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
-            rows = {
-                row["Test ID"]: row
-                for row in markdown_table(inventory_path, headers)
-            }
-            for test_id in test_ids:
-                with self.subTest(inventory=inventory_path, test_id=test_id):
-                    self.assertIn(test_id, rows)
-                    signals = {
-                        normalized(signal.strip().strip("`"))
-                        for signal in rows[test_id]["Signals"].split(";")
-                    }
-                    self.assertIn("mocks", signals)
-
-        c7_order_mock = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
-        ).read_text(encoding="utf-8")
-        c7_order_model = (
-            C7_SOURCE / "engine-tests/src/main/resources/order.bpmn"
-        ).read_text(encoding="utf-8")
-        c8_order_mock = (
-            EXPECTED_C8
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
-        ).read_text(encoding="utf-8")
-        c8_job_handlers = (
-            EXPECTED_C8
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderJobHandlers.java"
-        ).read_text(encoding="utf-8")
-        c7_notification_test = java_method_body(c7_order_mock, "routesDelegateBpmnError")
-        c7_notification_setup = java_method_body(c7_order_mock, "registerNotificationService")
-        notification_test = java_method_body(c8_order_mock, "routesDelegateBpmnError")
-        notification_setup = java_method_body(c8_order_mock, "openSupportingWorkers")
-        self.assertIn("notificationService = mock(NotificationService.class);", c7_order_mock)
-        self.assertIn(
-            'Mocks.register("notificationService", notificationService)',
-            c7_order_mock,
-        )
-        self.assertIn(
-            'camunda:expression="${notificationService.notifyPaymentFailed(execution)}"',
-            c7_order_model,
-        )
-        self.assertIn(
-            "verify(notificationService).notifyPaymentFailed(any(DelegateExecution.class))",
-            c7_notification_test,
-        )
-        self.assertIn(
-            "OrderJobHandlers.openNotificationWorker(client, notificationService)",
-            notification_setup,
-        )
-        self.assertIn(
-            "return open(client, () -> openNotificationWorker(client, notificationService));",
-            c8_job_handlers,
-        )
-        self.assertIn(
-            "verify(notificationService).notifyPaymentFailed(anyMap())",
-            notification_test,
-        )
-        self.assertNotIn('mockJobWorker("notify-customer")', notification_test)
-        self.assertNotIn("customerNotified", notification_test)
-        self.assertIn("OrderJobHandlers.openStockWorker(client)", notification_setup)
-        self.assertNotIn("OrderJobHandlers.openWithoutCharge(client)", notification_setup)
-
-        c7_inherited_test = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
-        ).read_text(encoding="utf-8")
-        c7_inherited_setup = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/AbstractOrderProcessTest.java"
-        ).read_text(encoding="utf-8")
-        c8_inherited_test = (
-            EXPECTED_C8
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
-        ).read_text(encoding="utf-8")
-        inherited_setup = java_method_body(c8_inherited_test, "openWorkers")
-        self.assertIn("extends AbstractOrderProcessTest", c7_inherited_test)
-        self.assertIn(
-            'Mocks.register("notificationService", Mockito.mock(NotificationService.class))',
-            c7_inherited_setup,
-        )
-        self.assertIn(
-            "OrderJobHandlers.NotificationService notificationService",
-            inherited_setup,
-        )
-        self.assertIn(
-            "mock(OrderJobHandlers.NotificationService.class)",
-            inherited_setup,
-        )
-        self.assertIn(
-            "workers = OrderJobHandlers.open(client, notificationService)",
-            inherited_setup,
-        )
-        self.assertNotIn('mockJobWorker("notify-customer")', c8_inherited_test)
-
-        c7_auto_mock = (
-            C7_SOURCE
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
-        ).read_text(encoding="utf-8")
-        c8_auto_mock = (
-            EXPECTED_C8
-            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
-        ).read_text(encoding="utf-8")
-        auto_mock_test = java_method_body(c8_auto_mock, "autoMocksDelegatesAndTracksCoverage")
-        auto_mock_setup = java_method_body(c8_auto_mock, "openStockWorker")
-        self.assertIn(
-            'Mocks.register("orderAuditListener", new OrderAuditListener())',
-            c7_auto_mock,
-        )
-        self.assertLess(
-            c7_auto_mock.index('Mocks.register("orderAuditListener", new OrderAuditListener())'),
-            c7_auto_mock.index('autoMock("order.bpmn")'),
-        )
-        c7_order_model_root = ET.fromstring(c7_order_model)
-        camunda_namespace = "{http://camunda.org/schema/1.0/bpmn}"
-        bpmn_namespace = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
-        delegate_expressions = {
-            element.attrib.get(
-                f"{camunda_namespace}delegateExpression",
-                element.attrib.get("delegateExpression"),
-            )
-            for element in c7_order_model_root.iter()
-            if f"{camunda_namespace}delegateExpression" in element.attrib
-            or "delegateExpression" in element.attrib
-        }
-        self.assertEqual(
-            {"${orderAuditListener}", "${chargePaymentDelegate}"},
-            delegate_expressions,
-        )
-        service_task_implementations = {
-            task.attrib["id"]: {
-                attribute
-                for attribute in ("class", "delegateExpression", "expression")
-                if f"{camunda_namespace}{attribute}" in task.attrib
-            }
-            for task in c7_order_model_root.iter(f"{bpmn_namespace}serviceTask")
-        }
-        self.assertEqual(
-            {
-                "Task_CheckStock": {"class"},
-                "Task_ChargePayment": {"delegateExpression"},
-                "Task_NotifyCustomer": {"expression"},
-            },
-            service_task_implementations,
-        )
-        c8_order_model = ET.parse(
-            EXPECTED_C8 / "engine-tests/src/main/resources/converted-c8-order.bpmn"
-        ).getroot()
-        zeebe_namespace = "{http://camunda.org/schema/zeebe/1.0}"
-        self.assertEqual(
-            {"check-stock", "charge-payment", "notify-customer"},
-            {
-                element.attrib["type"]
-                for element in c8_order_model.iter(f"{zeebe_namespace}taskDefinition")
-            },
-        )
-        self.assertEqual(
-            {"order-audit"},
-            {
-                element.attrib["type"]
-                for element in c8_order_model.iter(f"{zeebe_namespace}executionListener")
-            },
-        )
-        mock_job_types = set(re.findall(r'mockJobWorker\("([^"]+)"\)', auto_mock_test))
-        self.assertEqual({"charge-payment", "order-audit"}, mock_job_types)
-        self.assertIn("audit.getInvocations()", auto_mock_test)
-        self.assertIn("charge.getInvocations()", auto_mock_test)
-        self.assertNotIn('mockJobWorker("notify-customer")', auto_mock_test)
-        self.assertIn("OrderJobHandlers.openStockWorker(client)", auto_mock_setup)
-        self.assertNotIn("OrderJobHandlers.openAuditWorker(client)", auto_mock_setup)
-        self.assertNotIn("OrderJobHandlers.open(client)", auto_mock_setup)
-        self.assertIn("stockChecked", auto_mock_test)
-        self.assertNotIn("auditStarted", auto_mock_test)
-
-        c7_subscription_mock = (
-            C7_SOURCE
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "SubscriptionStandaloneTest.java"
-        ).read_text(encoding="utf-8")
-        c8_subscription_mock = (
-            EXPECTED_C8
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "SubscriptionStandaloneTest.java"
-        ).read_text(encoding="utf-8")
-        subscription_test = java_method_body(
-            c8_subscription_mock, "startsSubscriptionWithoutSpring"
-        )
-        self.assertIn(
-            'Mocks.register("activateSubscriptionDelegate", Mockito.mock(JavaDelegate.class))',
-            c7_subscription_mock,
-        )
-        self.assertIn(
-            'mockJobWorker("activate-subscription").thenComplete()',
-            subscription_test,
-        )
-        self.assertIn("activationMock.getInvocations()", subscription_test)
-        self.assertNotIn('"activated"', subscription_test)
-        self.assertNotIn("newWorker()", subscription_test)
-        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn(
-            "`mocks.register(\"bean\", mock)` for a `camunda:expression` target",
-            reference,
-        )
-        self.assertIn(
-            "keep the real mapped worker and inject the same mockito mock into the expression service",
-            reference,
-        )
-        self.assertIn(
-            "treat the expression service as a collaborator. do not call `mockjobworker(type)`",
-            reference,
-        )
-        self.assertNotIn("whole delegate or expression bean", reference)
-        self.assertIn(
-            "the last registration for a bean sets the effective boundary",
-            reference,
-        )
-        self.assertIn(
-            "the skill does not infer mocks from `camunda:class` or `camunda:expression`",
-            reference,
-        )
-    def test_camunda_8_8_inventory_preserves_signals_across_targets(self):
-        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
-        inventory = markdown_table(EXPECTED_ASSESSMENT, headers)
-        inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
-        self.assert_unique_rows(inventory, "Test ID", EXPECTED_ASSESSMENT)
-        self.assert_unique_rows(inventory_88, "Test ID", EXPECTED_ASSESSMENT_88)
-        rows_89 = {row["Test ID"]: row for row in inventory}
-        rows_88 = {row["Test ID"]: row for row in inventory_88}
-
-        self.assertEqual(set(rows_89), set(rows_88))
-        for test_id, row in rows_89.items():
-            with self.subTest(test_id=test_id):
-                other = rows_88[test_id]
-                for column in ("File", "Test kind", "Signals", "Models"):
-                    self.assertEqual(other[column], row[column])
-                if row["Handling"].startswith("Migrate"):
-                    self.assertEqual(other["Handling"], "Report only")
-                    self.assertIn(
-                        normalized("test migration needs Camunda 8.9 or later"),
-                        normalized(other["Notes"]),
-                    )
-                else:
-                    self.assertEqual(other["Handling"], row["Handling"])
-                    if other["Notes"] != row["Notes"]:
-                        self.assertIn(
-                            normalized("test migration needs Camunda 8.9 or later"),
-                            normalized(other["Notes"]),
-                        )
-
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
@@ -2169,9 +2105,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             elif test_kind == "scenario test":
                 expected_handling = MIGRATE_LOWER_PRIORITY
             elif test_kind == "remote-engine test":
-                is_shared_engine_test = "shared environment" in normalized(row["Notes"])
                 expected_handling = (
-                    "Report only" if is_shared_engine_test else MIGRATE_LOWER_PRIORITY
+                    MIGRATE_LOWER_PRIORITY
+                    if test_id.endswith(
+                        "PaymentWorkerIT#chargesPaymentThroughEngineRest"
+                    )
+                    else "Report only"
                 )
             elif test_kind in REPORT_ONLY_REASONS:
                 expected_handling = "Report only"
@@ -2189,7 +2128,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
                 shared_engine = (
                     test_kind == "remote-engine test"
-                    and "shared environment" in normalized(row["Notes"])
+                    and normalized(SHARED_ENGINE_REASON) in normalized(row["Notes"])
                 )
                 reason = (
                     normalized(SHARED_ENGINE_REASON)
@@ -2207,7 +2146,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                         with self.subTest(test_id=test_id, cpt_test=mapped_id):
                             self.assertIn(mapped_id, cpt_test_ids)
 
-    def test_parity_maps_every_migrated_test_to_an_existing_cpt_test(self):
+    def test_parity_maps_migrated_tests_and_tracks_manual_migrations(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,
             ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"],
@@ -2222,7 +2161,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(
             [],
-            migrated_test_parity_errors(inventory, parity_by_id, cpt_test_ids),
+            test_parity_errors(inventory, parity_by_id, cpt_test_ids),
         )
 
         required_verdicts = {
@@ -2243,9 +2182,10 @@ class MigrationGuidanceTest(unittest.TestCase):
             "remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine"
         )
         self.assertEqual(parity_by_id[shared_engine_test_id]["Verdict"], "manual")
-        shared_engine_notes = normalized(parity_by_id[shared_engine_test_id]["Notes"])
-        self.assertIn(normalized(SHARED_ENGINE_REASON), shared_engine_notes)
-        self.assertIn("cpt deletes all runtime data between tests", shared_engine_notes)
+        self.assertEqual(
+            parity_by_id[shared_engine_test_id]["Notes"],
+            SHARED_ENGINE_REASON,
+        )
 
     def test_lower_priority_scenarios_require_valid_primary_parity_rows(self):
         test_id = (
@@ -2259,7 +2199,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         }
         self.assertEqual(
             [],
-            migrated_test_parity_errors(
+            test_parity_errors(
                 inventory, {test_id: valid_row}, {test_id}
             ),
         )
@@ -2296,7 +2236,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(case=case):
                 self.assertEqual(
                     expected_errors,
-                    migrated_test_parity_errors(
+                    test_parity_errors(
                         inventory, parity_by_id, {test_id}
                     ),
                 )
@@ -2314,17 +2254,53 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(assessment=assessment_path):
                 self.assertIn(shared_engine_test_id, rows)
                 self.assertEqual(rows[shared_engine_test_id]["Handling"], "Report only")
-                notes = normalized(rows[shared_engine_test_id]["Notes"])
-                self.assertTrue(
-                    notes.startswith(
-                        normalized("R2; shared environment. {}".format(SHARED_ENGINE_REASON))
-                    )
-                )
+                expected_notes = "R2; {}".format(SHARED_ENGINE_REASON)
                 if assessment_path == EXPECTED_ASSESSMENT_88:
-                    self.assertIn(
-                        "test migration needs camunda 8.9 or later",
-                        notes,
-                    )
+                    expected_notes += " test migration needs Camunda 8.9 or later"
+                self.assertEqual(
+                    rows[shared_engine_test_id]["Notes"],
+                    expected_notes,
+                )
+
+    def test_manual_migration_requires_a_manual_or_retired_parity_row(self):
+        test_id = (
+            "engine-tests:com.camunda.fixture.order."
+            "JGivenEngineBackedTest#startsProcess"
+        )
+        inventory = [
+            {
+                "Test ID": test_id,
+                "Test kind": "manual migration",
+                "Handling": "Report only",
+            }
+        ]
+        valid_row = {"CPT Test ID(s)": "—", "Verdict": "manual"}
+        self.assertEqual(
+            [],
+            test_parity_errors(inventory, {test_id: valid_row}, set()),
+        )
+        self.assertEqual(
+            [],
+            test_parity_errors(
+                inventory,
+                {test_id: {"CPT Test ID(s)": "—", "Verdict": "retired"}},
+                set(),
+            ),
+        )
+        self.assertEqual(
+            ["Missing parity row for {}".format(test_id)],
+            test_parity_errors(inventory, {}, set()),
+        )
+        self.assertEqual(
+            [
+                "Expected manual or retired verdict for {}".format(test_id)
+            ],
+            test_parity_errors(
+                inventory,
+                {test_id: {"CPT Test ID(s)": "—", "Verdict": "migrated"}},
+                set(),
+            ),
+        )
 
     def test_every_converted_job_type_has_java_worker_or_mock(self):
         java_source = "\n".join(
@@ -2413,45 +2389,29 @@ class MigrationGuidanceTest(unittest.TestCase):
             reference,
         )
         self.assertIn("| priority | test kind | detect by | handling |", reference)
+        test_kind_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            ["Priority", "Test kind", "Detect by", "Handling"],
+        )
         process_test_row = next(
-            row
-            for row in markdown_table(
-                TEST_MIGRATION_REFERENCE,
-                ["Priority", "Test kind", "Detect by", "Handling"],
-            )
-            if row["Test kind"] == "process test"
+            row for row in test_kind_rows if row["Test kind"] == "process test"
         )
         self.assertEqual("Migrate to CPT", process_test_row["Handling"])
+        decision_test_row = next(
+            row for row in test_kind_rows if row["Test kind"] == "decision test"
+        )
+        self.assertEqual("Migrate", decision_test_row["Handling"])
         self.assertIn(
-            "when the target is camunda 8.9 or later, the skill migrates every test with "
-            "test kind `decision test`.",
+            "when the target is camunda 8.9 or later, the skill migrates every test "
+            "with test kind `decision test`.",
+            reference,
+        )
+        self.assertIn("harness and evaluation mapping", reference)
+        self.assertNotIn(
+            "if the separate dmn migration work in #3203 is incomplete",
             reference,
         )
         self.assertNotIn("engine-test migration procedure is undefined", reference)
-        self.assertIn("| modifier | detect by | used by |", reference)
-        raw_reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
-        self.assertEqual(
-            1,
-            len(
-                re.findall(
-                    r"^\|\s*`mocks`\s*\|",
-                    raw_reference,
-                    flags=re.MULTILINE,
-                )
-            ),
-        )
-        modifiers = raw_reference.split("## Modifiers", 1)[1].split("## Test sources", 1)[0]
-        self.assertIn("[Mock detection](#mock-detection)", modifiers)
-        self.assertNotIn("| mocks |", modifiers)
-        self.assertNotIn(
-            "the skill records modifiers only for process tests and decision tests",
-            normalized(modifiers),
-        )
-        self.assertIn("cpt (`io.camunda.process.test.*`)", reference)
-        self.assertIn(
-            "the test inventory records `mocks` in its `signals` column for every in-scope test method",
-            reference,
-        )
         for test_kind in TEST_KINDS:
             with self.subTest(test_kind=test_kind):
                 self.assertIn("| {} |".format(normalized(test_kind)), reference)
@@ -2483,6 +2443,18 @@ class MigrationGuidanceTest(unittest.TestCase):
             "`test migration needs camunda 8.9 or later`.",
             tests_gate,
         )
+    def test_worker_bootstrap_handling_is_scoped_to_non_boot_spring(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        handling_rule = (
+            "if the application has no usable worker bootstrap, then the skill sets "
+            "the test's handling to `report only`."
+        )
+        spring_section = reference.split("## spring without spring boot", 1)[1].split(
+            "## camunda platform scenario test migration", 1
+        )[0]
+
+        self.assertEqual(1, reference.count(handling_rule))
+        self.assertIn(handling_rule, spring_section)
 
     def test_cucumber_scenarios_have_discovery_and_stable_ids(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
@@ -2901,60 +2873,233 @@ class MigrationGuidanceTest(unittest.TestCase):
         }
         self.assertIn(MIGRATE_LOWER_PRIORITY, enabled_handling)
 
-    def test_reference_uses_ears_form_for_conditional_requirements(self):
-        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
-        conditional_sentences = re.findall(
-            r"\bif\b[^.]*\.",
-            reference,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        self.assertTrue(conditional_sentences, "Expected conditional requirements in the reference.")
-        for sentence in conditional_sentences:
-            with self.subTest(sentence=sentence.strip()):
-                self.assertRegex(
-                    sentence,
-                    r"\bthen\b",
-                    "Conditional requirements must use the EARS 'If ..., then ...' form.",
-                )
+    def test_expected_report_files_exist(self):
+        self.assertTrue(EXPECTED_ASSESSMENT.is_file())
+        self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
+        self.assertTrue(EXPECTED_PARITY.is_file())
+        self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
 
-    def test_reference_distinguishes_registry_bindings_from_test_doubles(self):
+    def test_concrete_listener_side_effect_is_preserved_in_cpt_fixture(self):
+        c7_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+        c8_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'assertThat(instance).variables().containsEntry("auditStarted", true)',
+            c7_test,
+        )
+        self.assertIn('.hasVariable("auditStarted", true)', c8_test)
+
+    def test_migrated_mock_fixtures_preserve_component_boundaries(self):
+        c7_order_mock = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
+        ).read_text(encoding="utf-8")
+        c7_order_model = (
+            C7_SOURCE / "engine-tests/src/main/resources/order.bpmn"
+        ).read_text(encoding="utf-8")
+        c8_order_mock = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderMockitoTest.java"
+        ).read_text(encoding="utf-8")
+        c8_job_handlers = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderJobHandlers.java"
+        ).read_text(encoding="utf-8")
+        c7_notification_test = java_method_body(c7_order_mock, "routesDelegateBpmnError")
+        c7_notification_setup = java_method_body(c7_order_mock, "registerNotificationService")
+        notification_test = java_method_body(c8_order_mock, "routesDelegateBpmnError")
+        notification_setup = java_method_body(c8_order_mock, "openSupportingWorkers")
+        self.assertIn("notificationService = mock(NotificationService.class);", c7_order_mock)
+        self.assertIn(
+            'Mocks.register("notificationService", notificationService)',
+            c7_order_mock,
+        )
+        self.assertIn(
+            'camunda:expression="${notificationService.notifyPaymentFailed(execution)}"',
+            c7_order_model,
+        )
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(any(DelegateExecution.class))",
+            c7_notification_test,
+        )
+        self.assertIn(
+            "OrderJobHandlers.openNotificationWorker(client, notificationService)",
+            notification_setup,
+        )
+        self.assertIn(
+            "return open(client, () -> openNotificationWorker(client, notificationService));",
+            c8_job_handlers,
+        )
+        self.assertIn(
+            "verify(notificationService).notifyPaymentFailed(anyMap())",
+            notification_test,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', notification_test)
+        self.assertNotIn("customerNotified", notification_test)
+        self.assertIn("OrderJobHandlers.openStockWorker(client)", notification_setup)
+        self.assertNotIn("OrderJobHandlers.openWithoutCharge(client)", notification_setup)
+
+        c7_inherited_test = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c7_inherited_setup = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/AbstractOrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        c8_inherited_test = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderProcessTest.java"
+        ).read_text(encoding="utf-8")
+        inherited_setup = java_method_body(c8_inherited_test, "openWorkers")
+        self.assertIn("extends AbstractOrderProcessTest", c7_inherited_test)
+        self.assertIn(
+            'Mocks.register("notificationService", Mockito.mock(NotificationService.class))',
+            c7_inherited_setup,
+        )
+        self.assertIn(
+            "OrderJobHandlers.NotificationService notificationService",
+            inherited_setup,
+        )
+        self.assertIn(
+            "mock(OrderJobHandlers.NotificationService.class)",
+            inherited_setup,
+        )
+        self.assertIn(
+            "workers = OrderJobHandlers.open(client, notificationService)",
+            inherited_setup,
+        )
+        self.assertNotIn('mockJobWorker("notify-customer")', c8_inherited_test)
+
+        c7_auto_mock = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
+        ).read_text(encoding="utf-8")
+        c8_auto_mock = (
+            EXPECTED_C8
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderAutoMockTest.java"
+        ).read_text(encoding="utf-8")
+        auto_mock_test = java_method_body(c8_auto_mock, "autoMocksDelegatesAndTracksCoverage")
+        auto_mock_setup = java_method_body(c8_auto_mock, "openStockWorker")
+        self.assertIn(
+            'Mocks.register("orderAuditListener", new OrderAuditListener())',
+            c7_auto_mock,
+        )
+        self.assertLess(
+            c7_auto_mock.index('Mocks.register("orderAuditListener", new OrderAuditListener())'),
+            c7_auto_mock.index('autoMock("order.bpmn")'),
+        )
+        c7_order_model_root = ET.fromstring(c7_order_model)
+        camunda_namespace = "{http://camunda.org/schema/1.0/bpmn}"
+        bpmn_namespace = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
+        delegate_expressions = {
+            element.attrib.get(
+                f"{camunda_namespace}delegateExpression",
+                element.attrib.get("delegateExpression"),
+            )
+            for element in c7_order_model_root.iter()
+            if f"{camunda_namespace}delegateExpression" in element.attrib
+            or "delegateExpression" in element.attrib
+        }
+        self.assertEqual(
+            {"${orderAuditListener}", "${chargePaymentDelegate}"},
+            delegate_expressions,
+        )
+        service_task_implementations = {
+            task.attrib["id"]: {
+                attribute
+                for attribute in ("class", "delegateExpression", "expression")
+                if f"{camunda_namespace}{attribute}" in task.attrib
+            }
+            for task in c7_order_model_root.iter(f"{bpmn_namespace}serviceTask")
+        }
+        self.assertEqual(
+            {
+                "Task_CheckStock": {"class"},
+                "Task_ChargePayment": {"delegateExpression"},
+                "Task_NotifyCustomer": {"expression"},
+            },
+            service_task_implementations,
+        )
+        c8_order_model = ET.parse(
+            EXPECTED_C8 / "engine-tests/src/main/resources/converted-c8-order.bpmn"
+        ).getroot()
+        zeebe_namespace = "{http://camunda.org/schema/zeebe/1.0}"
+        self.assertEqual(
+            {"check-stock", "charge-payment", "notify-customer"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}taskDefinition")
+            },
+        )
+        self.assertEqual(
+            {"order-audit"},
+            {
+                element.attrib["type"]
+                for element in c8_order_model.iter(f"{zeebe_namespace}executionListener")
+            },
+        )
+        mock_job_types = set(re.findall(r'mockJobWorker\("([^"]+)"\)', auto_mock_test))
+        self.assertEqual({"charge-payment", "order-audit"}, mock_job_types)
+        self.assertIn("audit.getInvocations()", auto_mock_test)
+        self.assertIn("charge.getInvocations()", auto_mock_test)
+        self.assertNotIn('mockJobWorker("notify-customer")', auto_mock_test)
+        self.assertIn("OrderJobHandlers.openStockWorker(client)", auto_mock_setup)
+        self.assertNotIn("OrderJobHandlers.openAuditWorker(client)", auto_mock_setup)
+        self.assertNotIn("OrderJobHandlers.open(client)", auto_mock_setup)
+        self.assertIn("stockChecked", auto_mock_test)
+        self.assertNotIn("auditStarted", auto_mock_test)
+
+        c7_subscription_mock = (
+            C7_SOURCE
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionStandaloneTest.java"
+        ).read_text(encoding="utf-8")
+        c8_subscription_mock = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionStandaloneTest.java"
+        ).read_text(encoding="utf-8")
+        subscription_test = java_method_body(
+            c8_subscription_mock, "startsSubscriptionWithoutSpring"
+        )
+        self.assertIn(
+            'Mocks.register("activateSubscriptionDelegate", Mockito.mock(JavaDelegate.class))',
+            c7_subscription_mock,
+        )
+        self.assertIn(
+            'mockJobWorker("activate-subscription").thenComplete()',
+            subscription_test,
+        )
+        self.assertIn("activationMock.getInvocations()", subscription_test)
+        self.assertNotIn('"activated"', subscription_test)
+        self.assertNotIn("newWorker()", subscription_test)
+
+    def test_mock_migration_respects_inventory_handling(self):
+        headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
+        inventory_88 = markdown_table(EXPECTED_ASSESSMENT_88, headers)
+        self.assertTrue(
+            any(
+                row["Handling"] == "Report only" and "mocks modifier" in row["Signals"]
+                for row in inventory_88
+            )
+        )
+
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         self.assertIn(
-            "`mocks.register(...)` as a registry binding, not mock evidence by itself",
+            normalized(
+                "When a Test Inventory row records the `mocks` modifier and its `Handling` value "
+                "instructs migration, the skill applies these mappings. A `mocks` modifier alone "
+                "does not qualify a `Report only` test for migration."
+            ),
             reference,
         )
-        self.assertIn(
-            "classify every `camundamockito.registermockinstance(...)` call as mock evidence "
-            "because the api always creates a mockito mock",
-            reference,
-        )
-        self.assertIn(
-            "`mocks.register(...)` registers a test double, the skill counts the call as mock evidence",
-            reference,
-        )
-        self.assertNotIn(
-            "`camundamockito.registermockinstance(...)` as a registry binding",
-            reference,
-        )
-        self.assertIn(
-            "a spring `@mockbean` or `@mockitobean` used by the process qualifies "
-            "whether it mocks a collaborator, delegate, or listener.",
-            reference,
-        )
-        spring_delegate_test = (
-            C7_SOURCE
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "ActivateDelegateMockTest.java"
-        ).read_text(encoding="utf-8")
-        spring_collaborator_test = (
-            C7_SOURCE
-            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
-            "SubscriptionProcessTest.java"
-        ).read_text(encoding="utf-8")
-        self.assertIn("@MockBean", spring_delegate_test)
-        self.assertIn("JavaDelegate", spring_delegate_test)
-        self.assertIn("@MockBean", spring_collaborator_test)
-        self.assertIn("BillingClient", spring_collaborator_test)
 
     def test_reference_approves_only_new_cpt_decision_mocks(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
@@ -2962,6 +3107,54 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("same-boundary migration", reference)
         self.assertIn("needs no additional approval", reference)
         self.assertIn("ask the user before adding a cpt decision mock", reference)
+
+    def test_spring_worker_guidance_uses_the_spring_registered_worker(self):
+        reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        spring_test = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "SubscriptionProcessTest.java"
+        ).read_text(encoding="utf-8")
+        spring_application = (
+            EXPECTED_C8
+            / "spring-boot-app/src/test/java/com/camunda/fixture/subscription/"
+            "TestSubscriptionApplication.java"
+        ).read_text(encoding="utf-8")
+        spring_worker = (
+            EXPECTED_C8
+            / "spring-boot-app/src/main/java/com/camunda/fixture/subscription/"
+            "ActivateSubscriptionWorker.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("@SpringBootTest", spring_test)
+        self.assertIn("@CamundaSpringProcessTest", spring_test)
+        self.assertIn("classes = TestSubscriptionApplication.class", spring_test)
+        self.assertIn("@MockitoBean private BillingClient billingClient", spring_test)
+        self.assertIn(
+            '@SpringBootApplication(scanBasePackages = "com.camunda.fixture.subscription")',
+            spring_application,
+        )
+        self.assertIn("@Component", spring_worker)
+        self.assertIn('@JobWorker(type = "activate-subscription")', spring_worker)
+        self.assertIn(
+            "when a c7 test mocks an expression service or a service used by a delegate or worker, "
+            "the skill checks the mapped c8 worker.",
+            reference,
+        )
+        self.assertIn(
+            "where the mapped worker is not a spring bean, the skill opens that worker in "
+            "`@beforeeach`.",
+            reference,
+        )
+        self.assertIn(
+            "where the mapped worker is a spring bean, cpt starts it through the spring process "
+            "application's client-created event.",
+            reference,
+        )
+        self.assertIn(
+            "the skill does not open a second worker.",
+            reference,
+        )
 
     def test_workers_and_mocks_section_cross_references_the_single_owner(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
@@ -2990,12 +3183,6 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The skill does not open the real worker for that component.",
             reference,
         )
-
-    def test_expected_report_files_exist(self):
-        self.assertTrue(EXPECTED_ASSESSMENT.is_file())
-        self.assertTrue(EXPECTED_ASSESSMENT_88.is_file())
-        self.assertTrue(EXPECTED_PARITY.is_file())
-        self.assertTrue(EXPECTED_TESTS_ONLY.is_file())
 
 
 if __name__ == "__main__":

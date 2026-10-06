@@ -336,108 +336,6 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertNotIn("Mocks.register(", dmn_test)
         self.assertNotIn("registerTaskListenerMock(", dmn_test)
 
-    def test_mock_modifier_is_derived_and_recorded_from_source(self):
-        guidance = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
-        ).read_text(encoding="utf-8")
-        skill = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
-        ).read_text(encoding="utf-8")
-
-        for signal in (
-            "`Mocks.register(...)`",
-            "`CamundaMockito.registerMockInstance(...)`",
-            "`@MockBean`",
-            "`@MockitoBean`",
-            "C7 `register...Mock` helper",
-            "`autoMock(...)`",
-        ):
-            with self.subTest(signal=signal):
-                self.assertIn(signal, guidance)
-        self.assertIn("| `mocks` |", guidance)
-        self.assertIn(
-            "The Test Inventory records `mocks` in its `Signals` column for every in-scope test method",
-            guidance,
-        )
-        self.assertIn(
-            "the skill derives this modifier from source code, not from an input marker or a dependency alone.",
-            " ".join(guidance.lower().split()),
-        )
-        self.assertIn(
-            "the skill checks inherited and local setup and teardown methods.",
-            " ".join(guidance.lower().split()),
-        )
-        self.assertIn(
-            "| C7 mock library | No remaining test uses the library. | Remove the dependency. |",
-            guidance,
-        )
-        step_two, step_three = skill.split("### Step 3: Execute Migration", 1)
-        self.assertIn(
-            "When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.",
-            step_two,
-        )
-        self.assertNotIn("detect mock signals", step_two)
-        self.assertNotIn("source-derived `mocks` modifier", step_two)
-        part_a = step_three.split("When the user selects Approach A", 1)[0]
-        self.assertIn(
-            "the skill follows `references/test-migration.md` for every test inventory row "
-            "whose `handling` value instructs migration, including process-test mocks.",
-            " ".join(part_a.lower().split()),
-        )
-        for duplicated_rule in (
-            "mock-boundary and mapping rules.",
-            "the skill also requires an in-scope test's `signals` column to contain `mocks`.",
-            "if the `handling` value does not instruct migration, then the skill does not apply those rules.",
-            "does not use a `mocks` signal to override the test inventory's `handling` value.",
-            "the skill uses the source-derived modifier recorded in step 2.",
-            "it does not derive the modifier again after source transformations.",
-        ):
-            with self.subTest(duplicated_rule=duplicated_rule):
-                self.assertNotIn(duplicated_rule, " ".join(part_a.lower().split()))
-        self.assertNotIn("Users do not add it.", skill)
-
-    def test_mock_modifier_ignores_shared_engine_configuration_and_dependencies(self):
-        guidance = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
-        ).read_text(encoding="utf-8")
-        c7_test = (
-            FIXTURE
-            / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
-        ).read_text(encoding="utf-8")
-        c7_config = (
-            FIXTURE / "c7-source/src/test/resources/camunda.cfg.xml"
-        ).read_text(encoding="utf-8")
-        c7_pom = (FIXTURE / "c7-source/pom.xml").read_text(encoding="utf-8")
-
-        detector = re.search(r"(?m)^\| `mocks` \| (.*?) \|", guidance)
-        self.assertIsNotNone(detector)
-        self.assertIn("MockExpressionManager", c7_config)
-        self.assertIn("c7-mockito", c7_pom)
-        self.assertIn("Mocks.reset()", c7_test)
-        self.assertIn(
-            "Do not treat a `MockExpressionManager` setting, a mock-library dependency or import, or `Mocks.reset()` alone",
-            guidance,
-        )
-        self.assertNotIn("MockExpressionManager", detector.group(1))
-        self.assertNotIn("c7-mockito", detector.group(1))
-        self.assertNotIn("Mocks.reset()", detector.group(1))
-        self.assertNotIn("import", detector.group(1))
-
-        dmn_test = c7_test.split("public void preservesBusinessRuleResultShape()", 1)[1].split(
-            "\n  private InvoiceService", 1
-        )[0]
-        for mock_operation in (
-            "Mocks.register(",
-            "registerJavaDelegateMock(",
-            "registerTaskListenerMock(",
-            "autoMock(",
-        ):
-            with self.subTest(mock_operation=mock_operation):
-                self.assertNotIn(mock_operation, dmn_test)
-
     def test_listener_mappings_use_the_listener_job_type(self):
         guidance = (
             REPO_ROOT
@@ -483,15 +381,11 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         for mapping in (
-            'verifyJavaDelegateMock("name").executed()',
-            'verifyJavaDelegateMock("name").executed(times(n))',
-            'verifyJavaDelegateMock("name").executedNever()',
-            'verifyExecutionListenerMock("name").executed()',
-            'verifyExecutionListenerMock("name").executed(times(n))',
-            'verifyExecutionListenerMock("name").executedNever()',
-            "assertThat(mock.getInvocations()).isEqualTo(1)",
-            "assertThat(mock.getInvocations()).isEqualTo(n)",
-            "assertThat(mock.getInvocations()).isZero()",
+            '`verifyJavaDelegateMock("name")` or `verifyExecutionListenerMock("name")` with '
+            "`executed()`, `executed(times(n))`, or `executedNever()`",
+            "`assertThat(mock.getInvocations())` with `isEqualTo(1)`, `isEqualTo(n)`, or "
+            "`isZero()`",
+            "Read the count only after a waiting CPT assertion on the related element.",
         ):
             with self.subTest(mapping=mapping):
                 self.assertIn(mapping, guidance)

@@ -256,7 +256,7 @@ consumer actions. Where the management server uses a separate bind address or po
 
 #### Test Inventory
 
-When the skill reaches Step 2, it follows `references/test-migration.md` for the Test Inventory procedure.
+When the skill reaches Step 2, it follows `references/test-migration.md` for the test inventory procedure.
 
 #### Model Inventory
 
@@ -311,9 +311,7 @@ Do not edit project files other than `MIGRATION_REPORT.md` during assessment.
 
 Present the code and model file counts. Present the overall complexity and the recommended code path.
 State whether recipes help, hurt, or are neutral. Present project documentation dispositions and CI gaps.
-Present test counts by kind and the number eligible for CPT migration.
-Present the number selected for CPT migration.
-List every `Report only` Test ID and its reason.
+When the skill presents test counts, CPT eligibility, and `Report only` findings, it follows `references/test-migration.md`.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
@@ -368,9 +366,13 @@ When code and models are in scope, see `references/composing-code-and-models.md`
 
 #### Part A - Code Migration
 
+When code migration includes Camunda Platform Scenario tests, follow
+`references/test-migration.md`.
+
 Apply the Transform checklist from `references/code-transform-checklist.md` with the approach chosen
 in Question 4. See `references/code-migration-approaches.md` for all three.
-The skill follows `references/test-migration.md` for every Test Inventory row whose `Handling` value instructs migration, including process-test mocks.
+The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine,
+Camunda 7 decision-test CPT mapping, and Spring process-test migration.
 
 When the user selects Approach A, the skill runs this gate for every C7 JavaDelegate before
 `REWRITE_COMMAND`.

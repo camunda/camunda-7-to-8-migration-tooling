@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions
+    xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+    xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+    targetNamespace="http://camunda.com/fixture">
+  <bpmn:process id="jgivenInventory" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="StartEvent" />
+    <bpmn:endEvent id="EndEvent" />
+    <bpmn:sequenceFlow id="Flow" sourceRef="StartEvent" targetRef="EndEvent" />
+  </bpmn:process>
+</bpmn:definitions>
