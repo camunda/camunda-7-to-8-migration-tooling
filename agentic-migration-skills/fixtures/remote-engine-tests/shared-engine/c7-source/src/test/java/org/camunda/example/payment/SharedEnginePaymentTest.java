@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.camunda.bpm.client.ExternalTaskClient;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -26,6 +27,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest(
     classes = SharedEnginePaymentTestApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@EnabledIfSystemProperty(named = "shared-engine.test.enabled", matches = "true")
 @ActiveProfiles("test")
 class SharedEnginePaymentTest {
 

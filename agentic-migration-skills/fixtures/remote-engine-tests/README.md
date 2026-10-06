@@ -45,8 +45,8 @@ Compile the test without connecting to an engine:
 mvn -f agentic-migration-skills/fixtures/remote-engine-tests/shared-engine/c7-source/pom.xml test
 ```
 
-Run the test only when a shared engine with the `payment` process is available. Replace the
-example URL with that engine's Engine REST URL:
+Run the test only when a shared engine with the deployed `payment` process is available.
+Override `test.engine-rest-url` with that engine's Engine REST URL:
 
 ```sh
 mvn -f agentic-migration-skills/fixtures/remote-engine-tests/shared-engine/c7-source/pom.xml test \

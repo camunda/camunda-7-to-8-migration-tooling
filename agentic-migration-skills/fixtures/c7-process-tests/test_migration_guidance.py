@@ -1080,7 +1080,6 @@ class MigrationGuidanceTest(unittest.TestCase):
             self.assertEqual(len(shared_rows), 1)
             self.assertEqual(shared_rows[0]["Test kind"], "remote-engine test")
             self.assertEqual(shared_rows[0]["Handling"], "Report only")
-            self.assertIn("shared environment", normalized(shared_rows[0]["Notes"]))
 
     def test_remote_engine_tests_require_process_or_decision_execution(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")

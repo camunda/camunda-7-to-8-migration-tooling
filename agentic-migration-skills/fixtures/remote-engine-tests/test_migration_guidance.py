@@ -371,7 +371,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         runtime_configuration = " ".join(reference.split())
         self.assertIn(
-            "| No explicit request for remote mode | Spring or plain Java test | Use the CPT-managed Testcontainers runtime. Never configure remote mode. |",
+            "Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.",
+            runtime_configuration,
+        )
+        self.assertIn(
+            "| No explicit request for remote mode | Spring or plain Java test | Use the default runtime. Never configure remote mode. |",
             runtime_configuration,
         )
         self.assertIn(
@@ -414,6 +418,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             1,
             runtime_changes.count("CPT-managed Testcontainers runtime"),
         )
+
     def test_c7_baseline_uses_engine_rest_and_a_real_external_task_worker(self):
         c7_test = (
             FIXTURE
@@ -496,12 +501,15 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "| Shared-engine test, whether its baseline ran or not | `manual` |",
             baseline_reporting,
         )
+
     def test_shared_engine_case_is_manual_and_runs_a_process_without_starting_an_engine(self):
         shared_test = SHARED_SOURCE.read_text(encoding="utf-8")
         shared_properties = SHARED_PROPERTIES.read_text(encoding="utf-8")
+        report = SHARED_REPORT.read_text(encoding="utf-8")
+        self.assertIn("| Camunda 7 test | Verdict | Reason |", report)
         report_row = next(
             line
-            for line in SHARED_REPORT.read_text().splitlines()
+            for line in report.splitlines()
             if line.startswith("| `SharedEnginePaymentTest`")
         )
 
@@ -534,9 +542,9 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
     def test_expected_project_does_not_configure_remote_runtime(self):
         for path in EXPECTED.rglob("*"):
-            if not path.is_file():
+            if not path.is_file() or "target" in path.relative_to(EXPECTED).parts:
                 continue
-            content = path.read_text()
+            content = path.read_text(encoding="utf-8")
             self.assertFalse(_contains_remote_runtime_configuration(content), path)
             self.assertNotIn("camunda.bpm.client.base-url", content)
             self.assertNotIn("camunda/camunda-bpm-platform", content)

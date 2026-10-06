@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_payment"
+                  targetNamespace="http://camunda.org/examples/payment">
+  <bpmn:process id="payment" name="Payment" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="start_payment" />
+    <bpmn:sequenceFlow id="flow_start_charge" sourceRef="start_payment" targetRef="charge_payment" />
+    <bpmn:serviceTask id="charge_payment" name="Charge payment" camunda:type="external" camunda:topic="charge-payment" />
+    <bpmn:sequenceFlow id="flow_charge_end" sourceRef="charge_payment" targetRef="end_payment" />
+    <bpmn:endEvent id="end_payment" />
+  </bpmn:process>
+</bpmn:definitions>
