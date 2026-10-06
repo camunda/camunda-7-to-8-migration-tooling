@@ -1594,11 +1594,42 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The test migration reference must exist.",
         )
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn(
-            "when a test runs a bpmn process or dmn decision on a camunda 7 engine "
-            "and uses a framework or approach that existed for camunda 7, the skill "
-            "includes the test in scope.",
-            reference,
+        scope_rows = markdown_table(
+            TEST_MIGRATION_REFERENCE,
+            [
+                "Runs a BPMN process or DMN decision on a Camunda 7 engine",
+                "Uses a framework or approach that existed for Camunda 7",
+                "Scope decision",
+            ],
+        )
+        self.assertEqual(
+            [
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
+                    "Uses a framework or approach that existed for Camunda 7": "Yes",
+                    "Scope decision": (
+                        "When both prerequisites are met, the skill includes the "
+                        "test in scope."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
+                    "Uses a framework or approach that existed for Camunda 7": "Any",
+                    "Scope decision": (
+                        "If a test does not run a BPMN process or DMN decision on a "
+                        "Camunda 7 engine, then the skill excludes the test from scope."
+                    ),
+                },
+                {
+                    "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
+                    "Uses a framework or approach that existed for Camunda 7": "No",
+                    "Scope decision": (
+                        "If a test does not use a framework or approach that existed "
+                        "for Camunda 7, then the skill excludes the test from scope."
+                    ),
+                },
+            ],
+            scope_rows,
         )
         self.assertIn(
             "the skill classifies tests by executed engine behavior, not assertion type.",

@@ -13,7 +13,11 @@ The skill scans each module's build-declared test source sets.
 The skill scans abstract test classes, shared test bases, test configuration classes, and `camunda.cfg.xml` in test resources.
 The skill scans `src/test/java` and additional source sets such as `src/it/java` or Gradle `integrationTest`.
 
-When a test runs a BPMN process or DMN decision on a Camunda 7 engine and uses a framework or approach that existed for Camunda 7, the skill includes the test in scope.
+| Runs a BPMN process or DMN decision on a Camunda 7 engine | Uses a framework or approach that existed for Camunda 7 | Scope decision |
+|---|---|---|
+| Yes | Yes | When both prerequisites are met, the skill includes the test in scope. |
+| No | Any | If a test does not run a BPMN process or DMN decision on a Camunda 7 engine, then the skill excludes the test from scope. |
+| Yes | No | If a test does not use a framework or approach that existed for Camunda 7, then the skill excludes the test from scope. |
 A dependency alone never makes a test eligible for migration.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
 
