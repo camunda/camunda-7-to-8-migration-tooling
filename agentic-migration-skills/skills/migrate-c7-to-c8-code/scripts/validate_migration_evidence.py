@@ -838,14 +838,37 @@ def process_assertions(process):
 
 
 def markdown_cells(line):
+    """Split on unescaped pipes and decode escaped pipes and backslashes."""
     text = line.strip()
     if not text.startswith("|"):
         return []
-    if text.endswith("|"):
-        text = text[1:-1]
-    else:
-        text = text[1:]
-    return [cell.strip() for cell in text.split("|")]
+    cells = []
+    cell = []
+    backslashes = 0
+    trailing_delimiter = False
+    for character in text[1:]:
+        if character == "\\":
+            cell.append(character)
+            backslashes += 1
+            trailing_delimiter = False
+            continue
+        if character == "|" and backslashes % 2:
+            cell.pop()
+            cell.append(character)
+            backslashes = 0
+            trailing_delimiter = False
+            continue
+        if character == "|":
+            cells.append("".join(cell).strip())
+            cell = []
+            trailing_delimiter = True
+        else:
+            cell.append(character)
+            trailing_delimiter = False
+        backslashes = 0
+    if not trailing_delimiter:
+        cells.append("".join(cell).strip())
+    return [re.sub(r"\\([\\|])", r"\1", value) for value in cells]
 
 
 def plain_markdown_cell(value):

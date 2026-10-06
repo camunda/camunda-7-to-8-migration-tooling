@@ -611,6 +611,49 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertTrue(check["reports"])
         self.assertTrue((self.root / check["reports"][0]).is_file())
 
+    def test_test_inventory_parses_escaped_pipes_in_framework_display_names(self):
+        tests = (
+            (
+                "app:com.example.CucumberTest#Given an order | when paid",
+                "Cucumber scenario",
+                "app/src/test/java/com/example/CucumberTest.java",
+            ),
+            (
+                "app:com.example.OrderSpec#an order | pays \\ the invoice",
+                "Spock feature",
+                "app/src/test/java/com/example/OrderSpec.java",
+            ),
+        )
+        rows = []
+        for test_id, test_kind, file_path in tests:
+            source_file = self.root / file_path
+            source_file.parent.mkdir(parents=True, exist_ok=True)
+            source_file.write_text("", encoding="utf-8")
+            escaped_test_id = gate.markdown_cell(test_id)
+            rows.append(
+                f"| `{escaped_test_id}` | `{file_path}` | {test_kind} | Migrate |"
+            )
+        (self.root / gate.REPORT).write_text(
+            "# Migration report\n\n"
+            "## Test Inventory\n\n"
+            "| Test ID | File | Test kind | Handling |\n"
+            "|---|---|---|---|\n"
+            + "\n".join(rows)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        inventory = gate.test_report_inventory(self.root)
+
+        self.assertEqual(
+            [test_id for test_id, _, _ in tests],
+            [test["id"] for test in inventory],
+        )
+        self.assertEqual(
+            [kind for _, kind, _ in tests],
+            [test["test_kind"] for test in inventory],
+        )
+
     def test_report_rejects_null_baseline_test_results_without_crashing(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
