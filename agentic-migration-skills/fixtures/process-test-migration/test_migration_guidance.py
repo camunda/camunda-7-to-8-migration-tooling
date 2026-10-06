@@ -21,6 +21,14 @@ CHECKLIST_PATH = (
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/code-transform-checklist.md"
 )
 TEST_CLASSES = ("ImplicitDeploymentTest", "OrderProcessTest", "MessageProcessTest")
+EXPECTED_PROCESS_TEST_IDS = {
+    "ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess",
+    "OrderProcessTest#approvesOrder",
+    "OrderProcessTest#escalatesAfterOneDay",
+    "OrderProcessTest#continuesAfterAsync",
+    "OrderProcessTest#failsWhenDelegateThrows",
+    "MessageProcessTest#correlatesMessage",
+}
 MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 
@@ -248,7 +256,26 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("Require each entry to resolve at least one resource.", skill)
 
     def test_migration_report_records_test_mappings_and_mock_boundaries(self):
-        report = " ".join((FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text().split())
+        report_text = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        decisions = report_text.split(
+            "## Process-test migration decisions\n", maxsplit=1
+        )[1].split("\n## ", maxsplit=1)[0]
+        source_test_ids = {
+            f"{class_name}#{method_name}"
+            for class_name in TEST_CLASSES
+            for method_name in c7_test_method_names(
+                (C7_TESTS / f"{class_name}.java").read_text()
+            )
+        }
+        self.assertEqual(EXPECTED_PROCESS_TEST_IDS, source_test_ids)
+
+        reported_mappings = set(
+            re.findall(r"(?m)^\| `([^`]+)` \| `([^`]+)` \|", decisions)
+        )
+        expected_mappings = {(test_id, test_id) for test_id in source_test_ids}
+        self.assertEqual(expected_mappings, reported_mappings)
+
+        report = " ".join(report_text.split())
 
         for evidence in (
             "`noopDelegate`",
@@ -263,6 +290,36 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             with self.subTest(evidence=evidence):
                 self.assertIn(evidence, report)
         self.assertIn("approval is pending", report.lower())
+
+    def test_cpt_waiting_guidance_distinguishes_immediate_negative_assertions(self):
+        reference = " ".join(REFERENCE_PATH.read_text().split())
+
+        self.assertNotIn("CPT assertions wait for asynchronous process behavior.", reference)
+        self.assertNotIn("CPT assertions wait for the expected state.", reference)
+        self.assertIn(
+            "Most CPT assertions wait for an expected state for up to 10 seconds by default.",
+            reference,
+        )
+        self.assertIn(
+            "`hasNotActivatedElements(...)` evaluates the current process state immediately "
+            "and does not wait.",
+            reference,
+        )
+        self.assertIn(
+            "The skill uses `hasNoActiveElements(...)`, `isNotWaitingForMessage(...)`, and "
+            "`hasNotActivatedElements(...)` to inspect the current state.",
+            reference,
+        )
+        self.assertIn(
+            "The skill establishes the observation point with a positive waiting or terminal "
+            "assertion before it uses a current-state absence check.",
+            reference,
+        )
+        self.assertIn(
+            "If the skill does not establish that point first, then the negative assertion can pass "
+            "before the process reaches it.",
+            reference,
+        )
 
     def test_converted_copies_match_converter_output(self):
         for name in (

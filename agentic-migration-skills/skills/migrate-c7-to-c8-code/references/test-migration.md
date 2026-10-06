@@ -288,7 +288,14 @@ names. (SHOULD)
 | 8.9 or later | Use target-aligned CPT and follow this section. |
 | 8.8 | Apply the Camunda 8.8 target table above. Keep `Report only` handling with the reason `test migration needs Camunda 8.9 or later`. Do not change test dependencies. |
 
-CPT assertions wait for asynchronous process behavior. The default assertion timeout is 10 seconds.
+Most CPT assertions wait for an expected state for up to 10 seconds by default.
+`hasNotActivatedElements(...)` evaluates the current process state immediately and does not wait.
+The skill uses `hasNoActiveElements(...)`, `isNotWaitingForMessage(...)`, and
+`hasNotActivatedElements(...)` to inspect the current state.
+The skill establishes the observation point with a positive waiting or terminal assertion before it
+uses a current-state absence check.
+If the skill does not establish that point first, then the negative assertion can pass before the
+process reaches it.
 The default Java runtime uses Testcontainers and needs a Docker-compatible runtime.
 
 ### Inventory and deployment
@@ -345,7 +352,7 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 | `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
 | `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Get `key` from the converted model's message subscription, not the business key. |
 | `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | |
-| `historyService` or `runtimeService` queries used as assertions | CPT assertions | CPT assertions wait for the expected state. Search requests are eventually consistent. |
+| `historyService` or `runtimeService` queries used as assertions | CPT assertions | The skill uses a waiting CPT assertion for asynchronous behavior. It establishes the observation point before it checks absence. Search requests are eventually consistent. |
 | An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | See the semantic differences below. |
 | Process-test-coverage rule or extension | Remove | CPT reports process coverage. The parity subtask compares coverage. |
 | `org.junit.Assert`, `@Before`, `@After`, `@Ignore`, or `@Test(expected = ...)` | JUnit 5 `Assertions` or AssertJ, `@BeforeEach`, `@AfterEach`, `@Disabled`, or `assertThrows` | |
@@ -734,7 +741,7 @@ parity-ledger entry.
 | `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, the skill asserts the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | When all visits share an outcome, the skill uses one assertion. When the path has known mixed counts, the skill uses both assertions. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason and does not assert exact counts or their sum. |
 | `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
-| `verify(process, never()).hasStarted("E")` | When the skill completes a waiting assertion, the skill asserts `hasNotActivatedElements("E")` | This assertion does not wait. |
+| `verify(process, never()).hasStarted("E")` | The skill asserts `hasNotActivatedElements("E")` only after a positive waiting assertion establishes the observation point. | This assertion evaluates immediately and does not wait. |
 
 ### Time rule
 
