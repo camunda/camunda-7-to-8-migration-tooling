@@ -1178,6 +1178,10 @@ class MigrationGuidanceTest(unittest.TestCase):
             "Copy the full project root, including hidden files, to a sibling directory.",
             "`git status --porcelain`",
             "Git repository with a dirty working tree",
+            "A clean Git status does not show ignored files.",
+            "Git repository with a clean working tree and every `source_files` path tracked at `HEAD`",
+            "Git repository with a dirty working tree or any `source_files` path missing from `HEAD`",
+            "Copy the full project root, including hidden, untracked, and ignored files, to a sibling directory.",
             "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
             "Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`. This command can differ from the Step 2 C7 baseline command.",
             "Never rebuild the C7 baseline from migrated code.",
@@ -1239,6 +1243,18 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn(
             "kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`",
             report,
+        )
+        self.assertIn(
+            normalized(
+                "Clean Git working tree and every `source_files` path tracked at the recorded commit"
+            ),
+            guidance,
+        )
+        self.assertIn(
+            normalized(
+                "Dirty Git working tree, non-Git source, or any `source_files` path missing from the recorded commit"
+            ),
+            guidance,
         )
         deferred_plan = report.split("## Verify the test migration", 1)[1].split(
             "## Readiness", 1

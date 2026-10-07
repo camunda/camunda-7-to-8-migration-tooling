@@ -327,12 +327,13 @@ If `docker info` fails, then the skill still offers both options.
 | **Migrate tests only** | Preserve the C7 baseline as described below. Do not run a test command. | Migrate the tests as in the Run tests path. Compile test sources. Do not run C7 suites, CPT suites, or Step 4 process scenarios. | `not verified (Migrate tests only)` |
 
 When the user selects **Migrate tests only**, preserve the C7 baseline before Step 3.
-The skill checks `git status --porcelain` before it records a Git baseline.
+The skill checks `git status --porcelain` before it records a Git baseline. A clean Git status does
+not show ignored files.
 
 | Project root state | Baseline action |
 |---|---|
-| Git repository with a clean working tree | Record the Step 2 commit. |
-| Git repository with a dirty working tree | Copy the full project root, including hidden and untracked files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. Keep the `.git` entry so the validator can verify the recorded commit. |
+| Git repository with a clean working tree and every `source_files` path tracked at `HEAD` | Record the Step 2 commit. |
+| Git repository with a dirty working tree or any `source_files` path missing from `HEAD` | Copy the full project root, including hidden, untracked, and ignored files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. Keep the `.git` entry so the validator can verify the recorded commit. |
 | Not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
 
 If the skill cannot preserve the baseline, then ask the user before Step 3.
@@ -743,8 +744,8 @@ the Test Inventory, project documentation, and CI inventory:
 
    | Step 2 source | Baseline source |
    |---|---|
-   | Clean Git working tree | A worktree at the recorded commit. |
-   | Dirty Git working tree or non-Git source | The recorded filesystem snapshot. |
+   | Clean Git working tree and every `source_files` path tracked at the recorded commit | A worktree at the recorded commit. |
+   | Dirty Git working tree, non-Git source, or any `source_files` path missing from the recorded commit | The recorded filesystem snapshot. |
 
 3. Record `docker_info` before the first Docker-dependent baseline or migrated suite.
 4. Record each C7 baseline with the validator `c7_baseline` check. Set `--baseline-root` to the

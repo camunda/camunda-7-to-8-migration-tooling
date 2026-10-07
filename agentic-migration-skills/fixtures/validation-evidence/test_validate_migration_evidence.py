@@ -1129,6 +1129,28 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.write_scope(test_run_mode="migrate_only")
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "test"]),
+            (
+                ("module", "app", "spring_boot_run", None),
+                ["mvn", "-pl", "app", "com.example:spring-boot-maven-plugin:1.0:run"],
+            ),
+            (
+                ("module", "app", "spring_boot_run", None),
+                [
+                    "mvn",
+                    "-pl",
+                    "app",
+                    "org.springframework.boot:custom-spring-boot-maven-plugin:1.0:run",
+                ],
+            ),
+            (
+                ("module", "app", "spring_boot_run", None),
+                [
+                    "mvn",
+                    "-pl",
+                    "app",
+                    "org.springframework.boot:spring-boot-maven-plugin:1.0:RUN",
+                ],
+            ),
             (("module", "app", "spring_boot_run", None), ["gradle", ":app:integrationTest"]),
             (("module", "app", "spring_boot_run", None), ["gradle", "--dry-run", ":app:bootRun"]),
             (("module", "app", "spring_boot_run", None), ["gradle", "-m", ":app:bootRun"]),
@@ -1259,6 +1281,19 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "spring-boot:run"]),
+            (
+                ("module", "app", "spring_boot_run", None),
+                ["mvn", "-pl", "app", "org.springframework.boot:spring-boot-maven-plugin:run"],
+            ),
+            (
+                ("module", "app", "spring_boot_run", None),
+                [
+                    "mvn",
+                    "-pl",
+                    "app",
+                    "org.springframework.boot:spring-boot-maven-plugin:3.5.0:run",
+                ],
+            ),
             (("module", "app", "spring_boot_run", None), ["gradle", ":app:bootRun"]),
             (("module", "app", "executable_jar", None), ["mvn", "-pl", "app", "package", "-DskipTests"]),
             (("module", "app", "executable_jar", None), ["gradle", ":app:bootJar", "-x", "test"]),
@@ -1466,6 +1501,45 @@ class ValidationEvidenceTest(unittest.TestCase):
                 )
             self.assertEqual(1, invoked.call_count)
             self.assertIn("--init-script", invoked.call_args.args[0])
+
+    def test_migrate_only_rejects_case_mismatched_gradle_test_exclusions(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "settings.gradle").write_text("include 'app'\n", encoding="utf-8")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        task_graph = self.gradle_task_graph_runner(
+            (
+                (":app:compileJava", "other"),
+                (":app:classes", "other"),
+                (":app:test", "test"),
+                (":app:bootJar", "other"),
+            )
+        )
+
+        exclusions = (
+            ("-x", "TEST"),
+            ("--exclude-task", "TEST"),
+            ("--exclude-task=TEST",),
+            ("-x=TEST",),
+        )
+        for exclusion in exclusions:
+            with self.subTest(exclusion=exclusion):
+                command_args = ["gradle", ":app:bootJar", *exclusion]
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=task_graph,
+                ) as invoked:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Migrate tests only",
+                    ):
+                        self.submit(
+                            ("module", "app", "executable_jar", None),
+                            command=command_args,
+                            environment="local",
+                        )
+                    invoked.assert_not_called()
 
     def test_migrate_only_rejects_gradle_boot_run_with_test_task_dependency(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"

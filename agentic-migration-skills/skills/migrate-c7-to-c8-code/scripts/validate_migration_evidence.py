@@ -998,7 +998,7 @@ def gradle_task_is_excluded(parsed, task):
         excluded_task == task
         or (
             ":" not in excluded_task
-            and task_leaf(excluded_task) == task_leaf(task)
+            and excluded_task == task.rsplit(":", 1)[-1]
         )
         for excluded_task in parsed["excluded_tasks"]
     )
@@ -1280,10 +1280,16 @@ def migrate_only_packaging_exception(root, key, parsed, tool, command, timeout):
 
 
 def is_spring_boot_run_task(task, tool):
-    normalized = task.casefold()
     if tool == "maven":
-        return normalized == "spring-boot:run" or (
-            "spring-boot-maven-plugin" in normalized and task_leaf(task) == "run"
+        if task == "spring-boot:run":
+            return True
+        coordinates = task.split(":")
+        return (
+            len(coordinates) in {3, 4}
+            and coordinates[0] == "org.springframework.boot"
+            and coordinates[1] == "spring-boot-maven-plugin"
+            and coordinates[-1] == "run"
+            and (len(coordinates) == 3 or bool(coordinates[2]))
         )
     return task_leaf(task) == "bootrun"
 
