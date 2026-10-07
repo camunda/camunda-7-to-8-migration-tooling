@@ -1968,6 +1968,27 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIsNone(contract["mode"])
         self.assertEqual([], contract["tests"])
 
+    def test_test_inventory_rejects_unsupported_handling_values(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        )
+        report_path = self.root / gate.REPORT
+        report = report_path.read_text(encoding="utf-8")
+        for handling in (
+            "Migrate later",
+            "Migrated",
+            "Report only if blocked",
+            "Not part of test migration later",
+        ):
+            with self.subTest(handling=handling):
+                report_path.write_text(
+                    report.replace("| Migrate |", f"| {handling} |"), encoding="utf-8"
+                )
+                with self.assertRaisesRegex(
+                    gate.EvidenceError, "unsupported Test Inventory handling"
+                ):
+                    gate.test_report_inventory(self.root)
+
     def test_missing_test_run_mode_rejects_a_malformed_test_inventory(self):
         self.configure_test_run(
             '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',

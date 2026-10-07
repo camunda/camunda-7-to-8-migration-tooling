@@ -946,6 +946,14 @@ def markdown_table_separator(row):
 
 
 INVENTORY_COLUMNS = {"test id", "file", "test kind", "handling"}
+# Normalized Test Inventory handling -> validator handling. None marks rows outside test migration.
+TEST_INVENTORY_HANDLING = {
+    "migrate": "Migrate",
+    "migrate to cpt": "Migrate",
+    "migrate (lower priority)": "Migrate",
+    "report only": "Report only",
+    "not part of test migration": None,
+}
 TEST_INVENTORY_HEADING = re.compile(r"^#{1,6}\s+test inventory\b", re.IGNORECASE)
 MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+")
 
@@ -1016,17 +1024,14 @@ def test_report_inventory(root, *, required=True):
         handling_text = re.sub(
             r"[\s_-]+", " ", values[columns["handling"]].casefold()
         ).strip()
-        if handling_text.startswith("migrate"):
-            handling = "Migrate"
-        elif handling_text.startswith("report only"):
-            handling = "Report only"
-        elif handling_text == "not part of test migration":
-            continue
-        else:
+        if handling_text not in TEST_INVENTORY_HANDLING:
             raise EvidenceError(
                 f"{test_id}: unsupported Test Inventory handling "
                 f"{values[columns['handling']]!r}"
             )
+        handling = TEST_INVENTORY_HANDLING[handling_text]
+        if handling is None:
+            continue
         module, class_name, method = test_id_parts(test_id)
         if not test_kind:
             raise EvidenceError(f"{test_id}: Test Inventory kind is empty")
