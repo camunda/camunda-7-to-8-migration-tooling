@@ -126,19 +126,62 @@ Release 0.3.6 does not support `--json`. See the
 for its installation and CLI options. Runtime, history, and identity data migration are outside this
 skill's scope.
 
+### Process tests
+
+The skill migrates tests that run a BPMN process or DMN decision on the Camunda 7 engine with a
+framework or approach that existed for Camunda 7. For Camunda 8.9 or later, the skill migrates
+eligible tests to Camunda Process Test (CPT).
+
+Supported tests include:
+
+- `camunda-bpm-assert` and engine test support such as `ProcessEngineRule`,
+  `ProcessEngineExtension`, and `@Deployment`.
+- Spring Boot and Spring process tests.
+- DMN decision tests.
+- Process-test mocks from `camunda-platform-7-mockito` and `Mocks`.
+- `camunda-platform-scenario` tests.
+- Tests that call a running Camunda 7 engine.
+
+The skill also checks coverage parity for `camunda-process-test-coverage`.
+With code migration, the skill handles unit tests that do not run the Camunda 7 engine, such as
+delegate or worker unit tests, as ordinary code.
+Engine-backed Cucumber, JGiven, and Arquillian tests receive **Report only** handling for manual
+migration. CMMN tests also receive **Report only** handling.
+
+Test migration needs Camunda 8.9 or later. For a Camunda 8.8 target, the skill lists these tests as
+**Report only**.
+
+The skill asks **Question 8: Test Execution** after the Test Inventory only for **Code only** or
+**Code + models** with code approach A or B and a target of Camunda 8.9 or later.
+At least one test in the Test Inventory must have **Migrate**, **Migrate to CPT**, or
+**Migrate (lower priority)** handling.
+The question shows test counts by kind and **Report only** tests with their reasons.
+It also shows module test commands from project documentation and the CI inventory, plus whether
+`docker info` succeeds.
+
+| Option | What happens |
+|---|---|
+| **Run tests (recommended)** | The skill runs the Camunda 7 baseline before migration changes any files. It migrates the tests and runs the CPT tests. The safeguards check test parity, test freeze, mock boundaries, repeat runs, and process coverage. The `MIGRATION_REPORT.md` Test Parity table records the comparison. The validation gate reports `READY` or `NOT READY`. |
+| **Migrate tests only** | The skill migrates the tests and compiles their test sources. It runs no test suites. Test-source compilation is the only test check. The Camunda 7 baseline, CPT tests, and Step 4 process-scenario runs are skipped. `MIGRATION_REPORT.md` marks test verification as not verified and provides a verification plan. The validation gate reports `NOT READY`. |
+
+By default, CPT starts the Camunda 8 runtime in Docker through Testcontainers. You can configure CPT
+to use a dedicated local Camunda 8 test runtime in remote mode. CPT deletes runtime data between
+tests, so do not use a shared or production runtime.
+
 ### Code + models walkthrough
 
 Use this workflow to move a Camunda 7 project with Java code and BPMN/DMN models toward Camunda 8:
 
 1. Start the skill in the project directory. Choose **Code + models** and select the target Camunda 8 version.
-2. Review the code and model inventory. Select a code path based on the code shape and model capability.
-3. Select **Diagram Converter CLI + AI** when a Java 21+ runtime is available, regardless of the
+2. Review the code, model, and Test Inventory. Select a code path based on the code shape and model capability.
+3. If the skill asks **Question 8**, choose **Run tests** or **Migrate tests only**.
+4. Select **Diagram Converter CLI + AI** when a Java 21+ runtime is available, regardless of the
    code-phase runtime. Otherwise, select **Agentic AI** or **Online Converter**.
-4. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
-5. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
-6. After converted model copies are available, the skill applies the selected code path, resolves
+5. The selected local model path writes converted copies. The CLI path checks Java and downloads the converter first.
+6. For the Online Converter, upload the diagrams, download the converted copies, and bring them back to the project.
+7. After converted model copies are available, the skill applies the selected code path, resolves
    remaining code work, and cross-checks the code with the models.
-7. Review `MIGRATION_REPORT.md` and resolve findings that need a decision.
+8. Review `MIGRATION_REPORT.md` and resolve findings that need a decision.
    Update approved in-scope project instructions.
    Run the recorded readiness checks.
 
