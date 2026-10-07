@@ -77,7 +77,7 @@ public class ApplicationTest {
 
 ## Camunda 8
 
-Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/next/apis-tools/testing/getting-started/) for the same test case.
+Camunda 8 uses its client APIs and [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/) for the same test case. The CPT assertions, timer controls, and selector-based user-task completion APIs shown here are available from Camunda 8.8.
 
  [View full source code](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/examples/process-solution-camunda-8/src/test/java/org/camunda/community/migration/example/ApplicationTest.java).
 
@@ -124,7 +124,7 @@ public class ApplicationTest {
       .hasAssignee("demo");
 
     // Using utility method to complete user task found by name
-    processTestContext.completeUserTask("Say hello to demo");
+    processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Say hello to demo"));
 
     // Assert that it completed in the right end event, and that a Spring Bean hooked into the service task has written the expected process variable
     assertThat(processInstance) //
@@ -145,6 +145,8 @@ public class ApplicationTest {
       .bpmnProcessId("sample-process-solution-process").latestVersion() //
       .variables(variables) //
       .send().join();
+
+    assertThat(processInstance).hasActiveElements("Event_SmallerThan5");
 
     // increase time so that the timer event is triggered and the process moves on
     processTestContext.increaseTime(Duration.ofMinutes(6));
