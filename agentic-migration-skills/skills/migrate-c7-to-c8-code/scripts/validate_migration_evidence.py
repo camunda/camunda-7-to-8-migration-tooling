@@ -1235,12 +1235,15 @@ def runtime_check_uses_packaging_command(key, command):
     if tool is None:
         return False
     parsed = parse_build_command(command, tool)
-    packaging_tasks = (
-        MAVEN_PACKAGING_PHASES | MAVEN_PACKAGING_GOALS
-        if tool == "maven"
-        else GRADLE_PACKAGE_TASKS
+    if tool == "maven":
+        packaging_tasks = MAVEN_PACKAGING_PHASES | MAVEN_PACKAGING_GOALS
+        return any(
+            task_leaf(task.partition("@")[0]) in packaging_tasks
+            for task in parsed["tasks"]
+        )
+    return any(
+        task_leaf(task) in GRADLE_PACKAGE_TASKS for task in parsed["tasks"]
     )
-    return any(task_leaf(task) in packaging_tasks for task in parsed["tasks"])
 
 
 def is_spring_boot_run_task(task, tool):

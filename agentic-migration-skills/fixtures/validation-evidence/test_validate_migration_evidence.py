@@ -1326,6 +1326,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "-pl", "app", "pre-integration-test", "-DskipTests"],
             ["mvn", "-pl", "app", "deploy", "-DskipTests"],
             ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
+            ["mvn", "-pl", "app", "maven-jar-plugin:jar@packaging"],
             [
                 "mvn",
                 "-pl",
@@ -1402,6 +1403,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "-pl", "app", "pre-integration-test", "-DskipTests"],
             ["mvn", "-pl", "app", "deploy", "-DskipTests"],
             ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
+            ["mvn", "-pl", "app", "maven-jar-plugin:jar@packaging"],
             [
                 "mvn",
                 "-pl",
