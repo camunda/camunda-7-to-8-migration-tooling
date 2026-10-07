@@ -927,56 +927,24 @@ def verify_maven_packaging_lifecycle(root, command, parsed, timeout):
         )
 
 
-def verify_gradle_test_compile_graph(root, command, timeout):
-    inspection_command = [*command, "--dry-run", "--console=plain"]
-    try:
-        completed = subprocess.run(
-            inspection_command,
-            cwd=root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            errors="replace",
-            timeout=timeout if timeout is not None else 120,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        raise EvidenceError(
-            "Question 8 could not inspect the Gradle test-source compilation "
-            "task graph because `--dry-run` timed out"
-        ) from exc
-    except OSError as exc:
-        raise EvidenceError(
-            f"Question 8 could not inspect the Gradle test-source compilation task graph: {exc}"
-        ) from exc
-    if completed.returncode != 0:
-        raise EvidenceError(
-            "Question 8 could not inspect the Gradle test-source compilation task graph "
-            f"(exit code {completed.returncode})"
-        )
-
-    tasks = []
-    for line in completed.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("> Task "):
-            stripped = stripped[len("> Task "):]
-        fields = stripped.split()
-        if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
-            tasks.append(fields[0])
-    if not tasks:
-        raise EvidenceError(
-            "Question 8 could not classify the Gradle test-source compilation task graph"
-        )
+def verify_gradle_test_compile_graph(root, target, command, parsed, timeout):
+    task_records, _ = gradle_inspection(root, target, command, timeout)
+    verify_gradle_task_graph_avoids_test_execution(
+        task_records,
+        parsed,
+        "test-source compilation",
+    )
     if not any(
         task_leaf(task) in GRADLE_TEST_SOURCE_COMPILE_TASKS
-        for task in tasks
+        and gradle_module_selected(root, target, parsed, task)
+        for task, _ in task_records
     ):
         raise EvidenceError(
             "Question 8 Gradle test-source compilation task graph does not include "
-            "a test-source compiler task"
+            "a module test-source compiler task"
         )
     unclassified = sorted(
-        task for task in tasks
+        task for task, _ in task_records
         if task_leaf(task) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
     )
     if unclassified:
@@ -1021,14 +989,29 @@ def compiles_test_sources(root, target, command, parsed=None, timeout=None):
         or set(tasks) - {"clean", "testclasses"}
     ):
         return False
-    verify_gradle_test_compile_graph(root, command, timeout)
+    verify_gradle_test_compile_graph(root, target, command, parsed, timeout)
     return True
 
 
 def gradle_task_is_excluded(parsed, task):
-    excluded = {task_leaf(value) for value in parsed["excluded_tasks"]}
-    excluded_paths = set(parsed["excluded_tasks"])
-    return task in excluded_paths or task_leaf(task) in excluded
+    return any(
+        excluded_task == task
+        or (
+            ":" not in excluded_task
+            and task_leaf(excluded_task) == task_leaf(task)
+        )
+        for excluded_task in parsed["excluded_tasks"]
+    )
+
+
+def gradle_module_task_path(root, target, parsed, task):
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        return None
+    module_path = "." if parsed["project_dirs"] else target_path
+    if module_path == ".":
+        return f":{task}"
+    return f":{module_path.replace('/', ':')}:{task}"
 
 
 def maven_executes_tests(parsed):
@@ -1277,11 +1260,13 @@ def migrate_only_packaging_exception(root, key, parsed, tool, command, timeout):
         task for task in parsed["tasks"] if task_leaf(task) in GRADLE_PACKAGE_TASKS
     ]
     task_names = {task_leaf(task) for task in parsed["tasks"]}
+    module_test_task = gradle_module_task_path(root, key[1], parsed, "test")
     accepted = (
         bool(packaging_tasks)
         and task_names <= {"clean", "assemble", "bootjar", "jar", "war"}
         and all(gradle_module_selected(root, key[1], parsed, task) for task in packaging_tasks)
-        and gradle_task_is_excluded(parsed, "test")
+        and module_test_task is not None
+        and gradle_task_is_excluded(parsed, module_test_task)
         and not any(
             "test" in task_leaf(task)
             and task_leaf(task) not in GRADLE_TEST_COMPILE_TASKS
@@ -1315,9 +1300,9 @@ def shell_command(command):
 
 def test_runner_command(command):
     executable = command_executable(command)
-    if executable in {"java", "node", "py", "python", "python3"} and any(
+    if executable in {"node", "py", "python", "python3"} and any(
         "test" in PureWindowsPath(argument).name.casefold()
-        and Path(argument).suffix.casefold() in {".cjs", ".jar", ".js", ".mjs", ".py", ".ts"}
+        and Path(argument).suffix.casefold() in {".cjs", ".js", ".mjs", ".py", ".ts"}
         for argument in command[1:]
         if not argument.startswith("-")
     ):
