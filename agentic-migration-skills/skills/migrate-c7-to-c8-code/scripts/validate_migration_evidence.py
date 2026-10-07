@@ -72,6 +72,13 @@ TEST_LEDGER_CHECK_KINDS = {
     "mock_boundary",
 }
 TEST_RUN_MODES = {"run", "migrate_only"}
+JAVA_TEST_RUNNER_MAIN_CLASSES = {
+    "org.junit.platform.console.consolelauncher",
+    "org.junit.runner.junitcore",
+    "org.testng.testng",
+    "org.apache.maven.surefire.booter.forkedbooter",
+    "io.cucumber.core.cli.main",
+}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
 MAVEN_EXECUTABLES = {"mvn", "mvnw"}
@@ -687,6 +694,18 @@ def maven_effective_pom(root, command, parsed, timeout):
             ) from exc
 
 
+def maven_effective_property_is_enabled(effective_pom, property_name):
+    false_values = {"", "0", "false", "no", "off"}
+    normalized_name = property_name.casefold()
+    return any(
+        (property_element.text or "").strip().casefold() not in false_values
+        for properties in effective_pom
+        if properties.tag.rsplit("}", 1)[-1] == "properties"
+        for property_element in properties
+        if property_element.tag.rsplit("}", 1)[-1].casefold() == normalized_name
+    )
+
+
 def maven_unclassified_lifecycle_execution(
     root,
     effective_pom,
@@ -710,8 +729,15 @@ def maven_unclassified_lifecycle_execution(
         )
         return (child.text or "").strip() if child is not None else ""
 
-    def test_execution_skip_configuration_is_safe(plugin, execution):
-        for owner in (plugin, execution):
+    def test_execution_skip_configuration_is_safe(plugin):
+        owners = [plugin]
+        for executions in (
+            child for child in plugin if local_name(child) == "executions"
+        ):
+            owners.extend(
+                child for child in executions if local_name(child) == "execution"
+            )
+        for owner in owners:
             for configuration in (
                 child for child in owner if local_name(child) == "configuration"
             ):
@@ -724,6 +750,12 @@ def maven_unclassified_lifecycle_execution(
                     if value not in {"true", "${skiptests}"}:
                         return False
         return True
+
+    if (
+        last_phase in {"test-compile", "package"}
+        and maven_effective_property_is_enabled(effective_pom, "maven.test.skip")
+    ):
+        return "effective `maven.test.skip` property disables test compilation"
 
     packaging = child_text(effective_pom, "packaging") or "jar"
     if last_phase == "test-compile" and packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
@@ -749,6 +781,10 @@ def maven_unclassified_lifecycle_execution(
         relevant_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
     known_phases = set(MAVEN_DEFAULT_LIFECYCLE_PHASES)
     known_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
+    skipped_test_plugins = {
+        (group_id.casefold(), artifact_id.casefold())
+        for group_id, artifact_id, _ in MAVEN_SKIP_TEST_GOALS
+    }
 
     for build in builds:
         if any(
@@ -775,7 +811,7 @@ def maven_unclassified_lifecycle_execution(
                             group_id.casefold() == skipped_group
                             and artifact_id.casefold() == skipped_artifact
                             for skipped_group, skipped_artifact, _ in MAVEN_SKIP_TEST_GOALS
-                        ) and not test_execution_skip_configuration_is_safe(plugin, plugin):
+                        ) and not test_execution_skip_configuration_is_safe(plugin):
                             return (
                                 f"{group_id}:{artifact_id} pluginManagement "
                                 "overrides `-DskipTests`"
@@ -788,6 +824,17 @@ def maven_unclassified_lifecycle_execution(
                 artifact_id = child_text(plugin, "artifactId")
                 if child_text(plugin, "extensions").casefold() == "true":
                     return f"{group_id}:{artifact_id} build extension"
+                if (
+                    last_phase == "package"
+                    and property_is_true(parsed, "skipTests")
+                    and (group_id.casefold(), artifact_id.casefold())
+                    in skipped_test_plugins
+                    and not test_execution_skip_configuration_is_safe(plugin)
+                ):
+                    return (
+                        f"{group_id}:{artifact_id} plugin or execution "
+                        "overrides `-DskipTests`"
+                    )
                 for executions in (
                     child for child in plugin if local_name(child) == "executions"
                 ):
@@ -826,10 +873,7 @@ def maven_unclassified_lifecycle_execution(
                                     identity in skipped_test_goals
                                     and property_is_true(parsed, "skipTests")
                                 ):
-                                    if test_execution_skip_configuration_is_safe(
-                                        plugin,
-                                        execution,
-                                    ):
+                                    if test_execution_skip_configuration_is_safe(plugin):
                                         continue
                                     return (
                                         f"{group_id}:{artifact_id}:{goal_name} "
@@ -1174,19 +1218,7 @@ gradle.taskGraph.whenReady { graph ->
     return task_records, archive_records
 
 
-def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
-    task_records, _ = gradle_inspection(root, target, command, timeout)
-    task_paths = {path for path, _ in task_records}
-    requested_packages = {
-        f":{task}" if parsed["project_dirs"] and not task.startswith(":") else task
-        for task in parsed["tasks"]
-        if task_leaf(task) in GRADLE_PACKAGE_TASKS
-        and gradle_module_selected(root, target, parsed, task)
-    }
-    if not requested_packages.intersection(task_paths):
-        raise EvidenceError(
-            f"Question 8 cannot verify that Gradle ran a packaging task for module {target}"
-        )
+def verify_gradle_task_graph_avoids_test_execution(task_records, parsed, operation):
     unexcluded_test_tasks = sorted(
         path
         for path, is_test_task in task_records
@@ -1201,9 +1233,29 @@ def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
     )
     if unexcluded_test_tasks:
         raise EvidenceError(
-            "Question 8 cannot verify that Gradle packaging avoids test execution: "
+            f"Question 8 cannot verify that Gradle {operation} avoids test execution: "
             "unexcluded test tasks " + ", ".join(unexcluded_test_tasks)
         )
+
+
+def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
+    task_records, _ = gradle_inspection(root, target, command, timeout)
+    task_paths = {path for path, _ in task_records}
+    requested_packages = {
+        f":{task}" if parsed["project_dirs"] and not task.startswith(":") else task
+        for task in parsed["tasks"]
+        if task_leaf(task) in GRADLE_PACKAGE_TASKS
+        and gradle_module_selected(root, target, parsed, task)
+    }
+    if not requested_packages.intersection(task_paths):
+        raise EvidenceError(
+            f"Question 8 cannot verify that Gradle ran a packaging task for module {target}"
+        )
+    verify_gradle_task_graph_avoids_test_execution(
+        task_records,
+        parsed,
+        "packaging",
+    )
 
 
 def migrate_only_packaging_exception(root, key, parsed, tool, command, timeout):
@@ -1288,12 +1340,36 @@ def test_runner_command(command):
         return any(arg.casefold() == "test" for arg in command[1:])
     if executable == "java":
         return any(
-            "junit.platform.console" in arg.casefold()
-            or "org.junit.runner.junitcore" in arg.casefold()
-            or "org.testng.testng" in arg.casefold()
-            for arg in command[1:]
+            main_class in argument.casefold()
+            for argument in command[1:]
+            for main_class in JAVA_TEST_RUNNER_MAIN_CLASSES
         )
     return "test" in executable
+
+
+def java_manifest_entry_points(manifest):
+    headers = {}
+    current_header = None
+    for line in manifest.splitlines():
+        if not line:
+            break
+        if line.startswith(" "):
+            if current_header is None:
+                return None
+            headers[current_header] += line[1:]
+            continue
+        name, separator, value = line.partition(":")
+        if not separator or not name.strip():
+            return None
+        current_header = name.strip().casefold()
+        if current_header in headers:
+            return None
+        headers[current_header] = value.lstrip()
+    return {
+        header_name: headers[header_name].strip()
+        for header_name in ("main-class", "start-class")
+        if headers.get(header_name)
+    }
 
 
 def maven_module_effective_pom(root, module, timeout):
@@ -1469,10 +1545,19 @@ def java_application_jar(root, key, command, timeout=None):
         raise EvidenceError(
             f"{key}: Question 8 cannot establish that the Java JAR is executable"
         ) from exc
-    return any(
-        line.partition(":")[0].strip().casefold() == "main-class"
-        for line in manifest.splitlines()
-    )
+    entry_points = java_manifest_entry_points(manifest)
+    if not entry_points or not entry_points.get("main-class"):
+        return False
+    for header_name, entry_point in (
+        ("Main-Class", entry_points.get("main-class")),
+        ("Start-Class", entry_points.get("start-class")),
+    ):
+        if entry_point and entry_point.casefold() in JAVA_TEST_RUNNER_MAIN_CLASSES:
+            raise EvidenceError(
+                f"{key}: Question 8 rejects Java test-runner {header_name} entry point "
+                f"{entry_point}"
+            )
+    return True
 
 
 def normalized_model_target(root, value):
@@ -1632,6 +1717,18 @@ def validate_migrate_only_command(root, key, command, timeout=None):
                 raise EvidenceError(
                     "Question 8 Migrate tests only permits test-skip flags only for packaging checks"
                 )
+            if tool == "gradle":
+                task_records, _ = gradle_inspection(
+                    root,
+                    key[1],
+                    command,
+                    timeout,
+                )
+                verify_gradle_task_graph_avoids_test_execution(
+                    task_records,
+                    parsed,
+                    "Spring Boot launch",
+                )
             return
         packaging_tasks = (
             {task_leaf(task) for task in parsed["tasks"]} & {"package"}
@@ -1729,7 +1826,7 @@ def collect_source_files(
     module_paths = set(modules)
     for module in modules:
         scan_module(root, module, module_paths, hashes)
-    if test_contract is not None and test_contract["mode"] in TEST_RUN_MODES:
+    if test_contract is not None:
         module_paths = set(test_contract["modules"])
         for test in test_contract["tests"]:
             add_existing_source_file_hash(
@@ -1892,14 +1989,22 @@ def initialize(root, reset_source_snapshot=False):
         if (
             not reset_source_snapshot
             and "run_id" in inventory
-            and inventory.get("test_run_mode") == "run"
+            and (
+                inventory.get("test_run_mode") == "run"
+                or (
+                    "test_run_mode" not in inventory
+                    and inventory.get("test_suites")
+                )
+            )
         ):
             raise EvidenceError(
                 "The C7 test baseline cannot be captured after this migration run started; "
                 "restore the C7 baseline before init --reset-source-snapshot"
             )
         current_test_contract = (
-            test_contract(root, inventory) if "test_run_mode" in inventory else None
+            test_contract(root, inventory)
+            if "test_run_mode" in inventory or "test_suites" in inventory
+            else None
         )
         source_files = collect_source_files(
             root,
@@ -1933,7 +2038,7 @@ def initialize(root, reset_source_snapshot=False):
             "Step 2 inventory lacks the test contract source snapshot; "
             "restore the C7 baseline before init --reset-source-snapshot"
         )
-    elif "test_run_mode" in inventory:
+    elif "test_run_mode" in inventory or "test_suites" in inventory:
         validate_source_snapshot_test_contract(root, inventory)
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
@@ -2594,23 +2699,18 @@ def test_contract(root, inventory):
             raise EvidenceError(
                 f"{test['id']}: Test Inventory module is outside the Step 2 scope"
             )
-    if mode is None:
-        if any(test["handling"] == "Migrate" for test in tests):
-            raise EvidenceError(
-                "Step 2 test_run_mode is required when the Test Inventory contains migratable tests"
-            )
-        return {
-            "mode": None,
-            "tests": tests,
-            "suites": {},
-            "test_suites": {},
-            "modules": inventory.get("modules", []),
-        }
-
-    test_by_id = {test["id"]: test for test in tests}
     migrate_ids = {
         test["id"] for test in tests if test["handling"] == "Migrate"
     }
+    if mode is None and migrate_ids:
+        raise EvidenceError(
+            "Step 2 test_run_mode is required when the Test Inventory contains migratable tests"
+        )
+    if mode is not None and not migrate_ids:
+        raise EvidenceError(
+            "Step 2 test_run_mode is not allowed unless the Test Inventory contains migratable tests"
+        )
+    test_by_id = {test["id"]: test for test in tests}
     suite_entries = inventory.get("test_suites", [])
     if not isinstance(suite_entries, list):
         raise EvidenceError("Step 2 test_suites must be an array")
@@ -2679,12 +2779,11 @@ def test_contract(root, inventory):
             "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
         }
 
-    if mode == "run":
-        for test_id in migrate_ids:
-            if not test_suites.get(test_id):
-                raise EvidenceError(
-                    f"{test_id}: no Step 2 test suite records this migrated test"
-                )
+    for test_id in migrate_ids:
+        if not test_suites.get(test_id):
+            raise EvidenceError(
+                f"{test_id}: no Step 2 test suite records this migrated test"
+            )
     return {
         "mode": mode,
         "tests": tests,
@@ -2695,7 +2794,7 @@ def test_contract(root, inventory):
 
 
 def validate_source_snapshot_test_contract(root, inventory):
-    if "test_run_mode" not in inventory:
+    if "test_run_mode" not in inventory and "test_suites" not in inventory:
         return None
     current_test_contract = test_contract(root, inventory)
     if not source_test_contract_matches_snapshot(
@@ -2705,19 +2804,18 @@ def validate_source_snapshot_test_contract(root, inventory):
         raise EvidenceError(
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot"
         )
-    if current_test_contract["mode"] in TEST_RUN_MODES:
-        missing_snapshot_files = sorted(
-            {
-                test["file"]
-                for test in current_test_contract["tests"]
-                if test["file"] not in inventory["source_files"]
-            }
+    missing_snapshot_files = sorted(
+        {
+            test["file"]
+            for test in current_test_contract["tests"]
+            if test["file"] not in inventory["source_files"]
+        }
+    )
+    if missing_snapshot_files:
+        raise EvidenceError(
+            "C7 source snapshot omits Test Inventory file(s): "
+            + ", ".join(missing_snapshot_files)
         )
-        if missing_snapshot_files:
-            raise EvidenceError(
-                "C7 source snapshot omits Test Inventory file(s): "
-                + ", ".join(missing_snapshot_files)
-            )
     return current_test_contract
 
 
@@ -3400,8 +3498,16 @@ def suite_requires_c7_baseline(suite, contract, mapping):
     if mapping is None:
         return False
     rows = test_rows_by_id(mapping)
+    has_added_tests = any(
+        isinstance(test, dict) and test.get("status") == "added"
+        for test in mapping["tests"]
+    )
     return any(
-        rows.get(test_id, {}).get("status") in ("migrated", "retired")
+        rows.get(test_id, {}).get("status") == "migrated"
+        or (
+            rows.get(test_id, {}).get("status") == "retired"
+            and (contract["mode"] == "run" or has_added_tests)
+        )
         for test_id in suite_report_only_test_ids(suite, contract)
     )
 
@@ -3417,12 +3523,17 @@ def test_validation_enabled(contract, migrated_test_ids, mapping):
         and rows.get(test["id"], {}).get("status") == "retired"
         for test in contract["tests"]
     )
-    return contract["mode"] == "run" and (
+    has_migratable_tests = any(
+        test["handling"] == "Migrate" for test in contract["tests"]
+    )
+    return contract["mode"] != "migrate_only" and (
         bool(migrated_test_ids)
         or bool(expected_cpt_test_ids(mapping))
         or has_added_tests
-        or has_retired_report_only_tests
-        or any(test["handling"] == "Migrate" for test in contract["tests"])
+        or (
+            contract["mode"] == "run"
+            and (has_retired_report_only_tests or has_migratable_tests)
+        )
     )
 
 
@@ -4295,7 +4406,7 @@ def requirements(root, evidence):
             "modules": inventory.get("modules", []),
         }
     if (
-        "test_run_mode" in inventory
+        ("test_run_mode" in inventory or "test_suites" in inventory)
         and not source_test_contract_matches_snapshot(
             source_test_contract(tests),
             inventory.get("source_snapshot_test_contract"),
@@ -4307,7 +4418,7 @@ def requirements(root, evidence):
         )
     migrated_test_ids = set()
     mapping = None
-    if tests["mode"] == "run":
+    if tests["mode"] != "migrate_only" and tests["tests"]:
         try:
             mapping = read_test_mapping(root)
             migrated_test_ids = mapped_migrated_test_ids(mapping)
@@ -5101,8 +5212,8 @@ def record_c7_baseline(root, args):
         raise EvidenceError("C7 baseline accepts only run or block")
     inventory = read_json(root / INVENTORY)
     contract = test_contract(root, inventory)
-    if contract["mode"] != "run":
-        raise EvidenceError("C7 baseline checks require test_run_mode run")
+    if contract["mode"] == "migrate_only":
+        raise EvidenceError("C7 baseline checks are not available in migrate_only mode")
     key = (args.type, args.target, args.kind, args.scenario)
     suite_key = (args.target, args.scenario)
     suite = contract["suites"].get(suite_key)
@@ -5708,7 +5819,10 @@ def load_checks(root, evidence, plan, issues):
     inventory = read_json(root / INVENTORY)
     run_id = inventory["run_id"]
     mapping = None
-    if plan.test_contract["mode"] == "run":
+    if (
+        plan.test_contract["mode"] != "migrate_only"
+        and plan.test_contract.get("tests")
+    ):
         try:
             mapping = read_test_mapping(root)
         except EvidenceError as exc:
@@ -6246,7 +6360,10 @@ def report(root):
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
-        if plan.test_contract["mode"] == "run":
+        if (
+            plan.test_contract["mode"] != "migrate_only"
+            and plan.test_contract.get("tests")
+        ):
             try:
                 mapping = read_test_mapping(root)
                 test_validation = test_validation_enabled(
@@ -6378,7 +6495,11 @@ def record(root, args):
     extra = {}
     check_method = "command" if args.action == "run" else "review"
     mapping = None
-    if plan.test_contract["mode"] == "run" and key[2] in TEST_LEDGER_CHECK_KINDS:
+    if (
+        plan.test_contract["mode"] != "migrate_only"
+        and plan.test_contract.get("tests")
+        and key[2] in TEST_LEDGER_CHECK_KINDS
+    ):
         mapping = read_test_mapping(root, required=True)
     if args.action == "run" and method == "snapshot":
         command = list(args.command or [])

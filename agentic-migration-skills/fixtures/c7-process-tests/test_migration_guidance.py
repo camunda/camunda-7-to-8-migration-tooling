@@ -1181,6 +1181,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
             "Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`. This command can differ from the Step 2 C7 baseline command.",
             "Never rebuild the C7 baseline from migrated code.",
+            "A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every suite that contains a migratable test for deferred verification.",
+            "The skill assigns every migratable test to at least one suite in either mode.",
+            "The skill uses a distinct `name` for each suite in a module.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
@@ -1194,6 +1197,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         for text in (
             "It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle `testClasses` command that selects the recorded module.",
             "Before Maven test compilation, the validator inspects the effective POM with the command's module, POM, profile, and property options. It refuses unclassified lifecycle goals through `test-compile`, including goals without a known default phase, and Maven build extensions.",
+            "It refuses the compile check if Maven cannot generate or parse the effective POM, if the effective `maven.test.skip` property is enabled, or if its packaging has no verified test-source compiler.",
             "Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It requires a test-source compiler task. It accepts only recognized compile, resource, and JAR tasks. It refuses every excluded task and every unclassified task.",
             "A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.",
             "It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only when the command's normalized file target matches the selected model.",
@@ -1201,11 +1205,26 @@ class MigrationGuidanceTest(unittest.TestCase):
             "It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test checks.",
             "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.",
             "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
-            "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check.",
-            "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry, and its path matches the module's configured Maven or Gradle archive output.",
+            "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects every unexcluded `Test` task.",
+            "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle archive output.",
             "Before accepting Maven `package`, the validator inspects the effective lifecycle through `package`. It rejects unclassified goals, goals without a known default phase, and Maven build extensions and packaging types outside the verified set. It allows the standard Surefire test goal only when `-DskipTests` is enabled and the effective POM does not override that setting.",
+            "Maven inspection checks Surefire plugin and execution overrides in the effective POM.",
+            "It also rejects an enabled effective `maven.test.skip` property.",
             "Before accepting Gradle packaging, the validator inspects the `--dry-run` task graph and checks each task's Gradle `Test` type. It rejects each unexcluded test task, including custom test tasks.",
             "It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for `executable_jar` and `external_launcher` checks after the lifecycle or task-graph inspection passes.",
+            "Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.",
+            "If the inventory has no migratable test and it supplies `test_run_mode`, then the validator rejects the field.",
+            "When the user selects `Run tests` or `Migrate tests only`, the skill checks the Test Inventory.",
+            "A migratable test has handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.",
+            "Where the Test Inventory has a migratable test, the skill records `test_run_mode` and `test_suites` in Step 2.",
+            "The skill sets `test_run_mode` to `\"run\"` or `\"migrate_only\"` for the selected option.",
+            "The skill sets each suite's `module`, `name`, exact C7 `command`, and `test_ids`.",
+            "The skill assigns every migratable test to at least one suite in either mode.",
+            "The skill records these suites in Step 2 for deferred verification.",
+            "The skill does not run their commands in `migrate_only` mode.",
+            "Where the project uses custom paths, the skill sets `reports` or `coverage_reports`.",
+            "The skill follows `references/test-migration.md` for the inventory table and ledger fields.",
+            "Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in `test_suites` without `test_run_mode`.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), validation_evidence)

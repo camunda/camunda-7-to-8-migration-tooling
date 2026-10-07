@@ -19,6 +19,8 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 
 When Question 8 applies, also record `"test_run_mode": "run"` or
 `"test_run_mode": "migrate_only"` in this inventory. Omit the field when Question 8 does not apply.
+Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.
+If the inventory has no migratable test and it supplies `test_run_mode`, then the validator rejects the field.
 
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
@@ -38,11 +40,19 @@ the same source file even when arguments, line numbers, or formatting change.
 After `init`, the source snapshot detects additions, changes, and removals of each source model's
 sibling `converted-c8-*` copy, even outside selected modules.
 
-When the user selects `Run tests` and the Test Inventory has a test marked `Migrate`,
-`Migrate to CPT`, or `Migrate (lower priority)`, add
-`test_run_mode: "run"` and `test_suites` to the Step 2 inventory. Set each suite's `module`, `name`,
-exact C7 `command`, and `test_ids`. Set `reports` or `coverage_reports` only when the project uses
-custom paths. Follow `references/test-migration.md` for the inventory table and ledger fields.
+When the user selects `Run tests` or `Migrate tests only`, the skill checks the Test Inventory.
+A migratable test has handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.
+Where the Test Inventory has a migratable test, the skill records `test_run_mode` and `test_suites`
+in Step 2.
+The skill sets `test_run_mode` to `"run"` or `"migrate_only"` for the selected option.
+The skill sets each suite's `module`, `name`, exact C7 `command`, and `test_ids`.
+The skill assigns every migratable test to at least one suite in either mode.
+The skill records these suites in Step 2 for deferred verification.
+The skill does not run their commands in `migrate_only` mode.
+Where the project uses custom paths, the skill sets `reports` or `coverage_reports`.
+The skill follows `references/test-migration.md` for the inventory table and ledger fields.
+Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in
+`test_suites` without `test_run_mode`.
 
 The **C7 baseline** records the original test results before Step 3 changes any file. Run each suite
 that contains an in-scope test immediately after `init`:
@@ -223,8 +233,8 @@ In `migrate_only` mode, the validation script applies these rules:
 - Before Maven test compilation, the validator inspects the effective POM with the command's
   module, POM, profile, and property options. It refuses unclassified lifecycle goals through
   `test-compile`, including goals without a known default phase, and Maven build extensions. It
-  refuses the compile check if Maven cannot generate or parse the effective POM, or if its
-  packaging has no verified test-source compiler.
+  refuses the compile check if Maven cannot generate or parse the effective POM, if the effective
+  `maven.test.skip` property is enabled, or if its packaging has no verified test-source compiler.
 - Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
   requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
   tasks. It refuses every excluded task and every unclassified task.
@@ -234,9 +244,11 @@ In `migrate_only` mode, the validation script applies these rules:
   checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
   Maven goals or Gradle tasks.
 - It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's
-  `spring_boot_run` check.
+  `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects
+  every unexcluded `Test` task.
 - It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact
-  with a `Main-Class` manifest entry, and its path matches the module's configured Maven or Gradle
+  with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and
+  Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle
   archive output.
 - Before accepting Maven `package`, the validator inspects the effective lifecycle through
   `package`. It rejects unclassified goals, goals without a known default phase, and Maven build
@@ -249,6 +261,8 @@ In `migrate_only` mode, the validation script applies these rules:
   when the command's normalized file target matches the selected model.
 - It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for
   `executable_jar` and `external_launcher` checks after the lifecycle or task-graph inspection passes.
+  Maven inspection checks Surefire plugin and execution overrides in the effective POM.
+  It also rejects an enabled effective `maven.test.skip` property.
 - It does not require `docker_info`.
 
 These packaging flags are the only exception to the rule against commands that skip tests.

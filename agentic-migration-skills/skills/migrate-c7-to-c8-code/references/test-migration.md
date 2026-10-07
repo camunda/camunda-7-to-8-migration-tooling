@@ -401,26 +401,23 @@ A **Run tests** inventory includes `test_suites`:
 }
 ```
 
-Where deferred verification is planned, a **Migrate tests only** inventory declares `test_suites` in
-Step 2. The validator rejects suites added later, because the source snapshot does not cover them.
-Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
+A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every
+suite that contains a migratable test for deferred verification.
+The validator rejects migratable tests that do not belong to a recorded suite.
+The source snapshot rejects suites added after Step 2.
 
-```json
-{
-  "schema_version": 1,
-  "modules": ["examples/web"],
-  "models": ["models/order.bpmn"],
-  "test_run_mode": "migrate_only"
-}
-```
+Where no migratable test exists, the skill omits `test_run_mode`.
+Where the user selects a **Report only** test for migration, the skill records its C7 suite in
+`test_suites` without `test_run_mode`.
 
-Where no Test Inventory row has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**, the skill omits `test_run_mode`.
-
-Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in each suite.
-When `test_run_mode` is `run`, assign every test with handling **Migrate**, **Migrate to CPT**, or
-**Migrate (lower priority)** to at least one suite. Use a distinct `name` for each suite in a module.
-The validator uses `command` for the Camunda 7 baseline. It runs the command without a shell.
-Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
+The skill sets `test_run_mode` to `run` or `migrate_only`. The skill sets `test_ids` to Test
+Inventory IDs in each suite.
+The skill assigns every migratable test to at least one suite in either mode.
+The skill uses a distinct `name` for each suite in a module.
+The validator uses each suite's `command` for the Camunda 7 baseline. The validator runs this
+command without a shell.
+The skill keeps the Test Inventory and `test_suites` unchanged after Step 2. The skill records CPT
+mappings in `test-mapping.json`.
 
 Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
 The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
