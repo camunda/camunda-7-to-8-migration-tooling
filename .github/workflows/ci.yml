@@ -173,6 +173,36 @@ jobs:
             echo "run-compile-previous-version=false" >> "$GITHUB_OUTPUT"
           fi
 
+  npm-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      - name: Audit diagram-converter frontend dependencies
+        working-directory: diagram-converter/webapp/src/main/javascript
+        run: npm audit --audit-level=high
+
+      - name: Audit cockpit frontend dependencies
+        working-directory: data-migrator/plugins/cockpit/frontend
+        run: npm audit --audit-level=high
+
+      - name: Audit API-mapping frontend dependencies
+        working-directory: code-conversion/api-mapping
+        run: npm audit --audit-level=high
+
+      - name: Audit e2e test dependencies
+        working-directory: data-migrator/qa/e2e-tests
+        run: npm audit --audit-level=high
+
   distro:
     needs: [detect-changes]
     runs-on: ubuntu-latest
@@ -1269,6 +1299,7 @@ jobs:
     name: CI Summary Gate
     needs:
       - detect-changes
+      - npm-audit
       - distro
       - code-conversion
       - code-conversion-windows
@@ -1326,6 +1357,7 @@ jobs:
             const needsResults = ${{ toJSON(needs) }};
 
             const requiredChecks = [
+              { key: "npm-audit", label: "npm-audit", expected: true },
               { key: "distro", label: "distro", expected: parseBool(process.env.EXPECT_DISTRO) },
               { key: "code-conversion", label: "code-conversion", expected: parseBool(process.env.EXPECT_CODE_CONVERSION) },
               { key: "code-conversion-windows", label: "code-conversion-windows", expected: parseBool(process.env.EXPECT_CODE_CONVERSION_WINDOWS) },
@@ -1452,6 +1484,7 @@ jobs:
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
     needs:
+      - npm-audit
       - distro
       - code-conversion
       - code-conversion-windows
