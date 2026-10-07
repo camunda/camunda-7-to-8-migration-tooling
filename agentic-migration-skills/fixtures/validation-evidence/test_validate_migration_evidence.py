@@ -1877,6 +1877,81 @@ class ValidationEvidenceTest(unittest.TestCase):
                         self.submit(key, command=command_args, environment="local")
                     command.assert_not_called()
 
+    def test_migrate_only_allows_configured_external_launcher_jar(self):
+        self.plan["modules"][0]["runtime_mode"] = "external-launcher"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/app-1.0.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: com.example.ExternalWorker\n",
+            )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        command_args = ["java", "-jar", "app/target/app-1.0.jar"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ):
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("module", "app", "external_launcher", None),
+                    command=command_args,
+                    environment="local",
+                ),
+            )
+
+    def test_migrate_only_rejects_test_runner_jar_for_external_launcher(self):
+        self.plan["modules"][0]["runtime_mode"] = "external-launcher"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/app-1.0.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\n"
+                "Main-Class: org.junit.platform.console.ConsoleLauncher\n",
+            )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        command_args = ["java", "-jar", "app/target/app-1.0.jar"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ) as invoked:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "test.runner|test runner",
+            ):
+                self.submit(
+                    ("module", "app", "external_launcher", None),
+                    command=command_args,
+                    environment="local",
+                )
+            self.assertEqual(1, invoked.call_count)
+
     def test_migrate_only_blocks_gate_without_docker_probe(self):
         self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
         self.write_scope(test_run_mode="migrate_only")
@@ -1965,6 +2040,32 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "no Step 2 test suite records this migrated test",
                     ):
                         gate.test_contract(self.root, inventory)
+
+    def test_test_inventory_rejects_unsupported_handling_prefixes(self):
+        junit = '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        unsupported_values = (
+            "Migrate later",
+            "Migrated",
+            "Migrate to CPT later",
+            "Migrate (lower priority) later",
+            "Report only later",
+            "Not part of test migration later",
+            "Out of scope later",
+        )
+        self.configure_test_run(junit)
+        report_path = self.root / gate.REPORT
+        valid_report = report_path.read_text(encoding="utf-8")
+        for handling in unsupported_values:
+            with self.subTest(handling=handling):
+                report_path.write_text(
+                    valid_report.replace("| Migrate |", f"| {handling} |"),
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    "unsupported Test Inventory handling",
+                ):
+                    gate.test_report_inventory(self.root)
 
     def test_test_run_mode_is_rejected_without_migratable_tests(self):
         junit = '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

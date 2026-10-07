@@ -347,10 +347,14 @@ When the user selects **Migrate tests only**, apply these rules:
 - The validator requires a test-source compiler task for Gradle compilation.
 - The validator matches each `java -jar` path to the module's configured Maven or Gradle archive output.
 - The validator rejects Gradle dry runs, excluded tasks, and unclassified task-graph actions.
+- The skill directs the user to add `-DskipTests` to Maven packaging commands.
+- The skill directs the user to exclude every Gradle test task with `-x <task>`.
 - When an `executable_jar` or `external_launcher` check needs a packaged artifact, the user runs
   packaging outside the evidence recorder.
 - The skill records only a bounded launch command as `executable_jar` or `external_launcher`
   evidence.
+- When the validator checks `external_launcher` evidence, it accepts a direct `java -jar` command
+  for the module's configured application artifact.
 - The skill records the package command and its reason in `MIGRATION_REPORT.md`.
 - Record each module `tests` check and each process `process_path` check with the `block` action and
   the exact reason `declined by user (Question 8)`.

@@ -1178,6 +1178,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             "When an `executable_jar` or `external_launcher` check needs a packaged artifact, the user runs packaging outside the evidence recorder.",
             "The skill records only a bounded launch command as `executable_jar` or `external_launcher` evidence.",
             "The skill records the package command and its reason in `MIGRATION_REPORT.md`.",
+            "The skill directs the user to add `-DskipTests` to Maven packaging commands.",
+            "The skill directs the user to exclude every Gradle test task with `-x <task>`.",
+            "When the validator checks `external_launcher` evidence, it accepts a direct `java -jar` command for the module's configured application artifact.",
             "Copy the full project root, including hidden files, to a sibling directory.",
             "`git status --porcelain`",
             "Git repository with a dirty working tree",
@@ -1214,9 +1217,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.",
             "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
             "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects every unexcluded `Test` task.",
-            "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle archive output.",
+            "When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.",
+            "It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
+            "The JAR path must match the module's configured Maven or Gradle archive output.",
             "It rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime startup.",
             "When a runtime check needs a packaged artifact, the user runs packaging outside the evidence recorder.",
+            "The skill directs the user to add `-DskipTests` to Maven packaging commands.",
+            "The skill directs the user to exclude every Gradle test task with `-x <task>`.",
             "The user records a bounded launch command as `executable_jar` or `external_launcher` evidence.",
             "When `--baseline-root` differs from the project root, the validator rejects command paths that resolve inside the migrated project. Use wrapper, script, POM, and project-directory paths that resolve from the preserved root.",
             "Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.",
@@ -1262,6 +1269,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         deferred_plan = report.split("## Verify the test migration", 1)[1].split(
             "## Readiness", 1
         )[0]
+        self.assertIn("every `source_files` path tracked at the recorded commit", deferred_plan)
+        self.assertIn("any `source_files` path missing from the recorded commit", deferred_plan)
         for check in (
             "`c7_baseline`",
             "`test_freeze`",

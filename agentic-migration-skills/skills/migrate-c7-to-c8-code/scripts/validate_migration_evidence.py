@@ -41,6 +41,14 @@ GATE_HEADING = "## Aggregate validation gate"
 TEST_PARITY_HEADING = "## Test Parity"
 TEST_COVERAGE_HEADING = "## Test Coverage"
 RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
+TEST_INVENTORY_HANDLING = {
+    "migrate": "Migrate",
+    "migrate to cpt": "Migrate",
+    "migrate (lower priority)": "Migrate",
+    "report only": "Report only",
+    "not part of test migration": "Not part of test migration",
+    "out of scope": "Not part of test migration",
+}
 SAFE_ENVIRONMENTS = ("local", "non-production")
 SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     ".venv", ".worktree", ".worktrees", "__pycache__",
@@ -1453,7 +1461,7 @@ def configured_module_application_jar_paths(root, module, timeout):
 def java_application_jar(root, key, command, timeout=None):
     if (
         key[0] != "module"
-        or key[2] != "executable_jar"
+        or key[2] not in {"executable_jar", "external_launcher"}
         or key[3] is not None
         or command_executable(command) != "java"
     ):
@@ -2550,13 +2558,8 @@ def test_report_inventory(root, *, required=True):
         handling_text = re.sub(
             r"[\s_-]+", " ", values[columns["handling"]].casefold()
         ).strip()
-        if handling_text.startswith("migrate"):
-            handling = "Migrate"
-        elif handling_text.startswith("report only"):
-            handling = "Report only"
-        elif handling_text.startswith(("not part of test migration", "out of scope")):
-            handling = "Not part of test migration"
-        else:
+        handling = TEST_INVENTORY_HANDLING.get(handling_text)
+        if handling is None:
             raise EvidenceError(
                 f"{test_id}: unsupported Test Inventory handling "
                 f"{values[columns['handling']]!r}"

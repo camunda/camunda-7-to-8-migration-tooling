@@ -87,8 +87,8 @@ repository, keep its `.git` metadata in the snapshot so the validator can verify
 
    | Step 2 source | Baseline source |
    |---|---|
-   | Clean Git working tree | A worktree at the recorded commit. |
-   | Dirty Git working tree or non-Git source | The saved filesystem snapshot. |
+   | Clean Git working tree and every `source_files` path tracked at the recorded commit | A worktree at the recorded commit. |
+   | Dirty Git working tree, non-Git source, or any `source_files` path missing from the recorded commit | The recorded filesystem snapshot. |
 
 3. Record `docker_info` before the first Docker-dependent suite.
 4. Record each C7 baseline with kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`.

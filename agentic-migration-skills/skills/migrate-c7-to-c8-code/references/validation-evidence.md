@@ -248,14 +248,16 @@ In `migrate_only` mode, the validation script applies these rules:
 - It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's
   `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects
   every unexcluded `Test` task.
-- It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact
-  with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and
-  Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle
-  archive output.
+- When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct
+  `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.
+- It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
+- The JAR path must match the module's configured Maven or Gradle archive output.
 - It rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
   goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
   `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
   startup.
+- The skill directs the user to add `-DskipTests` to Maven packaging commands.
+- The skill directs the user to exclude every Gradle test task with `-x <task>`.
 - When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
   recorder.
 - The user records a bounded launch command as `executable_jar` or `external_launcher`
