@@ -748,8 +748,9 @@ result, mapped CPT tests, both CPT run results, status, and notes.
 The Notes column lists approved retirement reasons. The section also lists approved test changes
 and approved mock changes. The validator owns the Test Parity and Test Coverage sections.
 
-When no required check failed and no required runtime dependency is unavailable, the project-readiness
-verdict is `needs review`, not `blocked`. Follow `references/project-readiness.md`.
+When the user selects **Migrate tests only**, set the project-readiness verdict to `needs review`
+if no required check has failed and no required runtime dependency is unavailable.
+Follow `references/project-readiness.md`.
 
 ## Verification Plan for a Deferred Test Run
 

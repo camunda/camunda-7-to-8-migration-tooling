@@ -54,8 +54,12 @@ The skill follows `references/test-migration.md` for the inventory table and led
 Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in
 `test_suites` without `test_run_mode`.
 
-The **C7 baseline** records the original test results before Step 3 changes any file. Run each suite
-that contains an in-scope test immediately after `init`:
+The **C7 baseline** records the original test results before Step 3 changes any file.
+When `test_run_mode` is `run`, run each suite that contains a migratable test and each suite that
+contains a `Report only` test selected for migration immediately after `init`.
+When the user selects `Migrate tests only`, preserve the C7 baseline and do not run a test command.
+When the user selects a `Report only` test for migration without Question 8, run each suite that
+contains such a test immediately after `init`.
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
@@ -267,6 +271,8 @@ The default timeout is 300 seconds. Use `--timeout` to set another positive star
 For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.
 The validator accepts these markers only with Spring Boot's standard startup line for that class.
 For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.
+For `external_launcher`, the validator requires a complete output line that exactly matches the
+user-supplied marker.
 The validator stores the marker with the check and validates the matching startup signal in captured output.
 The validator treats runtime records without complete startup evidence as not run. Rerun those
 checks with `--startup-marker`.
@@ -305,6 +311,8 @@ When the validator checks `executable_jar` or `external_launcher` evidence, it a
 `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.
 The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as
 `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.
+The validator rejects class, module, and source-file launch modes before `-jar`.
+The validator rejects a separate main-class token before `-jar`, including one after a class-path option.
 The validator rejects Java argument files before `-jar` and early-exit options in
 `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
 The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
@@ -531,7 +539,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
 | Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
-| Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
+| Each applicable Test Inventory suite | Record `c7_baseline` before Step 3 in `run` mode or for a `Report only` suite selected for migration without Question 8. In `migrate_only` mode, preserve the baseline without running a test command. |
 | Each migrated test class | `assertion_strength` review. |
 | Each migrated C7 test | `mock_boundary` review. |
 | Project `.` in `Run tests` mode with C7 `Migrate` rows or mapped migrated CPT tests | `test_parity` and `coverage_parity`. Require `test_freeze` only while migrated or added CPT IDs remain. |

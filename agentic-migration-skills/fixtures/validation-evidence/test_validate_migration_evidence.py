@@ -749,6 +749,11 @@ class ValidationEvidenceTest(unittest.TestCase):
                     (key[1], key[3])
                 ]["command"]
             elif key[0] == "module" and key[2] in gate.RUNTIME_CHECKS:
+                startup_output = (
+                    RUNTIME_STARTUP_MARKER
+                    if key[2] == "external_launcher"
+                    else RUNTIME_STARTUP_LINE
+                )
                 artifact_id = Path(key[1]).name
                 if key[2] == "spring_boot_run":
                     options["command"] = [
@@ -761,7 +766,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         gate,
                         "run_runtime_command",
                         return_value=subprocess.CompletedProcess(
-                            options["command"], 0, RUNTIME_STARTUP_LINE
+                            options["command"], 0, startup_output
                         ),
                     )
                 else:
@@ -795,7 +800,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                             gate,
                             "run_runtime_command",
                             return_value=subprocess.CompletedProcess(
-                                options["command"], 0, RUNTIME_STARTUP_LINE
+                                options["command"], 0, startup_output
                             ),
                         )
                     )
@@ -1785,6 +1790,15 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("--describe-module", "java.base"),
             ("--validate-modules",),
         )
+        alternate_launch_options = (
+            ("-cp", "helper.jar", "com.example.FakeLauncher"),
+            ("-classpath", "helper.jar", "com.example.FakeLauncher"),
+            ("--class-path", "helper.jar", "com.example.FakeLauncher"),
+            ("-m", "fake.module/com.example.FakeLauncher"),
+            ("--module", "fake.module/com.example.FakeLauncher"),
+            ("--module=fake.module/com.example.FakeLauncher",),
+            ("--source", "17", "FakeLauncher.java"),
+        )
         scenarios = (
             (None, "spring-boot", "executable_jar"),
             (None, "external-launcher", "external_launcher"),
@@ -1828,6 +1842,13 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                     for options in exit_options
                 ]
+                cases.extend(
+                    (
+                        ["java", *options, "-jar", artifact_path],
+                        None,
+                    )
+                    for options in alternate_launch_options
+                )
                 launcher_options = self.root / "launcher.options"
                 launcher_options.write_text("--dry-run\n", encoding="utf-8")
                 cases.extend(
@@ -1864,17 +1885,26 @@ class ValidationEvidenceTest(unittest.TestCase):
                                 gate.subprocess,
                                 "run",
                                 side_effect=runner,
-                            ) as invoked:
-                                with self.assertRaisesRegex(
-                                    gate.EvidenceError,
-                                    "Java launcher options",
-                                ):
-                                    self.submit(
-                                        key,
-                                        command=command_args,
-                                        environment="local",
-                                    )
-                                invoked.assert_not_called()
+                            ):
+                                with patch.object(
+                                    gate,
+                                    "run_runtime_command",
+                                    return_value=subprocess.CompletedProcess(
+                                        command_args,
+                                        0,
+                                        RUNTIME_STARTUP_LINE,
+                                    ),
+                                ) as invoked:
+                                    with self.assertRaisesRegex(
+                                        gate.EvidenceError,
+                                        "Java launcher options",
+                                    ):
+                                        self.submit(
+                                            key,
+                                            command=command_args,
+                                            environment="local",
+                                        )
+                                    invoked.assert_not_called()
 
     def test_runtime_checks_do_not_pass_without_application_startup_output(self):
         scenarios = (
@@ -2043,6 +2073,87 @@ class ValidationEvidenceTest(unittest.TestCase):
         check = checks[key][1]
         self.assertEqual("blocked", check["result"])
         self.assertTrue(check["startup_timed_out"])
+
+    def test_external_launcher_startup_marker_requires_an_exact_output_line(self):
+        key = ("module", "app", "external_launcher", None)
+        marker = "ready"
+        observations = (
+            ("ready\n", True),
+            ("[INFO] starting\nready\n", True),
+            ("Application ready\n", False),
+            ("Application not ready\n", False),
+            ("ready after retry\n", False),
+            ("notready\n", False),
+        )
+        for output, expected in observations:
+            with self.subTest(output=output):
+                self.assertEqual(
+                    expected,
+                    gate.runtime_startup_marker_observed(
+                        key,
+                        {"startup_marker": marker, "output": output},
+                    ),
+                )
+
+    def test_external_launcher_timeout_rejects_a_substring_startup_marker(self):
+        self.plan["modules"][0]["runtime_mode"] = "external-launcher"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/app-1.0.jar"
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: com.example.Application\n\n",
+            )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        key = ("module", "app", "external_launcher", None)
+        command = ["java", "-jar", "app/target/app-1.0.jar"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=self.maven_effective_pom_runner(effective_pom),
+        ):
+            with patch.object(
+                gate,
+                "run_runtime_command",
+                side_effect=subprocess.TimeoutExpired(
+                    command,
+                    5,
+                    output="Application not ready\n",
+                ),
+            ):
+                self.assertEqual(
+                    1,
+                    self.submit(
+                        key,
+                        command=command,
+                        environment="local",
+                        startup_marker="ready",
+                    ),
+                )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        check = checks[key][1]
+        self.assertEqual("blocked", check["result"])
+        self.assertTrue(check["startup_timed_out"])
+        self.assertFalse(gate.runtime_startup_marker_observed(key, check))
 
     def test_cli_requires_and_records_runtime_startup_marker(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -2401,6 +2512,10 @@ class ValidationEvidenceTest(unittest.TestCase):
         command_args = [
             "java",
             "-showversion",
+            "-cp",
+            "ignored-classpath.jar",
+            "--add-exports",
+            "java.base/sun.security.util=ALL-UNNAMED",
             "-jar",
             "app/target/app-1.0.jar",
             "--version",

@@ -107,6 +107,24 @@ JAVA_LAUNCHER_EARLY_EXIT_OPTIONS = frozenset(
         "--validate-modules",
     }
 )
+JAVA_LAUNCHER_ALTERNATE_ENTRY_OPTIONS = frozenset({"-m", "--module", "--source"})
+JAVA_LAUNCHER_OPTIONS_WITH_VALUE = frozenset(
+    {
+        "--add-exports",
+        "--add-modules",
+        "--add-opens",
+        "--add-reads",
+        "--class-path",
+        "--enable-native-access",
+        "--limit-modules",
+        "--module-path",
+        "--patch-module",
+        "--upgrade-module-path",
+        "-classpath",
+        "-cp",
+        "-p",
+    }
+)
 JAVA_OPTION_ENVIRONMENTS = ("JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
@@ -1308,7 +1326,7 @@ def runtime_startup_marker_observed(key, check):
         isinstance(marker, str)
         and bool(marker.strip())
         and isinstance(output, str)
-        and marker in output
+        and marker in output.splitlines()
     )
 
 
@@ -1646,11 +1664,28 @@ def java_manifest_entry_points(manifest):
 
 
 def java_launcher_options_can_skip_application(options):
-    return any(
-        option.startswith("@")
-        or option.partition("=")[0] in JAVA_LAUNCHER_EARLY_EXIT_OPTIONS
-        for option in options
-    )
+    index = 0
+    while index < len(options):
+        option = options[index]
+        option_name, separator, _ = option.partition("=")
+        if (
+            option.startswith("@")
+            or option_name in JAVA_LAUNCHER_EARLY_EXIT_OPTIONS
+            or option_name in JAVA_LAUNCHER_ALTERNATE_ENTRY_OPTIONS
+        ):
+            return True
+        if option_name in JAVA_LAUNCHER_OPTIONS_WITH_VALUE:
+            if not separator:
+                if index + 1 >= len(options):
+                    return True
+                index += 2
+            else:
+                index += 1
+            continue
+        if not option.startswith("-"):
+            return True
+        index += 1
+    return False
 
 
 def java_environment_options_can_skip_application():
@@ -1803,7 +1838,8 @@ def java_application_jar(root, key, command, timeout=None):
         or java_environment_options_can_skip_application()
     ):
         raise EvidenceError(
-            f"{key}: Java launcher options can prevent application startup"
+            f"{key}: Java launcher options or an alternate entry point can prevent "
+            "application startup"
         )
     jar_path = Path(arguments[jar_index + 1])
     if jar_path.suffix.casefold() != ".jar":

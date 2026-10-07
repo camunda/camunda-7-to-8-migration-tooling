@@ -1193,6 +1193,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
             "Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`. This command can differ from the Step 2 C7 baseline command.",
             "Never rebuild the C7 baseline from migrated code.",
+            "When the user selects **Migrate tests only**, set the project-readiness verdict to `needs review` if no required check has failed and no required runtime dependency is unavailable.",
             "A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every suite that contains a migratable test for deferred verification.",
             "The skill assigns every migratable test to at least one suite in either mode.",
             "The skill uses a distinct `name` for each suite in a module.",
@@ -1200,12 +1201,19 @@ class MigrationGuidanceTest(unittest.TestCase):
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
+        self.assertNotIn(
+            normalized(
+                "When no required check failed and no required runtime dependency is unavailable, the project-readiness verdict is `needs review`, not `blocked`."
+            ),
+            guidance,
+        )
 
+        validation_evidence_path = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/validation-evidence.md"
+        )
         validation_evidence = normalized(
-            (
-                REPO_ROOT
-                / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/validation-evidence.md"
-            ).read_text(encoding="utf-8")
+            validation_evidence_path.read_text(encoding="utf-8")
         )
         for text in (
             "It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle `testClasses` command that selects the recorded module.",
@@ -1225,6 +1233,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.",
             "The validator accepts these markers only with Spring Boot's standard startup line for that class.",
             "For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.",
+            "For `external_launcher`, the validator requires a complete output line that exactly matches the user-supplied marker.",
             "The validator stores the marker with the check and validates the matching startup signal in captured output.",
             "The validator treats runtime records without complete startup evidence as not run. Rerun those checks with `--startup-marker`.",
             "The validator records a runtime command as passed only when its startup signal appears. A command that exits normally must exit with code 0.",
@@ -1244,6 +1253,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.",
             "When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.",
             "The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.",
+            "The validator rejects class, module, and source-file launch modes before `-jar`.",
+            "The validator rejects a separate main-class token before `-jar`, including one after a class-path option.",
             "The validator rejects Java argument files before `-jar` and early-exit options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
             "The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
             "The validator matches the JAR path to the module's configured Maven or Gradle archive output.",
@@ -1263,12 +1274,28 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The skill assigns every migratable test to at least one suite in either mode.",
             "The skill records these suites in Step 2 for deferred verification.",
             "The skill does not run their commands in `migrate_only` mode.",
+            "When `test_run_mode` is `run`, run each suite that contains a migratable test and each suite that contains a `Report only` test selected for migration immediately after `init`.",
+            "When the user selects `Migrate tests only`, preserve the C7 baseline and do not run a test command.",
+            "When the user selects a `Report only` test for migration without Question 8, run each suite that contains such a test immediately after `init`.",
             "Where the project uses custom paths, the skill sets `reports` or `coverage_reports`.",
             "The skill follows `references/test-migration.md` for the inventory table and ledger fields.",
             "Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in `test_suites` without `test_run_mode`.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), validation_evidence)
+        required_checks = markdown_table(
+            validation_evidence_path,
+            ["Target", "Required checks"],
+        )
+        baseline_rule = next(
+            row["Required checks"]
+            for row in required_checks
+            if row["Target"] == "Each applicable Test Inventory suite"
+        )
+        self.assertIn("`run` mode", baseline_rule)
+        self.assertIn("`Report only`", baseline_rule)
+        self.assertIn("`migrate_only` mode", baseline_rule)
+        self.assertIn("without running a test command", baseline_rule)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
@@ -1277,6 +1304,21 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
+        inventory_headers = [
+            "Test ID",
+            "File",
+            "Test kind",
+            "Signals",
+            "Models",
+            "Handling",
+            "Notes",
+        ]
+        inventory = markdown_table(EXPECTED_TESTS_ONLY, inventory_headers)
+        self.assert_unique_rows(inventory, "Test ID", EXPECTED_TESTS_ONLY)
+        self.assertEqual(
+            markdown_table(EXPECTED_ASSESSMENT, inventory_headers),
+            inventory,
+        )
         self.assertIn(
             "kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`",
             report,
