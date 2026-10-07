@@ -9,11 +9,11 @@ The code-conversion module helps migrate Camunda 7 Java code to Camunda 8. Three
 ## Build Commands
 
 ```bash
-# Recipes: build + test
-cd code-conversion && mvn clean install
+# All code-conversion modules: build + test (from the repository root)
+mvn -f code-conversion/pom.xml clean install
 
-# Recipes: format check (what CI runs)
-mvn verify -PcheckFormat
+# Recipes only: verification (from the repository root)
+mvn verify -pl code-conversion/recipes -am
 
 # Patterns: regenerate catalog (must be in sync or CI fails)
 cd code-conversion/patterns && node generate-catalog.js && node generate-all-in-one.js
@@ -22,7 +22,10 @@ cd code-conversion/patterns && node generate-catalog.js && node generate-all-in-
 cd code-conversion/api-mapping && npm ci && npm run build
 ```
 
-Key profiles: `distro` (default, all modules), `central-release` (recipes only, for Maven Central). `checkFormat` enforces Spotless formatting.
+The `distro` profile builds all modules by default.
+The `central-release` profile builds only recipes for Maven Central.
+This module does not define `checkFormat` or configure Spotless. Do not use
+`-PcheckFormat` as evidence that code-conversion formatting was checked.
 
 ## Recipes Module
 
