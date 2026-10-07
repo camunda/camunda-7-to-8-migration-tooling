@@ -432,10 +432,15 @@ Where the user selects a **Report only** test for migration, the skill records i
 
 The skill sets `test_run_mode` to `run` or `migrate_only`. The skill sets `test_ids` to Test
 Inventory IDs in each suite.
+The suite `module` and `name` identify its C7 baseline owner.
+Where mapped CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.
+These target fields default to the C7 suite's `module` and `name`.
 The skill assigns every migratable test to at least one suite in either mode.
 The skill uses a distinct `name` for each suite in a module.
 The validator uses each suite's `command` for the Camunda 7 baseline. The validator runs this
 command without a shell.
+The validator uses the C7 module and suite name for `c7_baseline`.
+The validator uses the CPT module and suite name for `test_repeat`.
 The skill keeps the Test Inventory and `test_suites` unchanged after Step 2. The skill records CPT
 mappings in `test-mapping.json`.
 
@@ -748,9 +753,9 @@ result, mapped CPT tests, both CPT run results, status, and notes.
 The Notes column lists approved retirement reasons. The section also lists approved test changes
 and approved mock changes. The validator owns the Test Parity and Test Coverage sections.
 
-When the user selects **Migrate tests only**, set the project-readiness verdict to `needs review`
-if no required check has failed and no required runtime dependency is unavailable.
-Follow `references/project-readiness.md`.
+When the user selects **Migrate tests only**, follow `references/project-readiness.md`.
+Where no required check has failed and no required runtime dependency is unavailable, set the
+project-readiness verdict to `needs review`.
 
 ## Verification Plan for a Deferred Test Run
 

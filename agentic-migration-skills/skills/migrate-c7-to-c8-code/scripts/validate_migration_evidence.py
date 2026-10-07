@@ -125,11 +125,33 @@ JAVA_LAUNCHER_OPTIONS_WITH_VALUE = frozenset(
         "-p",
     }
 )
+JAVA_LAUNCHER_CODE_LOADING_OPTIONS = ("-javaagent:", "-agentlib:", "-agentpath:")
 JAVA_OPTION_ENVIRONMENTS = ("JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
 MAVEN_EXECUTABLES = {"mvn", "mvnw"}
 GRADLE_EXECUTABLES = {"gradle", "gradlew"}
+GRADLE_BUILD_LOGIC_OPTIONS = frozenset(
+    {
+        "-I",
+        "--init-script",
+        "-b",
+        "--build-file",
+        "-c",
+        "--settings-file",
+        "-g",
+        "--gradle-user-home",
+        "--include-build",
+    }
+)
+GRADLE_BUILD_LOGIC_LONG_OPTIONS = (
+    "--init-script",
+    "--build-file",
+    "--settings-file",
+    "--gradle-user-home",
+    "--include-build",
+)
+GRADLE_BUILD_LOGIC_SHORT_OPTIONS = ("-I", "-b", "-c", "-g")
 SHELL_EXECUTABLES = {"bash", "cmd", "dash", "powershell", "pwsh", "sh", "zsh"}
 MAVEN_TEST_EXECUTION_GOALS = {
     "deploy",
@@ -403,6 +425,23 @@ def build_tool(command):
     return None
 
 
+def unverified_gradle_build_logic_option(argument):
+    if argument in GRADLE_BUILD_LOGIC_OPTIONS:
+        return True
+    option_name = argument.partition("=")[0]
+    if any(
+        option_name.startswith(option) or (
+            len(option_name) > 2 and option.startswith(option_name)
+        )
+        for option in GRADLE_BUILD_LOGIC_LONG_OPTIONS
+    ):
+        return True
+    return any(
+        argument.startswith(option) and argument != option
+        for option in GRADLE_BUILD_LOGIC_SHORT_OPTIONS
+    )
+
+
 def parse_build_command(command, tool):
     parsed = {
         "tasks": [],
@@ -475,6 +514,10 @@ def parse_build_command(command, tool):
                 index += 2
                 continue
         else:
+            if unverified_gradle_build_logic_option(argument):
+                raise EvidenceError(
+                    "Question 8 rejects unverified Gradle build-logic options"
+                )
             if argument in ("-m", "--dry-run") or argument.startswith("--dry-run="):
                 parsed["dry_run"] = True
                 index += 1
@@ -1670,6 +1713,7 @@ def java_launcher_options_can_skip_application(options):
         option_name, separator, _ = option.partition("=")
         if (
             option.startswith("@")
+            or option.startswith(JAVA_LAUNCHER_CODE_LOADING_OPTIONS)
             or option_name in JAVA_LAUNCHER_EARLY_EXIT_OPTIONS
             or option_name in JAVA_LAUNCHER_ALTERNATE_ENTRY_OPTIONS
         ):
@@ -2308,6 +2352,10 @@ def test_suite_snapshot(suite):
         "reports": suite["reports"],
         "coverage_reports": suite["coverage_reports"],
     }
+    if suite["cpt_module"] != suite["module"]:
+        snapshot["cpt_module"] = suite["cpt_module"]
+    if suite["cpt_suite"] != suite["name"]:
+        snapshot["cpt_suite"] = suite["cpt_suite"]
     for root_type in ("test_source_roots", "test_resource_roots"):
         roots = suite.get(root_type, [])
         if roots:
@@ -2488,7 +2536,14 @@ def scope(root, evidence):
         if any(not isinstance(entry, dict) for entry in entries):
             raise EvidenceError(f"Every {kind} must be an object")
         declared = strings([entry.get(key) for entry in entries], f"evidence {kind}s")
-        if set(original) != set(declared):
+        expected = set(original)
+        if kind == "module":
+            expected = {
+                target
+                for targets in step2_module_targets(inventory, original).values()
+                for target in targets
+            }
+        if expected != set(declared):
             raise EvidenceError(f"Evidence {kind}s differ from the confirmed Step 2 scope")
         resolved = [project_path(root, path, kind) for path in declared]
         if len(resolved) != len(set(resolved)):
@@ -3059,10 +3114,15 @@ def report_patterns(value, default, label):
     return patterns
 
 
-def test_directory_roots(root, module, module_paths, values, label):
+def test_directory_roots(root, module, module_paths, values, label, *, allow_missing_module=False):
     roots = strings(values, label)
-    module_path = project_path(root, module, "Step 2 test suite module", must_exist=True)
-    if not module_path.is_dir():
+    module_path = project_path(
+        root,
+        module,
+        "Step 2 test suite module",
+        must_exist=not allow_missing_module,
+    )
+    if module_path.exists() and not module_path.is_dir():
         raise EvidenceError(f"Step 2 test suite module is not a directory: {module}")
     nested_modules = []
     for other in module_paths:
@@ -3113,11 +3173,15 @@ def test_contract(root, inventory):
         raise EvidenceError("Step 2 test_suites must be an array")
     suites = {}
     test_suites = {}
+    migrated_suites = {}
+    migrated_test_suites = {}
     for entry in suite_entries:
         if not isinstance(entry, dict):
             raise EvidenceError("Every Step 2 test suite must be an object")
         module = entry.get("module")
         name = entry.get("name")
+        cpt_module = entry.get("cpt_module", module)
+        cpt_suite = entry.get("cpt_suite", name)
         command = entry.get("command")
         test_ids = entry.get("test_ids")
         if (
@@ -3125,12 +3189,18 @@ def test_contract(root, inventory):
             or module not in module_paths
             or not isinstance(name, str)
             or not name
+            or not isinstance(cpt_module, str)
+            or not cpt_module
+            or not isinstance(cpt_suite, str)
+            or not cpt_suite
             or not isinstance(command, list)
             or not command
             or any(not isinstance(part, str) or not part for part in command)
         ):
             raise EvidenceError("Step 2 test suite needs a module, name, and command")
+        project_path(root, cpt_module, "Step 2 CPT test suite module")
         key = (module, name)
+        cpt_key = (cpt_module, cpt_suite)
         if key in suites:
             raise EvidenceError(f"{module}: duplicate Step 2 test suite {name}")
         test_ids = strings(test_ids, f"{module} {name} Test IDs")
@@ -3146,9 +3216,18 @@ def test_contract(root, inventory):
                     f"{test_id}: test suite module differs from the Test Inventory"
                 )
             test_suites.setdefault(test_id, []).append(key)
+            memberships = migrated_test_suites.setdefault(test_id, [])
+            if cpt_key not in memberships:
+                memberships.append(cpt_key)
+        migrate_test_ids = [
+            test_id for test_id in test_ids if test_id in migrate_ids
+        ]
         suites[key] = {
             "module": module,
             "name": name,
+            "cpt_module": cpt_module,
+            "cpt_suite": cpt_suite,
+            "cpt_suite_key": cpt_key,
             "command": command,
             "test_ids": test_ids,
             "reports": report_patterns(
@@ -3165,6 +3244,7 @@ def test_contract(root, inventory):
                 module_paths,
                 entry.get("test_source_roots", []),
                 f"{module} {name} test_source_roots",
+                allow_missing_module=cpt_module != module,
             ),
             "test_resource_roots": test_directory_roots(
                 root,
@@ -3172,9 +3252,29 @@ def test_contract(root, inventory):
                 module_paths,
                 entry.get("test_resource_roots", []),
                 f"{module} {name} test_resource_roots",
+                allow_missing_module=cpt_module != module,
             ),
-            "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
+            "migrate_test_ids": migrate_test_ids,
         }
+        target_suite = migrated_suites.setdefault(
+            cpt_key,
+            {
+                "module": cpt_module,
+                "name": cpt_suite,
+                "cpt_module": cpt_module,
+                "cpt_suite": cpt_suite,
+                "test_ids": [],
+                "migrate_test_ids": [],
+                "source_suites": [],
+            },
+        )
+        target_suite["source_suites"].append(key)
+        target_suite["test_ids"].extend(test_ids)
+        target_suite["migrate_test_ids"].extend(migrate_test_ids)
+
+    for suite in migrated_suites.values():
+        suite["test_ids"] = list(dict.fromkeys(suite["test_ids"]))
+        suite["migrate_test_ids"] = list(dict.fromkeys(suite["migrate_test_ids"]))
 
     for test_id in migrate_ids:
         if not test_suites.get(test_id):
@@ -3186,6 +3286,8 @@ def test_contract(root, inventory):
         "tests": tests,
         "suites": suites,
         "test_suites": test_suites,
+        "migrated_suites": migrated_suites,
+        "migrated_test_suites": migrated_test_suites,
         "modules": sorted(module_paths),
     }
 
@@ -3324,6 +3426,134 @@ def read_test_mapping(root, required=False):
         if baseline.get("commit") != inventory.get("source_snapshot_commit"):
             raise EvidenceError("Test parity ledger C7 commit differs from the Step 2 snapshot")
     return mapping
+
+
+def c7_module_has_non_test_content(inventory, source_module):
+    source_files = inventory.get("source_files")
+    contract = inventory.get("source_snapshot_test_contract")
+    if (
+        not isinstance(source_files, dict)
+        or not isinstance(contract, dict)
+        or not isinstance(contract.get("tests"), list)
+        or not isinstance(contract.get("suites"), list)
+    ):
+        return True
+    test_files = {
+        test["file"]
+        for test in contract["tests"]
+        if isinstance(test, dict)
+        and test.get("module") == source_module
+        and isinstance(test.get("file"), str)
+    }
+    test_roots = []
+    for suite in contract["suites"]:
+        if not isinstance(suite, dict):
+            return True
+        if suite.get("module") != source_module:
+            continue
+        for root_type in ("test_source_roots", "test_resource_roots"):
+            roots = suite.get(root_type, [])
+            if not isinstance(roots, list) or any(
+                not isinstance(root, str) for root in roots
+            ):
+                return True
+            test_roots.extend(roots)
+    build_metadata = {
+        ".editorconfig",
+        ".gitattributes",
+        ".gitignore",
+        "LICENSE",
+        "LICENSE.md",
+        "LICENSE.txt",
+        "NOTICE",
+        "NOTICE.txt",
+        "README.adoc",
+        "README.md",
+        "README.txt",
+        "build.gradle",
+        "build.gradle.kts",
+        "gradle.properties",
+        "gradlew",
+        "gradlew.bat",
+        "pom.xml",
+        "settings.gradle",
+        "settings.gradle.kts",
+    }
+    test_source_directories = {
+        "integrationTest",
+        "it",
+        "test",
+        "test-fixtures",
+        "testFixtures",
+    }
+    for source_path in source_files:
+        if not isinstance(source_path, str):
+            return True
+        try:
+            relative = (
+                Path(source_path)
+                if source_module == "."
+                else Path(source_path).relative_to(source_module)
+            )
+        except ValueError:
+            continue
+        if source_path in test_files or any(
+            source_path == root or source_path.startswith(f"{root.rstrip('/')}/")
+            for root in test_roots
+        ):
+            continue
+        parts = relative.parts
+        if any(
+            parts[index] == "src"
+            and parts[index + 1] in test_source_directories
+            for index in range(len(parts) - 1)
+        ):
+            continue
+        if (
+            relative.as_posix() in build_metadata
+            or parts and parts[0] in {".mvn", "gradle"}
+            or relative.suffix.casefold() in {".adoc", ".md", ".txt"}
+        ):
+            continue
+        return True
+    return False
+
+
+def step2_module_targets(inventory, source_modules):
+    target_modules_by_source = {}
+    suites = inventory.get("test_suites")
+    if isinstance(suites, list):
+        for suite in suites:
+            if not isinstance(suite, dict):
+                continue
+            source_module = suite.get("module")
+            if source_module not in source_modules:
+                continue
+            cpt_module = suite.get("cpt_module", source_module)
+            if isinstance(cpt_module, str) and cpt_module:
+                target_modules_by_source.setdefault(source_module, []).append(cpt_module)
+    source_updates = inventory.get("source_updates")
+    mappings = {}
+    for source_module in source_modules:
+        suite_targets = target_modules_by_source.get(source_module, [])
+        if suite_targets and any(target != source_module for target in suite_targets):
+            targets = set(suite_targets)
+        else:
+            targets = {source_module}
+        source_hits = (
+            source_updates.get(source_module)
+            if isinstance(source_updates, dict)
+            else None
+        )
+        if not isinstance(source_updates, dict) or not isinstance(source_hits, dict) or source_hits:
+            targets.add(source_module)
+        if (
+            any(target != source_module for target in targets)
+            and c7_module_has_non_test_content(inventory, source_module)
+        ):
+            targets.add(source_module)
+        mappings[source_module] = targets
+    return mappings
 
 
 def json_digest(value):
@@ -3587,41 +3817,66 @@ def current_test_files(root, plan, mapping=None):
         if test["id"] in migrated_test_ids
         or mapping is None and test["handling"] == "Migrate"
     ]
-    migrated_modules = {test["module"] for test in migrated_tests}
-    module_paths = set(plan.test_contract.get("modules", migrated_modules))
+    cpt_suites = plan.test_contract.get("cpt_suites", {})
+    module_paths = {module for module, _ in cpt_suites}
     cpt_modules = set()
     for test_id in cpt_test_ids:
         module, separator, _ = test_id.partition(":")
         if separator and module in module_paths:
             cpt_modules.add(module)
-    modules = sorted(migrated_modules | cpt_modules)
+    migrated_suites = plan.test_contract.get("migrated_suites", {})
+    for (module, _), suite in migrated_suites.items():
+        if module not in module_paths:
+            continue
+        if suite_has_cpt_tests(suite, mapping) or (
+            mapping is None and suite["migrate_test_ids"]
+        ):
+            cpt_modules.add(module)
+    modules = sorted(cpt_modules)
     files = {}
     inventory_files = {Path(test["file"]).as_posix() for test in migrated_tests}
+    for test in migrated_tests:
+        add_existing_source_file_hash(
+            root,
+            test["file"],
+            "Test Inventory file",
+            files,
+        )
     roots_by_module = {module: set() for module in modules}
-    for suite in plan.test_contract["suites"].values():
-        module = suite["module"]
-        if module not in roots_by_module or not suite_has_cpt_tests(suite, mapping):
+    for suite_key, suite_config in cpt_suites.items():
+        module, name = suite_key
+        source_suite = migrated_suites.get(suite_key)
+        if module not in roots_by_module or not (
+            source_suite and suite_has_cpt_tests(source_suite, mapping)
+            or suite_has_added_cpt_tests(module, name, mapping)
+        ):
             continue
+        root_values = {
+            root_type: list(suite_config.get(root_type, []))
+            for root_type in ("test_source_roots", "test_resource_roots")
+        }
+        if source_suite:
+            for source_key in source_suite["source_suites"]:
+                original_suite = plan.test_contract["suites"][source_key]
+                if source_key[0] != module:
+                    continue
+                for root_type in root_values:
+                    root_values[root_type].extend(original_suite[root_type])
         for root_type in ("test_source_roots", "test_resource_roots"):
-            for value in suite[root_type]:
+            for value in dict.fromkeys(root_values[root_type]):
                 path = project_path(
                     root,
                     value,
-                    f"{module} {suite['name']} {root_type}",
+                    f"{module} {name} {root_type}",
                     must_exist=True,
                 )
                 if not path.is_dir():
                     raise EvidenceError(
-                        f"{module} {suite['name']} {root_type} is not a directory: {value}"
+                        f"{module} {name} {root_type} is not a directory: {value}"
                     )
                 roots_by_module[module].add(path.relative_to(root))
     for module in modules:
         hashes = {}
-        for test in migrated_tests:
-            if test["module"] == module:
-                add_existing_source_file_hash(
-                    root, test["file"], "Test Inventory file", hashes
-                )
         scan_module(root, module, module_paths, hashes)
         for test_root in sorted(roots_by_module[module]):
             scan_test_root(root, module, module_paths, root / test_root, hashes)
@@ -3955,10 +4210,14 @@ def suite_has_cpt_tests(suite, mapping):
         return False
     rows = test_rows_by_id(mapping)
     test_ids = set(suite.get("test_ids", suite.get("migrate_test_ids", [])))
+    cpt_module = suite.get("cpt_module", suite.get("module"))
+    source_suites = set(
+        suite.get("source_suites", [(suite.get("module"), suite.get("name"))])
+    )
     for baseline_suite in mapping.get("baseline", {}).get("suites", []):
         if (
-            baseline_suite.get("module") != suite.get("module")
-            or baseline_suite.get("suite") != suite.get("name")
+            (baseline_suite.get("module"), baseline_suite.get("suite"))
+            not in source_suites
         ):
             continue
         for test_id in baseline_suite.get("test_results", {}):
@@ -3976,10 +4235,21 @@ def suite_has_cpt_tests(suite, mapping):
             isinstance(test, dict)
             and test.get("status") == "migrated"
             and isinstance(c8_ids, list)
-            and any(isinstance(c8_id, str) and c8_id for c8_id in c8_ids)
+            and any(
+                isinstance(c8_id, str)
+                and (
+                    cpt_module is None
+                    or c8_id.startswith(f"{cpt_module}:")
+                )
+                for c8_id in c8_ids
+            )
         ):
             return True
-    return suite_has_added_cpt_tests(suite.get("module"), suite.get("name"), mapping)
+    return suite_has_added_cpt_tests(
+        suite.get("cpt_module", suite.get("module")),
+        suite.get("cpt_suite", suite.get("name")),
+        mapping,
+    )
 
 
 def normalized_mock(value):
@@ -4165,17 +4435,32 @@ def ledger_row_suite_keys(test, contract, mapping):
             if suite_key[1] == test.get("suite")
         ]
     test_id = test.get("c7_id")
-    keys = {
+    source_keys = {
         suite_key
         for suite_key, suite in contract["suites"].items()
         if test_id in suite.get("test_ids", suite.get("migrate_test_ids", []))
     }
+    source_keys.update(contract.get("test_suites", {}).get(test_id, []))
     for baseline_suite in mapping.get("baseline", {}).get("suites", []):
         if isinstance(baseline_suite, dict) and test_id in baseline_suite.get(
             "test_results", {}
         ):
-            keys.add((baseline_suite.get("module"), baseline_suite.get("suite")))
-    return sorted(key for key in keys if key in contract["suites"])
+            source_keys.add(
+                (baseline_suite.get("module"), baseline_suite.get("suite"))
+            )
+    cpt_keys = set()
+    for source_key in source_keys:
+        suite = contract["suites"].get(source_key)
+        if suite is not None:
+            cpt_module = suite.get("cpt_module", source_key[0])
+            cpt_suite = suite.get("cpt_suite", source_key[1])
+            cpt_keys.add(
+                suite.get(
+                    "cpt_suite_key",
+                    (cpt_module, cpt_suite),
+                )
+            )
+    return sorted(key for key in cpt_keys if key in module_test_suites(contract))
 
 
 def cpt_test_results(test_id, repeat_runs, suite_keys):
@@ -4395,7 +4680,8 @@ def coverage_parity_issues(plan, checks, mapping):
     repeat_runs = test_repeat_checks(plan, checks)
     cpt_coverage = [{}, {}]
     cpt_decisions = [{}, {}]
-    for suite_key, suite in contract["suites"].items():
+    suites = contract.get("migrated_suites") or contract["suites"]
+    for suite_key, suite in suites.items():
         if not suite_has_cpt_tests(suite, mapping):
             continue
         runs = repeat_runs.get(suite_key)
@@ -4800,6 +5086,8 @@ def requirements(root, evidence):
             "tests": [],
             "suites": {},
             "test_suites": {},
+            "migrated_suites": {},
+            "migrated_test_suites": {},
             "modules": inventory.get("modules", []),
         }
     if (
@@ -4831,30 +5119,58 @@ def requirements(root, evidence):
                 issues.append(
                     f"unmapped CPT test {test_id}: migrated test is missing from the Test Inventory"
                 )
-            elif not tests["test_suites"].get(test_id):
+            elif not tests["migrated_test_suites"].get(test_id):
                 issues.append(
                     f"{test_id}: no Step 2 test suite records this migrated test"
                 )
+    source_module_paths = strings(
+        inventory.get("modules"),
+        "Step 2 modules",
+    )
     source_updates = inventory.get("source_updates")
     if (
         not isinstance(source_updates, dict)
-        or set(source_updates) != {module["path"] for module in modules}
+        or set(source_updates) != set(source_module_paths)
     ):
         issues.append(
             "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
         )
         source_updates = {}
-    source_update_locations = {}
-    for module in modules:
-        path = module["path"]
-        hits = source_updates.get(path)
+    source_updates_by_source = {}
+    for source_module in source_module_paths:
+        hits = source_updates.get(source_module)
         if not isinstance(hits, dict) or any(
             not isinstance(operation, str)
             or operation not in {"setjobduedate", "/duedate", "duedate"}
             for operation in hits.values()
         ):
-            issues.append(f"{path}: invalid pre-migration due-date source snapshot")
+            issues.append(
+                f"{source_module}: invalid pre-migration due-date source snapshot"
+            )
             hits = {}
+        source_updates_by_source[source_module] = hits
+    source_modules_by_target = {}
+    for source_module, targets in step2_module_targets(
+        inventory,
+        source_module_paths,
+    ).items():
+        source_hits = source_updates_by_source[source_module]
+        source_targets = {source_module} if source_hits else targets
+        for target in source_targets:
+            source_modules_by_target.setdefault(target, []).append(source_module)
+    source_update_locations = {}
+    source_updates_by_target = {}
+    for module in modules:
+        path = module["path"]
+        hits = {}
+        for source_module in source_modules_by_target.get(path, []):
+            for location, operation in source_updates_by_source[source_module].items():
+                if location in hits and hits[location] != operation:
+                    issues.append(
+                        f"{path}: conflicting pre-migration due-date source location {location}"
+                    )
+                hits[location] = operation
+        source_updates_by_target[path] = hits
         try:
             source_update_locations[path] = strings(
                 list(hits), f"{path} pre-migration due-date locations"
@@ -4904,8 +5220,24 @@ def requirements(root, evidence):
             names.append(name)
             suite_key = (path, name)
             module_suite_keys.add(suite_key)
-            cpt_suites[suite_key] = suite
-            step2_suite = tests["suites"].get(suite_key)
+            cpt_suites[suite_key] = {
+                **suite,
+                "test_source_roots": test_directory_roots(
+                    root,
+                    path,
+                    module_paths,
+                    suite.get("test_source_roots", []),
+                    f"{path} {name} test_source_roots",
+                ),
+                "test_resource_roots": test_directory_roots(
+                    root,
+                    path,
+                    module_paths,
+                    suite.get("test_resource_roots", []),
+                    f"{path} {name} test_resource_roots",
+                ),
+            }
+            step2_suite = tests["migrated_suites"].get(suite_key)
             if test_enabled and (
                 step2_suite and suite_has_cpt_tests(step2_suite, mapping)
                 or suite_has_added_cpt_tests(path, name, mapping)
@@ -4932,11 +5264,20 @@ def requirements(root, evidence):
         need("project", ".", "docker_info")
     for suite_key, suite in tests["suites"].items():
         module, name = suite_key
-        suite_missing = suite_key not in module_suite_keys
+        cpt_suite_key = suite["cpt_suite_key"]
+        cpt_module, cpt_name = cpt_suite_key
+        suite_missing = cpt_suite_key not in module_suite_keys
         if suite_missing:
-            issues.append(
-                f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
-            )
+            if cpt_suite_key == suite_key:
+                issues.append(
+                    f"{module} {name}: Step 2 test suite is missing from "
+                    "validation-evidence.json"
+                )
+            else:
+                issues.append(
+                    f"{module} {name}: mapped CPT suite {cpt_module} {cpt_name} "
+                    "is missing from validation-evidence.json"
+                )
         if not test_enabled:
             continue
         has_cpt_tests = suite_has_cpt_tests(suite, mapping)
@@ -4944,7 +5285,9 @@ def requirements(root, evidence):
         if not has_cpt_tests and not needs_c7_baseline:
             continue
         if suite_missing and has_cpt_tests:
-            need("module", module, "test_repeat", name)
+            repeat_key = ("module", cpt_module, "test_repeat", cpt_name)
+            if repeat_key not in required:
+                need("module", cpt_module, "test_repeat", cpt_name)
         if needs_c7_baseline:
             need("module", module, "c7_baseline", name)
     if test_enabled:
@@ -5257,7 +5600,7 @@ def requirements(root, evidence):
                         for current_location, operation in current_updates[module].items()
                         if location.rsplit(":", 2)[0]
                         == current_location.rsplit(":", 2)[0]
-                        and operation == source_updates[module][location]
+                        and operation == source_updates_by_target[module][location]
                     }
                     if retained:
                         issues.append(
@@ -6598,10 +6941,11 @@ def obsolete_test_check_key(key, plan, mapping):
         key[0] == "module"
         and key[2] == "test_repeat"
         and key[3] is not None
-        and (key[1], key[3]) in plan.test_contract["suites"]
+        and (key[1], key[3]) in plan.test_contract.get("migrated_suites", {})
     ):
         return not suite_has_cpt_tests(
-            plan.test_contract["suites"][(key[1], key[3])], mapping
+            plan.test_contract["migrated_suites"][(key[1], key[3])],
+            mapping,
         )
     if key[0] != "test" or key[3] is not None:
         return False

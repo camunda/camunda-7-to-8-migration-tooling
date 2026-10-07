@@ -1193,10 +1193,15 @@ class MigrationGuidanceTest(unittest.TestCase):
             "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
             "Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`. This command can differ from the Step 2 C7 baseline command.",
             "Never rebuild the C7 baseline from migrated code.",
-            "When the user selects **Migrate tests only**, set the project-readiness verdict to `needs review` if no required check has failed and no required runtime dependency is unavailable.",
+            "When the user selects **Migrate tests only**, follow `references/project-readiness.md`.",
+            "Where no required check has failed and no required runtime dependency is unavailable, set the project-readiness verdict to `needs review`.",
             "A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every suite that contains a migratable test for deferred verification.",
             "The skill assigns every migratable test to at least one suite in either mode.",
             "The skill uses a distinct `name` for each suite in a module.",
+            "The suite `module` and `name` identify its C7 baseline owner.",
+            "Where mapped CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.",
+            "The validator uses the C7 module and suite name for `c7_baseline`.",
+            "The validator uses the CPT module and suite name for `test_repeat`.",
             "Use wrapper, script, POM, and project-directory paths that resolve from the preserved root. The validator rejects command paths that resolve inside the migrated project.",
         ):
             with self.subTest(text=text):
@@ -1228,6 +1233,12 @@ class MigrationGuidanceTest(unittest.TestCase):
             "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.",
             "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
             "The validator checks each module runtime command before execution in both `run` and `migrate_only` modes.",
+            "The suite's `module` and `name` identify the C7 baseline owner.",
+            "Where migrated CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.",
+            "The validator uses the C7 fields for `c7_baseline` and the CPT fields for `test_repeat`.",
+            "The validator includes each mapped CPT module in the current module scope.",
+            "The validator keeps a mapped C7 source module in scope when its snapshot contains due-date operations or non-test files.",
+            "The validator compares module paths with the Step 2 suite mappings and due-date source snapshot.",
             "The validator requires a positive timeout and a startup marker for every runtime command.",
             "The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.",
             "For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.",
@@ -1255,7 +1266,9 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.",
             "The validator rejects class, module, and source-file launch modes before `-jar`.",
             "The validator rejects a separate main-class token before `-jar`, including one after a class-path option.",
-            "The validator rejects Java argument files before `-jar` and early-exit options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
+            "The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, and `-agentpath`.",
+            "The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
+            "The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle user homes, and included builds before task-graph inspection.",
             "The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
             "The validator matches the JAR path to the module's configured Maven or Gradle archive output.",
             "The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime startup.",
@@ -1304,6 +1317,22 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
+        test_kind_count_headers = ["Test kind", "Count"]
+        test_kind_counts = markdown_table(EXPECTED_ASSESSMENT, test_kind_count_headers)
+        self.assertEqual(
+            test_kind_counts,
+            markdown_table(EXPECTED_TESTS_ONLY, test_kind_count_headers),
+        )
+        step_2_summary = report.split("## Step 2 Summary", 1)[1].split(
+            "## Test Inventory", 1
+        )[0]
+        for count in test_kind_counts:
+            with self.subTest(test_kind=count["Test kind"]):
+                self.assertIn(
+                    f"{count['Test kind']}: {count['Count']}",
+                    step_2_summary,
+                )
+        self.assertIn("30 tests are eligible for CPT migration.", step_2_summary)
         inventory_headers = [
             "Test ID",
             "File",

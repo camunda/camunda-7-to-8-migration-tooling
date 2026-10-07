@@ -8,6 +8,18 @@
 | Target | Camunda 8.9 |
 | Question 8 | Migrate tests only |
 
+## Step 2 Summary
+
+- process test: 13
+- decision test: 7
+- scenario test: 8
+- remote-engine test: 2
+- manual migration: 2
+- manual redesign: 1
+- out of scope: 12
+- out of scope (Camunda 8): 0
+- 30 tests are eligible for CPT migration.
+
 ## Test Inventory — target 8.9
 
 | Test ID | File | Test kind | Signals | Models | Handling | Notes |
@@ -57,6 +69,19 @@
 | `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPaymentThroughEngineRest` | `remote-engine/src/test/java/com/camunda/fixture/payment/PaymentWorkerIT.java` | remote-engine test | JUnit 5; Testcontainers Camunda 7.24.0; Engine REST; external task client; Awaitility; Failsafe; Spring modifier | `payment.bpmn` (REST deployment) | Migrate (lower priority) | R1; Test starts the engine container and polls history. |
 | `remote-engine:com.camunda.fixture.payment.SharedEngineSmokeIT#readsConfiguredSharedEngine` | `remote-engine/src/test/java/com/camunda/fixture/payment/SharedEngineSmokeIT.java` | remote-engine test | JUnit 5; SHARED_ENGINE_URL; environment-variable condition; Engine REST; Failsafe | None; shared engine | Report only | R2; CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime. |
 | `remote-engine:com.camunda.fixture.payment.ChargePaymentHandlerTest#completesExternalTask` | `remote-engine/src/test/java/com/camunda/fixture/payment/ChargePaymentHandlerTest.java` | out of scope | JUnit 5; Mockito ExternalTask and ExternalTaskService | None | Not part of test migration | R3; handler unit test runs no engine. |
+
+## Test kind counts
+
+| Test kind | Count |
+|---|---:|
+| process test | 13 |
+| decision test | 7 |
+| scenario test | 8 |
+| remote-engine test | 2 |
+| manual migration | 2 |
+| manual redesign | 1 |
+| out of scope | 12 |
+| out of scope (Camunda 8) | 0 |
 
 ## Test execution decision
 

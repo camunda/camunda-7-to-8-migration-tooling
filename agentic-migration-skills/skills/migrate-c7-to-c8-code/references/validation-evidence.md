@@ -46,6 +46,13 @@ Where the Test Inventory has a migratable test, the skill records `test_run_mode
 in Step 2.
 The skill sets `test_run_mode` to `"run"` or `"migrate_only"` for the selected option.
 The skill sets each suite's `module`, `name`, exact C7 `command`, and `test_ids`.
+The suite's `module` and `name` identify the C7 baseline owner.
+Where migrated CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.
+These target fields default to the C7 suite's `module` and `name`.
+The validator uses the C7 fields for `c7_baseline` and the CPT fields for `test_repeat`.
+The validator includes each mapped CPT module in the current module scope.
+The validator keeps a mapped C7 source module in scope when its snapshot contains due-date
+operations or non-test files.
 The skill assigns every migratable test to at least one suite in either mode.
 The skill records these suites in Step 2 for deferred verification.
 The skill does not run their commands in `migrate_only` mode.
@@ -119,6 +126,7 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
 ```
 
 Use project-relative paths. List every migrated module and every in-scope original BPMN/DMN.
+The validator compares module paths with the Step 2 suite mappings and due-date source snapshot.
 Include all independent test suites from each module's build. Set `requires_docker` for each suite.
 Where a module uses a Camunda Spring Boot starter, include its real-client context test as a suite.
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
@@ -171,6 +179,7 @@ module's `src/test/`, and files under configured test roots for suites with migr
 Set custom `test_source_roots` and `test_resource_roots` in the Step 2 inventory before `init`.
 Each root must be project-relative and inside its suite module. Each root must exist when the
 freeze check runs.
+Where the CPT suite uses custom roots, set them on its `validation-evidence.json` suite entry.
 
 The validator stores freeze hashes and approvals in `test-mapping.json`. Follow
 `references/test-migration.md` for the frozen-test change policy and required `test_changes` fields.
@@ -246,6 +255,8 @@ In `migrate_only` mode, the validation script applies these rules:
   requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
   tasks. It refuses every excluded task and every unclassified task.
 - A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.
+- The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle
+  user homes, and included builds before task-graph inspection.
 - It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.
 - It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
   checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
@@ -313,8 +324,9 @@ The validator rejects Java launcher options before `-jar` that exit or skip the 
 `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.
 The validator rejects class, module, and source-file launch modes before `-jar`.
 The validator rejects a separate main-class token before `-jar`, including one after a class-path option.
-The validator rejects Java argument files before `-jar` and early-exit options in
-`JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
+The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, and `-agentpath`.
+The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`,
+`JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
 The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
 The validator matches the JAR path to the module's configured Maven or Gradle archive output.
 The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging

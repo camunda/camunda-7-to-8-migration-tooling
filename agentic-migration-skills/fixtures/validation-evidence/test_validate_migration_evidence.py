@@ -943,6 +943,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             ["mvn", "-pl", "app", "-Dmaven.test.skip=false", "test-compile"],
             ["mvn", "-pl", "app", "--define=maven.test.skip=false", "test-compile"],
             ["gradle", ":app:testClasses"],
+            ["gradle", "--build-cache", ":app:testClasses"],
             ["gradle", "-p", "app", "testClasses"],
         ):
             with self.subTest(command=command_args):
@@ -1092,6 +1093,41 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
                     self.assertEqual(1, run.call_count)
                     self.assertIn("--dry-run", run.call_args.args[0])
+
+    def test_migrate_only_rejects_gradle_build_logic_options_before_inspection(self):
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "settings.gradle").write_text("include 'app'\n", encoding="utf-8")
+        (self.root / "app/build.gradle").write_text("", encoding="utf-8")
+        key = ("module", "app", "compile", None)
+        options = (
+            ("-I", "run-tests.gradle"),
+            ("--init-script", "run-tests.gradle"),
+            ("--init-script=run-tests.gradle",),
+            ("--init=run-tests.gradle",),
+            ("-Irun-tests.gradle",),
+            ("-b", "replacement.gradle"),
+            ("--build-file=replacement.gradle",),
+            ("--build", "replacement.gradle"),
+            ("-c", "replacement-settings.gradle"),
+            ("--settings-file=replacement-settings.gradle",),
+            ("--settings=replacement-settings.gradle",),
+            ("-g", "alternate-gradle-home"),
+            ("--gradle-user-home=alternate-gradle-home",),
+            ("--gradle-user=alternate-gradle-home",),
+            ("--include-build", "../injected-build"),
+            ("--include-build=../injected-build",),
+            ("--include=../injected-build",),
+        )
+        for option in options:
+            command_args = ["gradle", *option, ":app:testClasses"]
+            with self.subTest(option=option):
+                with patch.object(gate.subprocess, "run") as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "unverified Gradle build-logic options",
+                    ):
+                        self.submit(key, command=command_args)
+                    run.assert_not_called()
 
     def test_migrate_only_rejects_gradle_test_compile_tasks_registered_as_test_tasks(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -1799,6 +1835,11 @@ class ValidationEvidenceTest(unittest.TestCase):
             ("--module=fake.module/com.example.FakeLauncher",),
             ("--source", "17", "FakeLauncher.java"),
         )
+        agent_options = (
+            "-javaagent:agent.jar",
+            "-agentlib:instrument",
+            "-agentpath:/tmp/libinstrument.so",
+        )
         scenarios = (
             (None, "spring-boot", "executable_jar"),
             (None, "external-launcher", "external_launcher"),
@@ -1871,16 +1912,30 @@ class ValidationEvidenceTest(unittest.TestCase):
                         ),
                     ]
                 )
+                cases.extend(
+                    (
+                        ["java", option, "-jar", artifact_path],
+                        None,
+                    )
+                    for option in agent_options
+                )
+                cases.extend(
+                    (
+                        ["java", "-jar", artifact_path],
+                        {name: option},
+                    )
+                    for name in gate.JAVA_OPTION_ENVIRONMENTS
+                    for option in agent_options
+                )
                 runner = self.maven_effective_pom_runner(effective_pom)
                 key = ("module", "app", kind, None)
                 for command_args, environment in cases:
                     with self.subTest(command=command_args, environment=environment):
-                        environment_patch = (
-                            patch.dict(gate.os.environ, environment)
-                            if environment
-                            else nullcontext()
-                        )
-                        with environment_patch:
+                        java_option_environment = {
+                            name: (environment or {}).get(name, "")
+                            for name in gate.JAVA_OPTION_ENVIRONMENTS
+                        }
+                        with patch.dict(gate.os.environ, java_option_environment):
                             with patch.object(
                                 gate.subprocess,
                                 "run",
@@ -1905,6 +1960,133 @@ class ValidationEvidenceTest(unittest.TestCase):
                                             environment="local",
                                         )
                                     invoked.assert_not_called()
+
+    def test_c7_baseline_suite_can_map_to_a_surviving_cpt_module(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_run_mode="run",
+        )
+        c7_test_id = "legacy:com.example.OrderTest#testOrder"
+        c7_test_file = "legacy/src/test/java/com/example/OrderTest.java"
+        legacy_module = self.root / "legacy"
+        legacy_test = self.root / c7_test_file
+        legacy_test.parent.mkdir(parents=True)
+        legacy_test.write_text("class OrderTest {}\n", encoding="utf-8")
+
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["modules"].append("legacy")
+        inventory["test_suites"][0].update(
+            module="legacy",
+            command=["mvn", "-pl", "legacy", "test"],
+            test_ids=[c7_test_id],
+            cpt_module="app",
+            cpt_suite="unit",
+        )
+        write_json(inventory_path, inventory)
+        report_path = self.root / gate.REPORT
+        report_path.write_text(
+            report_path.read_text(encoding="utf-8")
+            .replace(self.c7_test_id, c7_test_id)
+            .replace(self.c7_test_file_path, c7_test_file),
+            encoding="utf-8",
+        )
+        with redirect_stdout(StringIO()):
+            self.assertEqual(
+                0,
+                gate.initialize(self.root, reset_source_snapshot=True),
+            )
+
+        shutil.rmtree(legacy_module)
+        c8_test_id = "app:com.example.OrderCptTest#testOrder"
+        c8_test_file = self.root / "app/src/test/java/com/example/OrderCptTest.java"
+        c8_test_file.parent.mkdir(parents=True, exist_ok=True)
+        c8_test_file.write_text("class OrderCptTest {}\n", encoding="utf-8")
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        mapping = gate.empty_test_mapping(inventory)
+        mapping["tests"] = [
+            {
+                "c7_id": c7_test_id,
+                "status": "migrated",
+                "c8_ids": [c8_test_id],
+            }
+        ]
+        write_json(self.root / gate.TEST_MAPPING, mapping)
+
+        plan = gate.requirements(self.root, self.plan)
+
+        self.assertFalse(
+            any("Step 2 test suite is missing" in issue for issue in plan.issues),
+            plan.issues,
+        )
+        self.assertIn(("module", "legacy", "c7_baseline", "unit"), plan.required)
+        self.assertIn(("module", "app", "test_repeat", "unit"), plan.required)
+        self.assertNotIn(("module", "legacy", "test_repeat", "unit"), plan.required)
+        self.assertEqual(
+            [("app", "unit")],
+            gate.ledger_row_suite_keys(
+                mapping["tests"][0],
+                plan.test_contract,
+                mapping,
+            ),
+        )
+        self.assertIn(
+            "app/src/test/java/com/example/OrderCptTest.java",
+            gate.current_test_files(self.root, plan, mapping),
+        )
+
+    def test_mapped_module_with_due_date_hits_remains_in_validation_scope(self):
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["modules"].append("legacy")
+        inventory["test_suites"] = [
+            {
+                "module": "legacy",
+                "name": "unit",
+                "cpt_module": "app",
+                "cpt_suite": "unit",
+            }
+        ]
+        inventory["source_updates"]["legacy"] = {
+            "legacy/src/main/java/com/example/Order.java:1:1": "setjobduedate"
+        }
+        write_json(inventory_path, inventory)
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "Evidence modules differ from the confirmed Step 2 scope",
+        ):
+            gate.scope(self.root, self.plan)
+
+    def test_mapped_module_with_production_source_remains_in_validation_scope(self):
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["modules"].append("legacy")
+        inventory["test_suites"] = [
+            {
+                "module": "legacy",
+                "name": "unit",
+                "cpt_module": "app",
+                "cpt_suite": "unit",
+            }
+        ]
+        inventory["source_updates"]["legacy"] = {}
+        inventory["source_files"]["legacy/src/main/java/com/example/LegacyService.java"] = (
+            "sha256:source"
+        )
+        inventory["source_snapshot_test_contract"] = {
+            "mode": None,
+            "modules": ["app", "legacy"],
+            "tests": [],
+            "suites": [{"module": "legacy", "name": "unit"}],
+        }
+        write_json(inventory_path, inventory)
+
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "Evidence modules differ from the confirmed Step 2 scope",
+        ):
+            gate.scope(self.root, self.plan)
 
     def test_runtime_checks_do_not_pass_without_application_startup_output(self):
         scenarios = (
