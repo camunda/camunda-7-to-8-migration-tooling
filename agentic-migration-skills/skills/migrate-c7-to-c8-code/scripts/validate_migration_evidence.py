@@ -136,6 +136,19 @@ QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
 MAVEN_EXECUTABLES = {"mvn", "mvnw"}
 GRADLE_EXECUTABLES = {"gradle", "gradlew"}
+PROJECT_WRAPPER_EXECUTABLES = {
+    "mvnw",
+    "mvnw.bat",
+    "mvnw.cmd",
+    "gradlew",
+    "gradlew.bat",
+}
+TRUSTED_PATH_EXECUTABLES = MAVEN_EXECUTABLES | GRADLE_EXECUTABLES | {
+    "java",
+    "npx",
+    "c8ctl",
+    "docker",
+}
 GRADLE_BUILD_LOGIC_OPTIONS = frozenset(
     {
         "-I",
@@ -421,6 +434,87 @@ def command_executable(command):
     )
 
 
+def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
+    if not command or not command[0]:
+        return
+    executable = command_executable(command)
+    if executable not in TRUSTED_PATH_EXECUTABLES:
+        return
+
+    raw_executable = command[0]
+    windows_path = PureWindowsPath(raw_executable)
+    path = Path(raw_executable)
+    has_path = (
+        path.is_absolute()
+        or windows_path.is_absolute()
+        or bool(windows_path.drive)
+        or "/" in raw_executable
+        or "\\" in raw_executable
+    )
+    root = Path(root).resolve(strict=True)
+
+    def reject():
+        raise EvidenceError(
+            "Question 8 rejects an untrusted executable path. Use the expected "
+            "PATH executable or a project Maven or Gradle wrapper."
+        )
+
+    allowed_wrapper_roots = {root}
+    for wrapper_root in wrapper_roots:
+        try:
+            resolved_root = Path(wrapper_root).resolve(strict=True)
+            resolved_root.relative_to(root)
+        except FileNotFoundError:
+            continue
+        except (OSError, RuntimeError, ValueError):
+            reject()
+        allowed_wrapper_roots.add(resolved_root)
+    raw_name = windows_path.name.casefold()
+
+    if raw_name in PROJECT_WRAPPER_EXECUTABLES:
+        if windows_path.drive and os.name != "nt":
+            reject()
+        if has_path:
+            wrapper_path = path if path.is_absolute() else root / path
+        else:
+            wrapper_lookup = shutil.which(raw_executable)
+            if wrapper_lookup is not None:
+                wrapper_path = Path(wrapper_lookup)
+            elif os.name == "nt":
+                wrapper_path = root / raw_name
+            else:
+                reject()
+        if wrapper_path.is_symlink():
+            reject()
+        try:
+            resolved_wrapper = wrapper_path.resolve(strict=True)
+        except (OSError, RuntimeError, ValueError):
+            reject()
+        if (
+            not resolved_wrapper.is_file()
+            or resolved_wrapper.name.casefold() != raw_name
+            or resolved_wrapper.parent not in allowed_wrapper_roots
+        ):
+            reject()
+        return
+
+    if not has_path:
+        return
+    if windows_path.drive and os.name != "nt":
+        reject()
+    expected_path = shutil.which(executable)
+    if expected_path is None:
+        reject()
+    try:
+        executable_path = path if path.is_absolute() else root / path
+        resolved_path = executable_path.resolve(strict=True)
+        resolved_expected_path = Path(expected_path).resolve(strict=True)
+    except (OSError, RuntimeError):
+        reject()
+    if resolved_path != resolved_expected_path:
+        reject()
+
+
 def build_tool(command):
     executable = command_executable(command)
     if executable in MAVEN_EXECUTABLES:
@@ -584,6 +678,13 @@ def project_relative_path(root, value):
         return None
 
 
+def module_wrapper_roots(root, key):
+    if key[0] != "module":
+        return ()
+    module_path = project_relative_path(root, key[1])
+    return (root / module_path,) if module_path is not None else ()
+
+
 def maven_module_selected(root, target, parsed):
     target_path = project_relative_path(root, target)
     if target_path is None:
@@ -698,9 +799,7 @@ def maven_pom_skips_test_compilation(root, target):
         current = parent
 
 
-def maven_test_compilation_disabled(root, parsed):
-    if property_is_true(parsed, "maven.test.skip"):
-        return True
+def maven_jvm_option_sources(root):
     option_sources = []
     for name in ("MAVEN_OPTS", *JAVA_OPTION_ENVIRONMENTS):
         value = os.environ.get(name, "")
@@ -713,7 +812,30 @@ def maven_test_compilation_disabled(root, parsed):
     option_sources.append(
         read_maven_options(root / ".mvn" / "jvm.config", "Maven JVM options")
     )
-    for options in option_sources:
+    return option_sources
+
+
+def maven_jvm_options_load_code(options):
+    code_loading_prefixes = tuple(
+        prefix.casefold() for prefix in JAVA_LAUNCHER_CODE_LOADING_OPTIONS
+    )
+    for index, option in enumerate(options):
+        normalized = option.casefold()
+        if normalized.startswith(code_loading_prefixes):
+            return True
+        if normalized.startswith("--define="):
+            normalized = "-d" + normalized.partition("=")[2]
+        elif normalized in {"-d", "--define"} and index + 1 < len(options):
+            normalized = "-d" + options[index + 1].casefold()
+        if normalized.partition("=")[0] == "-dmaven.ext.class.path":
+            return True
+    return False
+
+
+def maven_test_compilation_disabled(root, parsed):
+    if property_is_true(parsed, "maven.test.skip"):
+        return True
+    for options in maven_jvm_option_sources(root):
         parsed_options = parse_build_command(["mvn", *options], "maven")
         if property_is_true(parsed_options, "maven.test.skip"):
             return True
@@ -765,7 +887,303 @@ def maven_module_selection_is_exact(root, target, parsed):
     return maven_module_selected(root, target, parsed)
 
 
+def maven_local_name(element):
+    return element.tag.rsplit("}", 1)[-1]
+
+
+def maven_pom_declares_extensions(document):
+    false_values = {"", "0", "false", "no", "off"}
+    for build in document.iter():
+        if maven_local_name(build) != "build":
+            continue
+        for child in build:
+            child_name = maven_local_name(child)
+            if child_name == "extensions" and list(child):
+                return True
+            if child_name not in {"plugins", "pluginManagement"}:
+                continue
+            for plugin in child:
+                if maven_local_name(plugin) != "plugin":
+                    continue
+                if any(
+                    maven_local_name(extension) == "extensions"
+                    and (extension.text or "").strip().casefold() not in false_values
+                    for extension in plugin
+                ):
+                    return True
+    return False
+
+
+def maven_pom_paths(root, parsed):
+    paths = {root / "pom.xml"}
+
+    for pom_file in parsed["pom_files"]:
+        pom_path = project_relative_path(root, pom_file)
+        if pom_path is None or Path(pom_path).name != "pom.xml":
+            raise EvidenceError(
+                "Question 8 cannot verify Maven extensions for an untrusted POM path"
+            )
+        paths.add(root / pom_path)
+
+    for project_list in parsed["projects"]:
+        for selector in project_list.split(","):
+            selector = selector.strip()
+            if selector.startswith(("!", "-")):
+                continue
+            module_path = project_relative_path(root, selector)
+            if module_path is None:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions for an untrusted project path"
+                )
+            paths.add(root / module_path / "pom.xml")
+    return paths
+
+
+def maven_wrapper_roots(root, parsed):
+    roots = {root}
+    for pom_file in parsed["pom_files"]:
+        pom_path = project_relative_path(root, pom_file)
+        if pom_path is not None:
+            roots.add(root / Path(pom_path).parent)
+    for project_list in parsed["projects"]:
+        for selector in project_list.split(","):
+            selector = selector.strip()
+            if selector.startswith(("!", "-")):
+                continue
+            module_path = project_relative_path(root, selector)
+            if module_path is not None:
+                roots.add(root / module_path)
+    return roots
+
+
+def maven_reactor_module_poms(root, pom, document):
+    paths = []
+    for modules in document.iter():
+        if maven_local_name(modules) != "modules":
+            continue
+        for module in modules:
+            if maven_local_name(module) != "module":
+                continue
+            module_value = (module.text or "").strip()
+            if not module_value or "${" in module_value:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions because a reactor "
+                    "module path is unresolved"
+                )
+            module_path = Path(module_value)
+            if module_path.is_absolute() or PureWindowsPath(module_value).drive:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions for a reactor module "
+                    "outside the project"
+                )
+            try:
+                resolved_module = (pom.parent / module_path).resolve(strict=False)
+                resolved_module.relative_to(root)
+            except (OSError, RuntimeError, ValueError) as exc:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions for a reactor module "
+                    "outside the project"
+                ) from exc
+            module_pom = (
+                resolved_module
+                if resolved_module.suffix.casefold() == ".xml"
+                else resolved_module / "pom.xml"
+            )
+            if module_pom.is_symlink() or not module_pom.is_file():
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions because a reactor "
+                    "module POM is missing or symlinked"
+                )
+            paths.append(module_pom)
+    return paths
+
+
+def maven_parent_pom(root, pom, document):
+    parent = next(
+        (element for element in document if maven_local_name(element) == "parent"),
+        None,
+    )
+    if parent is None:
+        return None
+
+    expected_coordinates = tuple(
+        next(
+            (
+                (element.text or "").strip()
+                for element in parent
+                if maven_local_name(element) == field
+            ),
+            "",
+        )
+        for field in ("groupId", "artifactId", "version")
+    )
+    if any(not value or "${" in value for value in expected_coordinates):
+        raise EvidenceError(
+            "Question 8 cannot verify Maven extensions because the parent POM "
+            "coordinates are unresolved"
+        )
+
+    relative_path_element = next(
+        (
+            element
+            for element in parent
+            if maven_local_name(element) == "relativePath"
+        ),
+        None,
+    )
+    if relative_path_element is None:
+        relative_path = Path("../pom.xml")
+    else:
+        relative_path_value = (relative_path_element.text or "").strip()
+        if not relative_path_value:
+            raise EvidenceError(
+                "Question 8 cannot verify Maven extensions because the parent POM "
+                "uses an unresolved repository path"
+            )
+        relative_path = Path(relative_path_value)
+    if relative_path.is_absolute() or PureWindowsPath(str(relative_path)).drive:
+        raise EvidenceError(
+            "Question 8 cannot verify Maven extensions because the parent POM "
+            "path is outside the project"
+        )
+
+    parent_pom = pom.parent / relative_path
+    if parent_pom.is_dir():
+        parent_pom = parent_pom / "pom.xml"
+    if parent_pom.is_symlink():
+        raise EvidenceError(
+            f"Question 8 cannot verify Maven extensions through symlinked POM {parent_pom}"
+        )
+    try:
+        resolved_parent = parent_pom.resolve(strict=True)
+        resolved_parent.relative_to(root)
+    except FileNotFoundError as exc:
+        raise EvidenceError(
+            "Question 8 cannot verify Maven extensions because the parent POM "
+            "cannot be inspected before Maven runs"
+        ) from exc
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(
+            "Question 8 cannot verify Maven extensions because the parent POM "
+            "is outside the project or cannot be inspected"
+        ) from exc
+    if not resolved_parent.is_file():
+        raise EvidenceError(
+            "Question 8 cannot verify Maven extensions because the parent POM "
+            "is not a file"
+        )
+    return resolved_parent, expected_coordinates
+
+
+def preflight_maven_extensions(root, parsed):
+    root = Path(root).resolve(strict=True)
+    extensions_file = root / ".mvn" / "extensions.xml"
+    if extensions_file.exists() or extensions_file.is_symlink():
+        raise EvidenceError(
+            "Question 8 refuses Maven core extensions before effective-POM inspection"
+        )
+    jvm_options = [
+        option
+        for option_source in maven_jvm_option_sources(root)
+        for option in option_source
+    ]
+    jvm_options.extend(parsed["cli_options"])
+    if maven_jvm_options_load_code(jvm_options):
+        raise EvidenceError(
+            "Question 8 refuses Maven extensions or JVM code-loading options "
+            "before effective-POM inspection"
+        )
+
+    pending = list(maven_pom_paths(root, parsed))
+    inspected = set()
+    documents = {}
+    while pending:
+        pom = pending.pop()
+        current = pom
+        expected_coordinates = None
+        chain = set()
+        while True:
+            if current.is_symlink():
+                raise EvidenceError(
+                    f"Question 8 cannot verify Maven extensions through symlinked POM {current}"
+                )
+            try:
+                resolved = current.resolve(strict=True)
+            except FileNotFoundError:
+                if expected_coordinates is None:
+                    break
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions because the parent POM "
+                    "cannot be inspected before Maven runs"
+                )
+            except (OSError, RuntimeError) as exc:
+                raise EvidenceError(
+                    f"Question 8 cannot inspect Maven POM {current}: {exc}"
+                ) from exc
+            try:
+                resolved.relative_to(root)
+            except ValueError as exc:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions for a POM outside the project"
+                ) from exc
+            if resolved in chain:
+                raise EvidenceError(
+                    "Question 8 cannot verify Maven extensions through a circular parent POM chain"
+                )
+            chain.add(resolved)
+            if resolved not in documents:
+                try:
+                    documents[resolved] = ET.parse(resolved).getroot()
+                except (OSError, ET.ParseError) as exc:
+                    raise EvidenceError(
+                        f"Question 8 cannot inspect Maven POM {resolved}: {exc}"
+                    ) from exc
+            document = documents[resolved]
+
+            if expected_coordinates is not None:
+                actual_coordinates = tuple(
+                    next(
+                        (
+                            (element.text or "").strip()
+                            for element in document
+                            if maven_local_name(element) == field
+                        ),
+                        "",
+                    )
+                    for field in ("groupId", "artifactId", "version")
+                )
+                if (
+                    any(not value or "${" in value for value in actual_coordinates)
+                    or actual_coordinates != expected_coordinates
+                ):
+                    raise EvidenceError(
+                        "Question 8 cannot verify Maven extensions because the local "
+                        "parent POM does not match its declared coordinates"
+                    )
+                expected_coordinates = None
+
+            if resolved not in inspected:
+                inspected.add(resolved)
+                if maven_pom_declares_extensions(document):
+                    raise EvidenceError(
+                        f"Question 8 refuses Maven build extensions declared in {resolved}"
+                    )
+                pending.extend(
+                    maven_reactor_module_poms(root, resolved, document)
+                )
+            parent = maven_parent_pom(root, resolved, document)
+            if parent is None:
+                break
+            current, expected_coordinates = parent
+
+
 def maven_effective_pom(root, command, parsed, timeout):
+    validate_trusted_executable_path(
+        root,
+        command,
+        wrapper_roots=maven_wrapper_roots(root, parsed),
+    )
+    preflight_maven_extensions(root, parsed)
     with tempfile.TemporaryDirectory(
         prefix=".migrate-only-effective-pom-",
         dir=root,
@@ -1203,6 +1621,11 @@ def gradle_inspection(root, target, command, timeout):
         target,
         command[0] if command else None,
         parsed["project_dirs"] if parsed is not None else (),
+    )
+    validate_trusted_executable_path(
+        root,
+        [executable],
+        wrapper_roots=(gradle_root,),
     )
     init_script = """import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
@@ -1965,6 +2388,11 @@ def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate
         )
     if not command or not command[0]:
         raise EvidenceError(f"{prefix}{key}: runtime startup requires a launch command")
+    validate_trusted_executable_path(
+        root,
+        command,
+        wrapper_roots=module_wrapper_roots(root, key),
+    )
     if shell_command(command):
         raise EvidenceError(
             f"{prefix}{key}: runtime startup rejects shell-wrapped commands"
@@ -2139,6 +2567,11 @@ def verified_non_test_command(root, key, command):
 
 
 def validate_migrate_only_command(root, key, command, timeout=None):
+    validate_trusted_executable_path(
+        root,
+        command,
+        wrapper_roots=module_wrapper_roots(root, key),
+    )
     if key[0] == "module" and key[2] in RUNTIME_CHECKS:
         validate_runtime_launch_command(
             root,
@@ -2241,6 +2674,7 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             and {task.casefold() for task in parsed["tasks"]} == {"help:effective-pom"}
             and maven_module_selected(root, key[1], parsed)
         ):
+            preflight_maven_extensions(root, parsed)
             return
         raise EvidenceError(
             "Question 8 Migrate tests only cannot verify Maven or Gradle goals "

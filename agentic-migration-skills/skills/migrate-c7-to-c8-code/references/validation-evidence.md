@@ -241,16 +241,24 @@ In `migrate_only` mode, the validation script applies these rules:
 - It refuses the `run` and `review` actions for `tests` and `process_path` checks.
 - It rejects a `block` action with another reason.
 - The gate rejects a passed or differently blocked `tests` or `process_path` check.
+- The validator accepts classified PATH tools by bare executable name or matching resolved PATH
+  executable. The validator accepts Maven and Gradle wrappers only when they are non-symlink files
+  at the project or selected module root.
 - It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle
   `testClasses` command that selects the recorded module. The command must not enable
   `maven.test.skip` in the module or an ancestor POM, on the command line, or in JVM options.
   The validator checks `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`,
   and `.mvn/jvm.config`.
-- Before Maven test compilation, the validator inspects the effective POM with the command's
-  module, POM, profile, and property options. It refuses unclassified lifecycle goals through
-  `test-compile`, including goals without a known default phase, and Maven build extensions. It
-  refuses the compile check if Maven cannot generate or parse the effective POM, if the effective
-  `maven.test.skip` property is enabled, or if its packaging has no verified test-source compiler.
+- Before Maven effective-POM inspection, the validator checks `.mvn/extensions.xml` and Maven JVM
+  options for core extensions and code-loading agents.
+- The validator checks reactor POMs and local parent POMs for build extensions.
+- If any extension exists or the validator cannot resolve a reactor module or parent POM without
+  Maven, then the validator refuses Maven inspection.
+- The validator then inspects the effective POM with the command's module, POM, profile, and
+  property options. It refuses unclassified lifecycle goals through `test-compile`, including
+  goals without a known default phase. It refuses the compile check if Maven cannot generate or
+  parse the effective POM, if the effective `maven.test.skip` property is enabled, or if its
+  packaging has no verified test-source compiler.
 - Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
   requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
   tasks. It refuses every excluded task and every unclassified task.

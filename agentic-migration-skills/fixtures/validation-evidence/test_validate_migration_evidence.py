@@ -1062,6 +1062,322 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.submit(key, command=command_args)
             self.assertEqual(1, run.call_count)
 
+    def test_migrate_only_rejects_untrusted_build_executable_paths_before_inspection(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        safe_effective_pom = "<project><build><plugins /></build></project>"
+        unrelated_wrapper = self.root / "scripts" / "gradlew"
+        unrelated_wrapper.parent.mkdir(parents=True, exist_ok=True)
+        unrelated_wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        commands = (
+            ["/tmp/mvn", "-pl", "app", "test-compile"],
+            ["./mvn", "-pl", "app", "test-compile"],
+            ["/tmp/gradlew", ":app:testClasses"],
+            ["./gradlew", ":app:testClasses"],
+            ["scripts/gradlew", ":app:testClasses"],
+        )
+        for command_args in commands:
+            with self.subTest(command=command_args):
+                runner = (
+                    self.gradle_test_compile_runner()
+                    if gate.build_tool(command_args) == "gradle"
+                    else self.maven_effective_pom_runner(safe_effective_pom)
+                )
+                with patch.object(gate.subprocess, "run", side_effect=runner) as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "untrusted executable path",
+                    ):
+                        self.submit(key, command=command_args)
+                    run.assert_not_called()
+
+    def test_migrate_only_rejects_untrusted_java_path_before_runtime_launch(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        artifact = self.root / "app/target/app-1.0.jar"
+        artifact.parent.mkdir(parents=True)
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF",
+                "Manifest-Version: 1.0\nMain-Class: com.example.Application\n",
+            )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        command_args = ["/tmp/java", "-jar", "app/target/app-1.0.jar"]
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                )
+            )
+            runtime = patches.enter_context(
+                patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        command_args, 0, RUNTIME_STARTUP_LINE
+                    ),
+                )
+            )
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "untrusted executable path",
+            ):
+                self.submit(
+                    ("module", "app", "executable_jar", None),
+                    command=command_args,
+                    environment="local",
+                )
+            runtime.assert_not_called()
+
+    def test_migrate_only_preflights_maven_extensions_before_invocation(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        pom_with_build_extension = """
+        <project><build><extensions><extension>
+          <groupId>org.example</groupId><artifactId>build-extension</artifactId>
+          <version>1</version>
+        </extension></extensions></build></project>
+        """
+        pom_with_plugin_extension = """
+        <project><build><plugins><plugin>
+          <groupId>org.example</groupId><artifactId>build-plugin</artifactId>
+          <extensions>true</extensions>
+        </plugin></plugins></build></project>
+        """
+        pom_with_profile_extension = """
+        <project><profiles><profile><id>inactive</id><build><extensions>
+          <extension><groupId>org.example</groupId><artifactId>build-extension</artifactId>
+          <version>1</version></extension>
+        </extensions></build></profile></profiles></project>
+        """
+        parent_pom_with_build_extension = """
+        <project><groupId>org.example</groupId><artifactId>parent</artifactId>
+          <version>1</version><build><extensions><extension>
+            <groupId>org.example</groupId><artifactId>build-extension</artifactId>
+            <version>1</version>
+          </extension></extensions></build>
+        </project>
+        """
+        cases = (
+            (
+                "core extension",
+                {".mvn/extensions.xml": "<extensions />"},
+            ),
+            ("module build extension", {"app/pom.xml": pom_with_build_extension}),
+            ("plugin build extension", {"app/pom.xml": pom_with_plugin_extension}),
+            ("profile build extension", {"app/pom.xml": pom_with_profile_extension}),
+            (
+                "inherited build extension",
+                {
+                    "pom.xml": parent_pom_with_build_extension,
+                    "app/pom.xml": """
+                    <project><parent><groupId>org.example</groupId>
+                      <artifactId>parent</artifactId><version>1</version>
+                      <relativePath>../pom.xml</relativePath>
+                    </parent></project>
+                    """,
+                },
+            ),
+            (
+                "reactor module build extension",
+                {
+                    "pom.xml": """
+                    <project><modules><module>app</module><module>other</module></modules></project>
+                    """,
+                    "app/pom.xml": "<project />",
+                    "other/pom.xml": pom_with_build_extension,
+                },
+            ),
+            (
+                "unresolvable parent POM",
+                {
+                    "app/pom.xml": """
+                    <project><parent><groupId>org.example</groupId>
+                      <artifactId>remote-parent</artifactId><version>1</version>
+                      <relativePath />
+                    </parent></project>
+                    """,
+                },
+            ),
+        )
+        for label, files in cases:
+            with self.subTest(extension=label):
+                self.write_scope(test_run_mode="migrate_only")
+                for name in (".mvn/extensions.xml", "pom.xml", "app/pom.xml"):
+                    (self.root / name).unlink(missing_ok=True)
+                for name, contents in files.items():
+                    path = self.root / name
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(contents, encoding="utf-8")
+                runner = self.maven_effective_pom_runner(
+                    "<project><build><plugins /></build></project>"
+                )
+                with patch.object(gate.subprocess, "run", side_effect=runner) as run:
+                    with self.assertRaisesRegex(
+                        gate.EvidenceError,
+                        "Maven .*extension",
+                    ):
+                        self.submit(
+                            key,
+                            command=["mvn", "-pl", "app", "test-compile"],
+                        )
+                    run.assert_not_called()
+
+    def test_maven_artifact_inspection_preflights_extensions_before_invocation(self):
+        (self.root / "app/pom.xml").write_text(
+            """
+            <project><build><extensions><extension>
+              <groupId>org.example</groupId><artifactId>build-extension</artifactId>
+              <version>1</version>
+            </extension></extensions></build></project>
+            """,
+            encoding="utf-8",
+        )
+        with patch.object(gate.subprocess, "run") as run:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven .*extension",
+            ):
+                gate.maven_module_effective_pom(self.root, "app", timeout=5)
+            run.assert_not_called()
+
+    def test_migrate_only_preflights_user_effective_pom_command(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        extensions_file = self.root / ".mvn/extensions.xml"
+        extensions_file.parent.mkdir(parents=True)
+        extensions_file.write_text("<extensions />", encoding="utf-8")
+        command = ["mvn", "-pl", "app", "help:effective-pom"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(command, 0, "effective POM"),
+        ) as run:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "Maven .*extension",
+            ):
+                self.submit(
+                    ("module", "app", "configuration", None),
+                    command=command,
+                )
+            run.assert_not_called()
+
+    def test_migrate_only_preflights_maven_jvm_code_loading_options(self):
+        self.write_scope(test_run_mode="migrate_only")
+        key = ("module", "app", "compile", None)
+        sources = (
+            ("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/maven-extension.jar"),
+            ("JAVA_TOOL_OPTIONS", "-javaagent:/tmp/test-agent.jar"),
+            ("JDK_JAVA_OPTIONS", "-agentpath:/tmp/test-agent.so"),
+            (".mvn/jvm.config", "-Dmaven.ext.class.path=/tmp/maven-extension.jar"),
+        )
+        environment_names = (
+            "MAVEN_OPTS",
+            "MAVEN_ARGS",
+            *gate.JAVA_OPTION_ENVIRONMENTS,
+        )
+        for source, option in sources:
+            with self.subTest(source=source):
+                self.write_scope(test_run_mode="migrate_only")
+                (self.root / ".mvn/jvm.config").unlink(missing_ok=True)
+                environment = {name: "" for name in environment_names}
+                if source in environment:
+                    environment[source] = option
+                else:
+                    jvm_config = self.root / ".mvn/jvm.config"
+                    jvm_config.parent.mkdir(parents=True, exist_ok=True)
+                    jvm_config.write_text(option, encoding="utf-8")
+                with patch.dict(gate.os.environ, environment):
+                    with patch.object(
+                        gate.subprocess,
+                        "run",
+                        side_effect=self.maven_effective_pom_runner(
+                            "<project><build><plugins /></build></project>"
+                        ),
+                    ) as run:
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "Maven .*extension",
+                        ):
+                            self.submit(
+                                key,
+                                command=["mvn", "-pl", "app", "test-compile"],
+                            )
+                        run.assert_not_called()
+
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / ".mvn/jvm.config").unlink(missing_ok=True)
+        environment = {name: "" for name in environment_names}
+        with patch.dict(gate.os.environ, environment):
+            with patch.object(
+                gate.subprocess,
+                "run",
+                side_effect=self.maven_effective_pom_runner(
+                    "<project><build><plugins /></build></project>"
+                ),
+            ) as run:
+                with self.assertRaisesRegex(
+                    gate.EvidenceError,
+                    "Maven .*extension",
+                ):
+                    self.submit(
+                        key,
+                        command=[
+                            "mvn",
+                            "-pl",
+                            "app",
+                            "-Dmaven.ext.class.path=/tmp/maven-extension.jar",
+                            "test-compile",
+                        ],
+                    )
+                run.assert_not_called()
+
+    def test_migrate_only_accepts_project_maven_wrapper(self):
+        for wrapper_name in ("mvnw", "mvnw.cmd"):
+            with self.subTest(wrapper=wrapper_name):
+                self.write_scope(test_run_mode="migrate_only")
+                wrapper = self.root / wrapper_name
+                wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                wrapper.chmod(0o755)
+                command_path = (
+                    wrapper_name
+                    if os.name == "nt" and wrapper_name.endswith(".cmd")
+                    else f"./{wrapper_name}"
+                )
+                command_args = [command_path, "-pl", "app", "test-compile"]
+                with patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(
+                        "<project><build><plugins /></build></project>"
+                    ),
+                ) as run:
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("module", "app", "compile", None),
+                            command=command_args,
+                        ),
+                    )
+                    self.assertEqual(2, run.call_count)
+                    self.assertIn(
+                        "help:effective-pom",
+                        run.call_args_list[0].args[0],
+                    )
+
     def test_migrate_only_rejects_unclassified_gradle_test_compile_tasks(self):
         self.write_scope(test_run_mode="migrate_only")
         key = ("module", "app", "compile", None)
@@ -1284,6 +1600,9 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_migrate_only_rejects_test_commands_under_non_test_keys(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope(test_run_mode="migrate_only")
+        wrapper = self.root / "mvnw"
+        wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        wrapper.chmod(0o755)
         cases = (
             (("module", "app", "spring_boot_run", None), ["mvn", "-pl", "app", "test"]),
             (
@@ -2833,8 +3152,9 @@ class ValidationEvidenceTest(unittest.TestCase):
           </build>
         </project>
         """
+        java_executable = shutil.which("java") or "java"
         command_args = [
-            "java",
+            java_executable,
             "-showversion",
             "-cp",
             "ignored-classpath.jar",
@@ -3014,8 +3334,9 @@ class ValidationEvidenceTest(unittest.TestCase):
           </build>
         </project>
         """
+        java_executable = shutil.which("java") or "java"
         command_args = [
-            "java",
+            java_executable,
             "-jar",
             "app/target/app-1.0.jar",
             "execute",
