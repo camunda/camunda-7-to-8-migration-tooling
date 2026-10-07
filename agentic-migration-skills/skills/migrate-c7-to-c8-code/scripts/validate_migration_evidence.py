@@ -1274,6 +1274,23 @@ def runtime_check_uses_packaging_command(key, command):
     )
 
 
+def is_runtime_check(key):
+    return key[0] == "module" and key[2] in RUNTIME_CHECKS
+
+
+def runtime_startup_marker_observed(key, check):
+    if not is_runtime_check(key):
+        return False
+    marker = check.get("startup_marker")
+    output = check.get("output")
+    return (
+        isinstance(marker, str)
+        and bool(marker.strip())
+        and isinstance(output, str)
+        and marker in output
+    )
+
+
 def is_spring_boot_run_task(task, tool):
     if tool == "maven":
         if task == "spring-boot:run":
@@ -6043,6 +6060,9 @@ def load_checks(root, evidence, plan, issues):
             command = check.get("command")
             exit_code = check.get("exit_code")
             reason = check.get("reason")
+            output = check.get("output")
+            if not isinstance(output, str):
+                raise EvidenceError(f"{key}: evidence output must be text")
             if method == "command":
                 if (
                     not isinstance(command, list) or not command
@@ -6050,6 +6070,67 @@ def load_checks(root, evidence, plan, issues):
                     or any(not isinstance(part, str) for part in command)
                 ):
                     raise EvidenceError(f"{key}: missing command")
+                if result == "passed" and runtime_check_uses_packaging_command(key, command):
+                    check["result"] = "not_run"
+                    check["reason"] = (
+                        "Packaging does not prove runtime startup; "
+                        "record a bounded launch command"
+                    )
+                    result = "not_run"
+                    reason = check["reason"]
+                if (
+                    is_runtime_check(key)
+                    and result != "not_run"
+                    and (
+                        "startup_marker" not in check
+                        or "startup_timed_out" not in check
+                    )
+                ):
+                    check["result"] = "not_run"
+                    check["reason"] = (
+                        "Legacy runtime evidence lacks a startup marker; "
+                        "rerun the launch check"
+                    )
+                    result = "not_run"
+                    reason = check["reason"]
+                runtime_startup_timed_out = False
+                startup_marker_observed = False
+                if is_runtime_check(key) and result != "not_run":
+                    marker = check.get("startup_marker")
+                    runtime_startup_timed_out = check.get("startup_timed_out")
+                    if not isinstance(marker, str) or not marker.strip():
+                        raise EvidenceError(f"{key}: runtime evidence lacks a startup marker")
+                    if type(runtime_startup_timed_out) is not bool:
+                        raise EvidenceError(
+                            f"{key}: runtime evidence lacks its startup timeout outcome"
+                        )
+                    startup_marker_observed = runtime_startup_marker_observed(key, check)
+                    if runtime_startup_timed_out and exit_code is not None:
+                        raise EvidenceError(
+                            f"{key}: timed-out runtime evidence has an exit code"
+                        )
+                    if runtime_startup_timed_out and result not in ("passed", "blocked"):
+                        raise EvidenceError(
+                            f"{key}: invalid result after the runtime startup timeout"
+                        )
+                    if result == "passed" and not startup_marker_observed:
+                        raise EvidenceError(
+                            f"{key}: passed without the application startup marker"
+                        )
+                    if (
+                        result == "blocked"
+                        and runtime_startup_timed_out
+                        and startup_marker_observed
+                    ):
+                        raise EvidenceError(
+                            f"{key}: runtime startup marker was observed before timeout"
+                        )
+                elif not is_runtime_check(key) and (
+                    "startup_marker" in check or "startup_timed_out" in check
+                ):
+                    raise EvidenceError(
+                        f"{key}: startup marker evidence is only valid for module runtime checks"
+                    )
                 c7_baseline_captured = (
                     key[2] == "c7_baseline"
                     and isinstance(check.get("reports"), list)
@@ -6057,11 +6138,19 @@ def load_checks(root, evidence, plan, issues):
                     and isinstance(check.get("test_results"), dict)
                     and bool(check["test_results"])
                 )
-                if result == "passed" and (
-                    type(exit_code) is not int
-                    or exit_code != 0 and not c7_baseline_captured
-                ):
-                    raise EvidenceError(f"{key}: passed without exit code 0")
+                if result == "passed":
+                    if is_runtime_check(key):
+                        if runtime_startup_timed_out:
+                            if exit_code is not None:
+                                raise EvidenceError(
+                                    f"{key}: runtime startup pass has an exit code after timeout"
+                                )
+                        elif type(exit_code) is not int or exit_code != 0:
+                            raise EvidenceError(f"{key}: passed without exit code 0")
+                    elif type(exit_code) is not int or (
+                        exit_code != 0 and not c7_baseline_captured
+                    ):
+                        raise EvidenceError(f"{key}: passed without exit code 0")
                 if result == "failed" and (
                     type(exit_code) is not int
                     or exit_code == 0
@@ -6071,6 +6160,11 @@ def load_checks(root, evidence, plan, issues):
                         key[2] == "test_repeat"
                         and isinstance(check.get("test_runs"), list)
                         and len(check["test_runs"]) == 2
+                    )
+                    and not (
+                        is_runtime_check(key)
+                        and runtime_startup_timed_out is False
+                        and not startup_marker_observed
                     )
                 ):
                     raise EvidenceError(f"{key}: failed without a nonzero exit code or invalid timer evidence")
@@ -6096,8 +6190,6 @@ def load_checks(root, evidence, plan, issues):
                 raise EvidenceError(f"{key}: unsupported evidence method")
             if result not in ("passed", "failed", "blocked", "unknown", "not_run"):
                 raise EvidenceError(f"{key}: unsupported result")
-            if not isinstance(check.get("output"), str):
-                raise EvidenceError(f"{key}: evidence output must be text")
             if key[2] == "test_repeat":
                 test_runs = check.get("test_runs")
                 if not isinstance(test_runs, list) or len(test_runs) != 2:
@@ -6118,16 +6210,6 @@ def load_checks(root, evidence, plan, issues):
                     raise EvidenceError(f"{key}: production or unknown runtime target")
             if check.get("source_digest") == plan.source_digest:
                 validate_risk_check(plan, key, check)
-            if (
-                method == "command"
-                and result == "passed"
-                and runtime_check_uses_packaging_command(key, command)
-            ):
-                check["result"] = "not_run"
-                check["reason"] = (
-                    "Packaging does not prove runtime startup; "
-                    "record a bounded launch command"
-                )
             checks[key] = (index, check, reference)
         except EvidenceError as exc:
             issues.append(str(exc))
@@ -6604,6 +6686,8 @@ def report(root):
 
 def record(root, args):
     if args.kind == "c7_baseline":
+        if getattr(args, "startup_marker", None) is not None:
+            raise EvidenceError("--startup-marker is only valid for module runtime checks")
         return record_c7_baseline(root, args)
     evidence = read_json(root / EVIDENCE)
     plan = requirements(root, evidence)
@@ -6612,6 +6696,18 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
+    runtime_check = is_runtime_check(key)
+    startup_marker = getattr(args, "startup_marker", None)
+    if args.action == "run":
+        if runtime_check:
+            if not isinstance(startup_marker, str) or not startup_marker.strip():
+                raise EvidenceError(
+                    f"{key}: runtime checks require a non-empty startup marker via "
+                    "--startup-marker"
+                )
+            startup_marker = startup_marker.strip()
+        elif startup_marker is not None:
+            raise EvidenceError("--startup-marker is only valid for module runtime checks")
     submitted_command = list(args.command or []) if args.action == "run" else []
     if submitted_command and submitted_command[0] == "--":
         submitted_command = submitted_command[1:]
@@ -6669,6 +6765,9 @@ def record(root, args):
     reason = None
     result = "passed"
     extra = {}
+    if args.action == "run" and runtime_check:
+        extra["startup_marker"] = startup_marker
+        extra["startup_timed_out"] = False
     check_method = "command" if args.action == "run" else "review"
     mapping = None
     if (
@@ -6735,7 +6834,7 @@ def record(root, args):
             raise EvidenceError("--baseline-root is only valid for c7_baseline checks")
         if test_run_mode == "migrate_only":
             validate_migrate_only_command(root, key, command, args.timeout)
-        elif key[0] == "module" and key[2] in RUNTIME_CHECKS:
+        elif runtime_check:
             validate_runtime_launch_command(root, key, command, args.timeout)
         try:
             completed = subprocess.run(
@@ -6747,12 +6846,29 @@ def record(root, args):
             if exit_code != 0:
                 result = "failed"
                 reason = f"Command exited with code {exit_code}"
+            elif runtime_check and startup_marker not in output:
+                result = "failed"
+                reason = (
+                    "Command exited successfully without the required application "
+                    "startup marker"
+                )
         except subprocess.TimeoutExpired as exc:
-            result = "blocked"
-            reason = str(exc)
             output = (exc.stdout or b"").decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout or ""
             output += (exc.stderr or b"").decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr or ""
-            output += f"\n{reason}"
+            timeout_reason = str(exc)
+            if runtime_check:
+                extra["startup_timed_out"] = True
+                if startup_marker in output:
+                    result = "passed"
+                    output += f"\nStartup marker observed before command timeout: {timeout_reason}"
+                else:
+                    result = "blocked"
+                    reason = timeout_reason
+                    output += f"\n{reason}"
+            else:
+                result = "blocked"
+                reason = timeout_reason
+                output += f"\n{reason}"
         except OSError as exc:
             result = "blocked"
             reason = str(exc)
@@ -6898,6 +7014,10 @@ def main():
         action.add_argument("--non-timer-evidence-json")
         if name == "run":
             action.add_argument("--timeout", type=int, default=300)
+            action.add_argument(
+                "--startup-marker",
+                help="Exact application output required to pass a module runtime check",
+            )
             action.add_argument(
                 "--baseline-root",
                 type=Path,

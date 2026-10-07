@@ -261,12 +261,22 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ### Module runtime checks
 
 The validator checks each module runtime command before execution in both `run` and `migrate_only`
-modes. The validator requires a positive timeout for every runtime command. The default timeout is 300 seconds.
-Use `--timeout` to set another positive limit. A command that reaches its timeout is recorded as
-blocked.
+modes. The validator requires a positive timeout and a startup marker for every runtime command.
+The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.
+The user supplies a literal marker that the application emits only after it is ready. The validator
+stores the marker with the check and requires the exact text in captured output.
+The validator treats old runtime records without marker metadata as not run. Rerun those checks
+with `--startup-marker`.
 
-A successful exit code alone does not prove application startup. The validator rejects arbitrary
-commands such as `mvn validate`, `python3 -c pass`, and `true` before execution.
+The validator records a runtime command as passed only when the marker appears. A command that exits
+normally must exit with code 0. If the command exits with code 0 without the marker, the validator
+records a failed check. A nonzero exit code remains a failed check.
+If the command times out after the marker appears, the validator stops the command and records a
+passed startup check. If the command times out before the marker appears, the validator records a
+blocked check.
+
+An exit code of 0 alone does not prove application startup. The validator rejects arbitrary commands
+such as `mvn validate`, `python3 -c pass`, and `true` before execution.
 The validator rejects shell-wrapped commands, test runners, test-compilation commands, and Maven or
 Gradle test-execution goals or tasks as runtime evidence.
 The validator rejects unrecognized Maven goals and Gradle tasks.
@@ -275,6 +285,15 @@ The validator rejects unrecognized Maven goals and Gradle tasks.
 |---|---|
 | `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. |
 | `executable_jar` or `external_launcher` | Direct `java -jar` for the module's configured application artifact. |
+
+For example, record a Spring Boot launch with a marker that the application emits after readiness:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run \
+  --type module --target app --kind spring_boot_run --environment local \
+  --timeout 30 --startup-marker "Started OrderApplication" -- \
+  mvn -pl app spring-boot:run
+```
 
 The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.
 When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct

@@ -19,6 +19,7 @@ from unittest.mock import call, patch
 
 FIXTURE = Path(__file__).resolve().parent
 SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
+RUNTIME_STARTUP_MARKER = "Application ready"
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
 import run_live_timer_fixture as runner  # noqa: E402
@@ -538,11 +539,21 @@ class ValidationEvidenceTest(unittest.TestCase):
             reference=options.get("reference", "MIGRATION_REPORT.md#preflight"),
             disposition=disposition,
             non_timer_evidence_json=options.get("non_timer_evidence_json"),
+            startup_marker=options.get(
+                "startup_marker",
+                RUNTIME_STARTUP_MARKER
+                if action == "run" and category == "module" and kind in gate.RUNTIME_CHECKS
+                else None,
+            ),
         )
         with redirect_stdout(StringIO()):
             return gate.record(self.root, arguments)
 
-    def maven_effective_pom_runner(self, effective_pom):
+    def maven_effective_pom_runner(
+        self,
+        effective_pom,
+        runtime_output=RUNTIME_STARTUP_MARKER,
+    ):
         def run(command, **kwargs):
             if "help:effective-pom" in command:
                 output = next(
@@ -552,7 +563,8 @@ class ValidationEvidenceTest(unittest.TestCase):
                 )
                 Path(output).write_text(effective_pom, encoding="utf-8")
                 return subprocess.CompletedProcess(command, 0, "effective POM")
-            return subprocess.CompletedProcess(command, 0, "compiled")
+            output = runtime_output if command and command[0] == "java" else "compiled"
+            return subprocess.CompletedProcess(command, 0, output)
 
         return run
 
@@ -609,7 +621,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         graph = "\n".join(output)
 
         def run(command, **kwargs):
-            result = graph if "--dry-run" in command else "verified"
+            result = graph if "--dry-run" in command else RUNTIME_STARTUP_MARKER
             return subprocess.CompletedProcess(command, 0, result)
 
         return run
@@ -745,7 +757,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         gate.subprocess,
                         "run",
                         return_value=gate.subprocess.CompletedProcess(
-                            options["command"], 0, "started"
+                            options["command"], 0, RUNTIME_STARTUP_MARKER
                         ),
                     )
                 else:
@@ -1612,7 +1624,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                 else:
                     runner = lambda command, **kwargs: subprocess.CompletedProcess(
-                        command, 0, "verified"
+                        command, 0, RUNTIME_STARTUP_MARKER
                     )
                 with patch.object(gate.subprocess, "run", side_effect=runner):
                     self.assertEqual(
@@ -1825,6 +1837,266 @@ class ValidationEvidenceTest(unittest.TestCase):
                                         environment="local",
                                     )
                                 invoked.assert_not_called()
+
+    def test_runtime_checks_do_not_pass_without_application_startup_output(self):
+        scenarios = (
+            (None, "spring-boot", "spring_boot_run"),
+            (None, "spring-boot", "executable_jar"),
+            (None, "external-launcher", "external_launcher"),
+            ("migrate_only", "spring-boot", "spring_boot_run"),
+            ("migrate_only", "spring-boot", "executable_jar"),
+            ("migrate_only", "external-launcher", "external_launcher"),
+        )
+        effective_pom = f"""
+        <project>
+          <artifactId>app</artifactId>
+          <version>1.0</version>
+          <build>
+            <directory>{self.root / "app" / "target"}</directory>
+            <finalName>app-1.0</finalName>
+          </build>
+        </project>
+        """
+        for test_run_mode, runtime_mode, kind in scenarios:
+            with self.subTest(test_run_mode=test_run_mode, kind=kind):
+                self.plan["modules"][0]["runtime_mode"] = runtime_mode
+                self.write_scope(test_run_mode=test_run_mode)
+                if test_run_mode == "migrate_only":
+                    (self.root / "app/pom.xml").write_text(
+                        "<project />\n",
+                        encoding="utf-8",
+                    )
+                    if kind != "spring_boot_run":
+                        artifact = self.root / "app/target/app-1.0.jar"
+                        artifact.parent.mkdir(parents=True, exist_ok=True)
+                        with zipfile.ZipFile(artifact, "w") as archive:
+                            archive.writestr(
+                                "META-INF/MANIFEST.MF",
+                                "Manifest-Version: 1.0\n"
+                                "Main-Class: com.example.Application\n\n",
+                            )
+                else:
+                    self.complete_required_checks()
+                key = ("module", "app", kind, None)
+                command = (
+                    ["mvn", "-pl", "app", "spring-boot:run"]
+                    if kind == "spring_boot_run"
+                    else ["java", "-jar", "app/target/app-1.0.jar"]
+                )
+                runner = (
+                    patch.object(
+                        gate.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess(
+                            command,
+                            0,
+                            "Build finished without starting the application",
+                        ),
+                    )
+                    if kind == "spring_boot_run"
+                    else patch.object(
+                        gate.subprocess,
+                        "run",
+                        side_effect=self.maven_effective_pom_runner(
+                            effective_pom,
+                            runtime_output="Build finished without starting the application",
+                        ),
+                    )
+                )
+                with runner:
+                    self.assertEqual(
+                        1,
+                        self.submit(
+                            key,
+                            command=command,
+                            environment="local",
+                            startup_marker=RUNTIME_STARTUP_MARKER,
+                        ),
+                    )
+                evidence = json.loads(
+                    (self.root / gate.EVIDENCE).read_text(encoding="utf-8")
+                )
+                issues = []
+                checks = gate.load_checks(
+                    self.root,
+                    evidence,
+                    gate.requirements(self.root, self.plan),
+                    issues,
+                )
+                self.assertEqual([], issues)
+                self.assertEqual("failed", checks[key][1]["result"])
+                self.assertEqual(0, checks[key][1]["exit_code"])
+                self.assertIn("startup marker", checks[key][1]["reason"].casefold())
+
+    def test_runtime_checks_require_a_startup_marker_before_execution(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope()
+        self.complete_required_checks()
+        key = ("module", "app", "spring_boot_run", None)
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                command,
+                0,
+                RUNTIME_STARTUP_MARKER,
+            ),
+        ) as invoked:
+            with self.assertRaisesRegex(gate.EvidenceError, "startup marker"):
+                self.submit(
+                    key,
+                    command=command,
+                    environment="local",
+                    startup_marker=None,
+                )
+            invoked.assert_not_called()
+
+    def test_cli_requires_and_records_runtime_startup_marker(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        base_arguments = [
+            "validate_migration_evidence.py",
+            "--project-root",
+            str(self.root),
+            "run",
+            "--type",
+            "module",
+            "--target",
+            "app",
+            "--kind",
+            "spring_boot_run",
+            "--environment",
+            "local",
+            "--timeout",
+            "5",
+        ]
+        with patch.object(sys, "argv", [*base_arguments, "--", *command]):
+            with patch.object(gate.subprocess, "run") as invoked:
+                with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                    self.assertEqual(1, gate.main())
+                invoked.assert_not_called()
+        arguments = [
+            *base_arguments,
+            "--startup-marker",
+            RUNTIME_STARTUP_MARKER,
+            "--",
+            *command,
+        ]
+        with patch.object(sys, "argv", arguments):
+            with patch.object(
+                gate.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    command,
+                    0,
+                    RUNTIME_STARTUP_MARKER,
+                ),
+            ):
+                with redirect_stdout(StringIO()):
+                    self.assertEqual(0, gate.main())
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        self.assertEqual(
+            RUNTIME_STARTUP_MARKER,
+            checks[("module", "app", "spring_boot_run", None)][1]["startup_marker"],
+        )
+
+    def test_runtime_check_passes_when_startup_marker_precedes_timeout(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        key = ("module", "app", "spring_boot_run", None)
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(
+                command,
+                5,
+                output=f"{RUNTIME_STARTUP_MARKER}\n",
+            ),
+        ):
+            self.assertEqual(
+                0,
+                self.submit(
+                    key,
+                    command=command,
+                    environment="local",
+                    startup_marker=RUNTIME_STARTUP_MARKER,
+                ),
+            )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        check = checks[key][1]
+        self.assertEqual("passed", check["result"])
+        self.assertIsNone(check["exit_code"])
+        self.assertTrue(check["startup_timed_out"])
+
+    def test_report_rejects_runtime_pass_without_startup_evidence(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        key = ("module", "app", "spring_boot_run", None)
+        path = self.root / checks[key][2]
+        check = json.loads(path.read_text(encoding="utf-8"))
+        check.pop("startup_marker", None)
+        check.pop("startup_timed_out", None)
+        write_json(path, check)
+        self.assertEqual(1, self.audit())
+        recorded = next(
+            item
+            for item in self.summary()["checks"]
+            if item["target"] == "app" and item["kind"] == "spring_boot_run"
+        )
+        self.assertEqual("not_run", recorded["result"])
+        self.assertIn("startup marker", recorded["reason"].casefold())
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                command,
+                0,
+                RUNTIME_STARTUP_MARKER,
+            ),
+        ):
+            self.assertEqual(
+                0,
+                self.submit(
+                    key,
+                    command=command,
+                    environment="local",
+                    startup_marker=RUNTIME_STARTUP_MARKER,
+                ),
+            )
+        self.assertEqual(0, self.audit())
 
     def test_migrate_only_allows_module_executable_jar_with_main_class(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -6567,6 +6839,14 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "exit_code": exit_code, "result": "passed" if exit_code == 0 else "failed",
                 "reason": None if exit_code == 0 else reason,
                 "failure_class": failure_class, "environment": environment, "output": reason,
+                **(
+                    {
+                        "startup_marker": RUNTIME_STARTUP_MARKER,
+                        "startup_timed_out": False,
+                    }
+                    if category == "module" and kind in gate.RUNTIME_CHECKS
+                    else {}
+                ),
             })
             self.plan["checks"].append(path.as_posix())
         write_json(self.root / gate.EVIDENCE, self.plan)
