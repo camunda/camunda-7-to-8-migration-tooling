@@ -343,13 +343,15 @@ When the user selects **Migrate tests only**, apply these rules:
 - Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or
   Gradle `:<module>:testClasses` task. A main-source-only compile does not count.
 - The validator inspects the effective Maven lifecycle and Gradle task graph before it accepts
-  test-source compilation or packaging.
+  test-source compilation.
 - The validator requires a test-source compiler task for Gradle compilation.
 - The validator matches each `java -jar` path to the module's configured Maven or Gradle archive output.
 - The validator rejects Gradle dry runs, excluded tasks, and unclassified task-graph actions.
-- Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
-  The validator inspects the Maven lifecycle or Gradle task graph before it accepts the command.
-  Record why in `MIGRATION_REPORT.md`.
+- When an `executable_jar` or `external_launcher` check needs a packaged artifact, the user runs
+  packaging outside the evidence recorder.
+- The skill records only a bounded launch command as `executable_jar` or `external_launcher`
+  evidence.
+- The skill records the package command and its reason in `MIGRATION_REPORT.md`.
 - Record each module `tests` check and each process `process_path` check with the `block` action and
   the exact reason `declined by user (Question 8)`.
 - The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as

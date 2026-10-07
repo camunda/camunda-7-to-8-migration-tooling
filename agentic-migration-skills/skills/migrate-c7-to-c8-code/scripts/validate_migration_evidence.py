@@ -165,13 +165,6 @@ MAVEN_DEFAULT_LIFECYCLE_PHASES = (
 )
 MAVEN_CLEAN_LIFECYCLE_PHASES = ("pre-clean", "clean", "post-clean")
 GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
-MAVEN_PACKAGING_SAFE_GOALS = MAVEN_TEST_COMPILE_SAFE_GOALS | {
-    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"),
-    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"),
-    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"),
-    ("org.apache.maven.plugins", "maven-war-plugin", "war"),
-    ("org.springframework.boot", "spring-boot-maven-plugin", "repackage"),
-}
 MAVEN_SKIP_TEST_GOALS = {
     ("org.apache.maven.plugins", "maven-surefire-plugin", "test"),
 }
@@ -910,23 +903,6 @@ def verify_maven_test_compile_lifecycle(root, command, parsed, timeout):
         )
 
 
-def verify_maven_packaging_lifecycle(root, command, parsed, timeout):
-    effective_pom = maven_effective_pom(root, command, parsed, timeout)
-    unclassified = maven_unclassified_lifecycle_execution(
-        root,
-        effective_pom,
-        parsed,
-        "package",
-        MAVEN_PACKAGING_SAFE_GOALS,
-        skipped_test_goals=MAVEN_SKIP_TEST_GOALS,
-    )
-    if unclassified:
-        raise EvidenceError(
-            "Question 8 cannot verify that Maven packaging avoids test execution: "
-            f"unclassified effective lifecycle action {unclassified}"
-        )
-
-
 def verify_gradle_test_compile_graph(root, target, command, parsed, timeout):
     task_records, _ = gradle_inspection(root, target, command, timeout)
     verify_gradle_task_graph_avoids_test_execution(
@@ -1221,62 +1197,19 @@ def verify_gradle_task_graph_avoids_test_execution(task_records, parsed, operati
         )
 
 
-def verify_gradle_packaging_task_graph(root, target, command, parsed, timeout):
-    task_records, _ = gradle_inspection(root, target, command, timeout)
-    task_paths = {path for path, _ in task_records}
-    requested_packages = {
-        f":{task}" if parsed["project_dirs"] and not task.startswith(":") else task
-        for task in parsed["tasks"]
-        if task_leaf(task) in GRADLE_PACKAGE_TASKS
-        and gradle_module_selected(root, target, parsed, task)
-    }
-    if not requested_packages.intersection(task_paths):
-        raise EvidenceError(
-            f"Question 8 cannot verify that Gradle ran a packaging task for module {target}"
-        )
-    verify_gradle_task_graph_avoids_test_execution(
-        task_records,
-        parsed,
-        "packaging",
-    )
-
-
-def migrate_only_packaging_exception(root, key, parsed, tool, command, timeout):
-    if key[0] != "module" or key[2] not in {"executable_jar", "external_launcher"}:
+def runtime_check_uses_packaging_command(key, command):
+    if (
+        key[0] != "module"
+        or key[2] not in {"executable_jar", "external_launcher"}
+        or not command
+    ):
         return False
-    if tool == "maven":
-        tasks = {task_leaf(task) for task in parsed["tasks"]}
-        accepted = (
-            "package" in tasks
-            and tasks <= {"clean", "package"}
-            and maven_module_selection_is_exact(root, key[1], parsed)
-            and property_is_true(parsed, "skipTests")
-            and not property_is_true(parsed, "maven.test.skip")
-        )
-        if accepted:
-            verify_maven_packaging_lifecycle(root, command, parsed, timeout)
-        return accepted
-    packaging_tasks = [
-        task for task in parsed["tasks"] if task_leaf(task) in GRADLE_PACKAGE_TASKS
-    ]
-    task_names = {task_leaf(task) for task in parsed["tasks"]}
-    module_test_task = gradle_module_task_path(root, key[1], parsed, "test")
-    accepted = (
-        bool(packaging_tasks)
-        and task_names <= {"clean", "assemble", "bootjar", "jar", "war"}
-        and all(gradle_module_selected(root, key[1], parsed, task) for task in packaging_tasks)
-        and module_test_task is not None
-        and gradle_task_is_excluded(parsed, module_test_task)
-        and not any(
-            "test" in task_leaf(task)
-            and task_leaf(task) not in GRADLE_TEST_COMPILE_TASKS
-            and task_leaf(task) not in {"build", "check"}
-            for task in parsed["tasks"]
-        )
-    )
-    if accepted:
-        verify_gradle_packaging_task_graph(root, key[1], command, parsed, timeout)
-    return accepted
+    tool = build_tool(command)
+    if tool is None:
+        return False
+    parsed = parse_build_command(command, tool)
+    packaging_tasks = {"package"} if tool == "maven" else GRADLE_PACKAGE_TASKS
+    return any(task_leaf(task) in packaging_tasks for task in parsed["tasks"])
 
 
 def is_spring_boot_run_task(task, tool):
@@ -1727,19 +1660,10 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             else {task_leaf(task) for task in parsed["tasks"]} & GRADLE_PACKAGE_TASKS
         )
         if packaging_tasks:
-            if migrate_only_packaging_exception(
-                root,
-                key,
-                parsed,
-                tool,
-                command,
-                timeout,
-            ):
-                return
-            option = "`-DskipTests`" if tool == "maven" else "`-x test`"
             raise EvidenceError(
-                f"Question 8 Migrate tests only allows packaging only for executable-jar "
-                f"or external-launcher checks with {option}"
+                "Question 8 Migrate tests only cannot record packaging as runtime evidence "
+                "because packaging does not prove runtime startup. "
+                "Run packaging outside the evidence recorder, then record a bounded launch command."
             )
         if (maven_executes_tests(parsed) if tool == "maven" else gradle_executes_tests(parsed)):
             raise EvidenceError(
@@ -5959,6 +5883,16 @@ def load_checks(root, evidence, plan, issues):
                     raise EvidenceError(f"{key}: production or unknown runtime target")
             if check.get("source_digest") == plan.source_digest:
                 validate_risk_check(plan, key, check)
+            if (
+                method == "command"
+                and result == "passed"
+                and runtime_check_uses_packaging_command(key, command)
+            ):
+                check["result"] = "not_run"
+                check["reason"] = (
+                    "Packaging does not prove runtime startup; "
+                    "record a bounded launch command"
+                )
             checks[key] = (index, check, reference)
         except EvidenceError as exc:
             issues.append(str(exc))
@@ -6437,6 +6371,14 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
+    submitted_command = list(args.command or []) if args.action == "run" else []
+    if submitted_command and submitted_command[0] == "--":
+        submitted_command = submitted_command[1:]
+    if runtime_check_uses_packaging_command(key, submitted_command):
+        raise EvidenceError(
+            f"{key}: packaging does not prove runtime startup. "
+            "Run packaging outside the evidence recorder and record a bounded launch command."
+        )
     test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
     if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
         if args.action != "block":

@@ -250,22 +250,16 @@ In `migrate_only` mode, the validation script applies these rules:
   with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and
   Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle
   archive output.
-- Before accepting Maven `package`, the validator inspects the effective lifecycle through
-  `package`. It rejects unclassified goals, goals without a known default phase, and Maven build
-  extensions and packaging types outside the verified set. It allows the standard Surefire test
-  goal only when `-DskipTests` is enabled and the effective POM does not override that setting.
-- Before accepting Gradle packaging, the validator inspects the `--dry-run` task graph and checks
-  each task's Gradle `Test` type. It rejects each unexcluded test task, including custom test tasks.
+- It rejects Maven `package` and Gradle packaging tasks as `executable_jar` or `external_launcher`
+  evidence because packaging does not prove runtime startup.
+- When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
+  recorder.
+- The user records a bounded launch command as `executable_jar` or `external_launcher`
+  evidence.
 - It accepts a user-submitted Maven `help:effective-pom` command only for module `configuration`
   checks. It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only
   when the command's normalized file target matches the selected model.
-- It accepts Maven `package` with `-DskipTests` or Gradle packaging with `-x test` only for
-  `executable_jar` and `external_launcher` checks after the lifecycle or task-graph inspection passes.
-  Maven inspection checks Surefire plugin and execution overrides in the effective POM.
-  It also rejects an enabled effective `maven.test.skip` property.
 - It does not require `docker_info`.
-
-These packaging flags are the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
