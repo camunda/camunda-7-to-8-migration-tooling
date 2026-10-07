@@ -241,16 +241,19 @@ In `migrate_only` mode, the validation script applies these rules:
 - It refuses the `run` and `review` actions for `tests` and `process_path` checks.
 - It rejects a `block` action with another reason.
 - The gate rejects a passed or differently blocked `tests` or `process_path` check.
-- The validator accepts classified PATH tools by bare executable name or matching resolved PATH
-  executable. The validator accepts Maven and Gradle wrappers only when they are non-symlink files
-  at the project or selected module root.
+- The validator resolves bare PATH tools against the project working directory. It rejects tools
+  found inside the project unless they are approved Maven or Gradle wrappers.
+- The validator accepts Maven and Gradle wrappers only when they are non-symlink files at the
+  project or selected module root.
 - It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle
   `testClasses` command that selects the recorded module. The command must not enable
   `maven.test.skip` in the module or an ancestor POM, on the command line, or in JVM options.
   The validator checks `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`,
   and `.mvn/jvm.config`.
-- Before Maven effective-POM inspection, the validator checks `.mvn/extensions.xml` and Maven JVM
-  options for core extensions and code-loading agents.
+- Before Maven effective-POM inspection, the validator checks `.mvn/extensions.xml` and `.mvn/jvm.config`
+  at the project root and at the selected wrapper base.
+- The validator rejects Maven JVM code-loading options and Java argument-file references from
+  `MAVEN_OPTS`, `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, and `.mvn/jvm.config`.
 - The validator checks reactor POMs and local parent POMs for build extensions.
 - If any extension exists or the validator cannot resolve a reactor module or parent POM without
   Maven, then the validator refuses Maven inspection.
@@ -262,10 +265,13 @@ In `migrate_only` mode, the validation script applies these rules:
 - Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
   requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
   tasks. It refuses every excluded task and every unclassified task.
+- The validator resolves a Gradle module by its canonical `projectDir`. It checks each task's
+  owning project directory against the inventory module.
 - A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.
 - The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle
   user homes, and included builds before task-graph inspection.
-- It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` adds unverified arguments.
+- It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` at the project root or
+  selected wrapper base adds unverified arguments.
 - It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
   checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
   Maven goals or Gradle tasks.
@@ -338,7 +344,8 @@ and the legacy `-Xrun` option.
 The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`,
 `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
 The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
-The validator matches the JAR path to the module's configured Maven or Gradle archive output.
+The validator matches the JAR path to the module's configured Maven or Gradle archive output,
+including Spring Boot `repackage` classifiers from the effective POM.
 The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
 goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
 `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
@@ -346,8 +353,8 @@ startup.
 When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
 recorder. The user records a bounded launch command as `spring_boot_run`, `executable_jar`, or
 `external_launcher` evidence.
-The validator rejects Maven runtime commands when `MAVEN_ARGS` or `.mvn/maven.config` adds
-unverified arguments.
+The validator rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` at the project root
+or selected wrapper base adds unverified arguments.
 
 ### Deployment and timer decisions
 

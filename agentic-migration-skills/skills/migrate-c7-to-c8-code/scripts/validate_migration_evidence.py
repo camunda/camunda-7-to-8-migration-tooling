@@ -434,6 +434,29 @@ def command_executable(command):
     )
 
 
+def executable_search_path(root):
+    root = Path(root)
+    entries = []
+    for entry in os.environ.get("PATH", os.defpath).split(os.pathsep):
+        if not entry:
+            entries.append(str(root))
+            continue
+        path = Path(entry)
+        if path.is_absolute() or PureWindowsPath(entry).drive:
+            entries.append(entry)
+        else:
+            entries.append(str(root / path))
+    return os.pathsep.join(entries)
+
+
+def path_is_within(path, root):
+    try:
+        Path(path).relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
 def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
     if not command or not command[0]:
         return
@@ -452,6 +475,7 @@ def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
         or "\\" in raw_executable
     )
     root = Path(root).resolve(strict=True)
+    search_path = executable_search_path(root)
 
     def reject():
         raise EvidenceError(
@@ -477,7 +501,7 @@ def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
         if has_path:
             wrapper_path = path if path.is_absolute() else root / path
         else:
-            wrapper_lookup = shutil.which(raw_executable)
+            wrapper_lookup = shutil.which(raw_executable, path=search_path)
             if wrapper_lookup is not None:
                 wrapper_path = Path(wrapper_lookup)
             elif os.name == "nt":
@@ -496,23 +520,37 @@ def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
             or resolved_wrapper.parent not in allowed_wrapper_roots
         ):
             reject()
-        return
+        return resolved_wrapper
 
-    if not has_path:
-        return
     if windows_path.drive and os.name != "nt":
         reject()
-    expected_path = shutil.which(executable)
+    expected_path = shutil.which(executable, path=search_path)
     if expected_path is None:
+        if has_path:
+            reject()
+        return None
+    candidate_path = Path(expected_path)
+    if not candidate_path.is_absolute():
+        candidate_path = root / candidate_path
+    if path_is_within(candidate_path.absolute(), root):
         reject()
     try:
-        executable_path = path if path.is_absolute() else root / path
-        resolved_path = executable_path.resolve(strict=True)
+        resolved_path = candidate_path.resolve(strict=True)
         resolved_expected_path = Path(expected_path).resolve(strict=True)
     except (OSError, RuntimeError):
         reject()
-    if resolved_path != resolved_expected_path:
+    if path_is_within(resolved_path, root):
         reject()
+    if has_path:
+        executable_path = path if path.is_absolute() else root / path
+        try:
+            resolved_executable_path = executable_path.resolve(strict=True)
+        except (OSError, RuntimeError):
+            reject()
+        if resolved_executable_path != resolved_expected_path:
+            reject()
+        return resolved_executable_path
+    return resolved_expected_path
 
 
 def build_tool(command):
@@ -714,6 +752,15 @@ def maven_module_selected(root, target, parsed):
     return bool(parsed["projects"] or parsed["pom_files"]) or target_path == "."
 
 
+def gradle_module_selected(root, target, project_directory):
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        return False
+    module_directory = (Path(root) / target_path).resolve(strict=True)
+    task_directory = Path(project_directory)
+    return task_directory.is_absolute() and task_directory.resolve(strict=False) == module_directory
+
+
 def gradle_task_module(task):
     if not task.startswith(":") and ":" in task:
         return None
@@ -723,7 +770,7 @@ def gradle_task_module(task):
     return "/".join(parts[:-1]) or "."
 
 
-def gradle_module_selected(root, target, parsed, task):
+def gradle_command_may_select_module(root, target, parsed, task):
     target_path = project_relative_path(root, target)
     if target_path is None:
         return False
@@ -732,8 +779,54 @@ def gradle_module_selected(root, target, parsed, task):
             project_relative_path(root, project_dir)
             for project_dir in parsed["project_dirs"]
         }
-        return target_path in selected and gradle_task_module(task) == "."
+        return selected == {target_path} and gradle_task_module(task) == "."
+    if any(
+        (Path(root) / name).is_file() or (Path(root) / name).is_symlink()
+        for name in ("settings.gradle", "settings.gradle.kts")
+    ):
+        return True
     return gradle_task_module(task) == target_path
+
+
+def gradle_command_selects_module_tasks(
+    root,
+    target,
+    parsed,
+    task_records,
+    requested_tasks,
+):
+    target_path = project_relative_path(root, target)
+    if target_path is None:
+        return False
+    selected_project_dirs = {
+        project_relative_path(root, project_dir)
+        for project_dir in parsed["project_dirs"]
+    }
+    if parsed["project_dirs"] and selected_project_dirs != {target_path}:
+        return False
+    unqualified_task_is_module_specific = (
+        target_path == "." or selected_project_dirs == {target_path}
+    )
+    if not requested_tasks:
+        return False
+    for requested in requested_tasks:
+        selected = False
+        for task_path, _, project_directory in task_records:
+            if not gradle_module_selected(root, target, project_directory):
+                continue
+            if ":" in requested:
+                if task_path == f":{requested.lstrip(':')}":
+                    selected = True
+                    break
+            elif (
+                unqualified_task_is_module_specific
+                and task_leaf(task_path) == task_leaf(requested)
+            ):
+                selected = True
+                break
+        if not selected:
+            return False
+    return True
 
 
 def property_is_true(parsed, name):
@@ -759,9 +852,56 @@ def read_maven_options(path, label):
         raise EvidenceError(f"Cannot parse {label}: {path}: {exc}") from exc
 
 
-def maven_project_arguments_present(root):
-    return bool(os.environ.get("MAVEN_ARGS", "").strip()) or bool(
-        read_maven_options(root / ".mvn" / "maven.config", "Maven project arguments")
+def maven_configuration_roots(root, command=None):
+    root = Path(root).resolve(strict=True)
+    roots = [root]
+    if not command or command_executable(command) != "mvnw":
+        return roots
+
+    raw_executable = command[0]
+    windows_path = PureWindowsPath(raw_executable)
+    path = Path(raw_executable)
+    has_path = (
+        path.is_absolute()
+        or windows_path.is_absolute()
+        or bool(windows_path.drive)
+        or "/" in raw_executable
+        or "\\" in raw_executable
+    )
+    if has_path:
+        wrapper = path if path.is_absolute() else root / path
+    else:
+        wrapper_lookup = shutil.which(
+            raw_executable,
+            path=executable_search_path(root),
+        )
+        if wrapper_lookup is None:
+            return roots
+        wrapper = Path(wrapper_lookup)
+    try:
+        wrapper_root = wrapper.resolve(strict=True).parent
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise EvidenceError(
+            f"Question 8 cannot resolve the Maven wrapper base: {wrapper}"
+        ) from exc
+    if not path_is_within(wrapper_root, root):
+        raise EvidenceError(
+            "Question 8 cannot verify Maven configuration for a wrapper outside the project"
+        )
+    if wrapper_root not in roots:
+        roots.append(wrapper_root)
+    return roots
+
+
+def maven_project_arguments_present(root, command=None):
+    if os.environ.get("MAVEN_ARGS", "").strip():
+        return True
+    return any(
+        read_maven_options(
+            configuration_root / ".mvn" / "maven.config",
+            "Maven project arguments",
+        )
+        for configuration_root in maven_configuration_roots(root, command)
     )
 
 
@@ -799,7 +939,7 @@ def maven_pom_skips_test_compilation(root, target):
         current = parent
 
 
-def maven_jvm_option_sources(root):
+def maven_jvm_option_sources(root, command=None):
     option_sources = []
     for name in ("MAVEN_OPTS", *JAVA_OPTION_ENVIRONMENTS):
         value = os.environ.get(name, "")
@@ -809,8 +949,12 @@ def maven_jvm_option_sources(root):
             option_sources.append(shlex.split(value, comments=True))
         except ValueError as exc:
             raise EvidenceError(f"Cannot parse Maven JVM options: {exc}") from exc
-    option_sources.append(
-        read_maven_options(root / ".mvn" / "jvm.config", "Maven JVM options")
+    option_sources.extend(
+        read_maven_options(
+            configuration_root / ".mvn" / "jvm.config",
+            "Maven JVM options",
+        )
+        for configuration_root in maven_configuration_roots(root, command)
     )
     return option_sources
 
@@ -821,6 +965,8 @@ def maven_jvm_options_load_code(options):
     )
     for index, option in enumerate(options):
         normalized = option.casefold()
+        if normalized.startswith("@"):
+            return True
         if normalized.startswith(code_loading_prefixes):
             return True
         if normalized.startswith("--define="):
@@ -832,10 +978,10 @@ def maven_jvm_options_load_code(options):
     return False
 
 
-def maven_test_compilation_disabled(root, parsed):
+def maven_test_compilation_disabled(root, parsed, command=None):
     if property_is_true(parsed, "maven.test.skip"):
         return True
-    for options in maven_jvm_option_sources(root):
+    for options in maven_jvm_option_sources(root, command):
         parsed_options = parse_build_command(["mvn", *options], "maven")
         if property_is_true(parsed_options, "maven.test.skip"):
             return True
@@ -1075,16 +1221,18 @@ def maven_parent_pom(root, pom, document):
     return resolved_parent, expected_coordinates
 
 
-def preflight_maven_extensions(root, parsed):
+def preflight_maven_extensions(root, parsed, command=None):
     root = Path(root).resolve(strict=True)
-    extensions_file = root / ".mvn" / "extensions.xml"
-    if extensions_file.exists() or extensions_file.is_symlink():
-        raise EvidenceError(
-            "Question 8 refuses Maven core extensions before effective-POM inspection"
-        )
+    configuration_roots = maven_configuration_roots(root, command)
+    for configuration_root in configuration_roots:
+        extensions_file = configuration_root / ".mvn" / "extensions.xml"
+        if extensions_file.exists() or extensions_file.is_symlink():
+            raise EvidenceError(
+                "Question 8 refuses Maven core extensions before effective-POM inspection"
+            )
     jvm_options = [
         option
-        for option_source in maven_jvm_option_sources(root)
+        for option_source in maven_jvm_option_sources(root, command)
         for option in option_source
     ]
     jvm_options.extend(parsed["cli_options"])
@@ -1183,7 +1331,7 @@ def maven_effective_pom(root, command, parsed, timeout):
         command,
         wrapper_roots=maven_wrapper_roots(root, parsed),
     )
-    preflight_maven_extensions(root, parsed)
+    preflight_maven_extensions(root, parsed, command)
     with tempfile.TemporaryDirectory(
         prefix=".migrate-only-effective-pom-",
         dir=root,
@@ -1452,15 +1600,29 @@ def verify_gradle_test_compile_graph(root, target, command, parsed, timeout):
     )
     if not any(
         task_leaf(task) in GRADLE_TEST_SOURCE_COMPILE_TASKS
-        and gradle_module_selected(root, target, parsed, task)
-        for task, _ in task_records
+        and gradle_module_selected(root, target, project_directory)
+        for task, _, project_directory in task_records
     ):
         raise EvidenceError(
             "Question 8 Gradle test-source compilation task graph does not include "
             "a module test-source compiler task"
         )
+    requested_test_compile_tasks = [
+        task for task in parsed["tasks"] if task_leaf(task) == "testclasses"
+    ]
+    if not gradle_command_selects_module_tasks(
+        root,
+        target,
+        parsed,
+        task_records,
+        requested_test_compile_tasks,
+    ):
+        raise EvidenceError(
+            "Question 8 Gradle test-source compilation command does not select "
+            "the recorded module"
+        )
     unclassified = sorted(
-        task for task, _ in task_records
+        task for task, _, _ in task_records
         if task_leaf(task) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
     )
     if unclassified:
@@ -1485,9 +1647,9 @@ def compiles_test_sources(root, target, command, parsed=None, timeout=None):
         if (
             parsed["dry_run"]
             or not maven_module_selection_is_exact(root, target, parsed)
-            or maven_test_compilation_disabled(root, parsed)
+            or maven_test_compilation_disabled(root, parsed, command)
             or maven_pom_skips_test_compilation(root, target)
-            or maven_project_arguments_present(root)
+            or maven_project_arguments_present(root, command)
             or "test-compile" not in tasks
             or set(tasks) - {"clean", "test-compile"}
         ):
@@ -1499,7 +1661,7 @@ def compiles_test_sources(root, target, command, parsed=None, timeout=None):
         or parsed["excluded_tasks"]
         or not any(
             task_leaf(task) == "testclasses"
-            and gradle_module_selected(root, target, parsed, task)
+            and gradle_command_may_select_module(root, target, parsed, task)
             for task in parsed["tasks"]
         )
         or set(tasks) - {"clean", "testclasses"}
@@ -1586,16 +1748,12 @@ def gradle_inspection_context(root, target, executable_hint=None, project_dirs=(
                 f"Question 8 cannot verify the Gradle project directory for module {target}"
             )
         gradle_root = module_root
-        project_path = ":"
     elif settings:
         gradle_root = root
-        project_path = ":" if target_path == "." else ":" + target_path.replace("/", ":")
     elif module_build:
         gradle_root = module_root
-        project_path = ":"
     elif target_path == "." and root_build:
         gradle_root = root
-        project_path = ":"
     else:
         raise EvidenceError(
             f"Question 8 cannot establish Gradle build configuration for module {target}"
@@ -1611,12 +1769,12 @@ def gradle_inspection_context(root, target, executable_hint=None, project_dirs=(
     )
     if not executable:
         raise EvidenceError("Question 8 cannot inspect the configured Gradle build")
-    return gradle_root, project_path, executable
+    return gradle_root, module_root, executable
 
 
 def gradle_inspection(root, target, command, timeout):
     parsed = parse_build_command(command, "gradle") if command else None
-    gradle_root, project_path, executable = gradle_inspection_context(
+    gradle_root, module_root, executable = gradle_inspection_context(
         root,
         target,
         command[0] if command else None,
@@ -1630,11 +1788,16 @@ def gradle_inspection(root, target, command, timeout):
     init_script = """import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
 gradle.projectsEvaluated {
-    def selectedPath = gradle.startParameter.projectProperties.get("nwfModulePath")
-    def selectedProject = gradle.rootProject.findProject(selectedPath)
-    if (selectedProject == null) {
+    def selectedDirectory = new File(
+        gradle.startParameter.projectProperties.get("nwfModuleDirectory")
+    ).canonicalFile
+    def selectedProjects = gradle.rootProject.allprojects.findAll {
+        it.projectDir.canonicalFile == selectedDirectory
+    }
+    if (selectedProjects.size() != 1) {
         println("NWF-PROJECT-ERROR")
     } else {
+        def selectedProject = selectedProjects[0]
         selectedProject.tasks.withType(AbstractArchiveTask).each { task ->
             println("NWF-ARCHIVE\\t${task.path}\\t${task.archiveFile.get().asFile.canonicalPath}")
         }
@@ -1644,7 +1807,7 @@ gradle.projectsEvaluated {
 gradle.taskGraph.whenReady { graph ->
     graph.allTasks.each { task ->
         def isTestTask = task instanceof org.gradle.api.tasks.testing.Test
-        println("NWF-TASK\\t${task.path}\\t${isTestTask ? 'test' : 'other'}")
+        println("NWF-TASK\\t${task.path}\\t${isTestTask ? 'test' : 'other'}\\t${task.project.projectDir.canonicalPath}")
     }
 }
 """
@@ -1658,7 +1821,7 @@ gradle.taskGraph.whenReady { graph ->
         except OSError as exc:
             raise EvidenceError(f"Question 8 cannot create Gradle inspection script: {exc}") from exc
         inspection_command = (
-            [executable, f"{project_path}:tasks"]
+            [executable, "tasks"]
             if command is None
             else list(command)
         )
@@ -1666,7 +1829,7 @@ gradle.taskGraph.whenReady { graph ->
             (
                 "--init-script",
                 str(init_path),
-                f"-PnwfModulePath={project_path}",
+                f"-PnwfModuleDirectory={module_root}",
                 "--dry-run",
                 "--console=plain",
             )
@@ -1699,6 +1862,10 @@ gradle.taskGraph.whenReady { graph ->
     task_records = []
     archive_records = []
     dry_run_tasks = []
+    if "NWF-PROJECT-ERROR" in completed.stdout:
+        raise EvidenceError(
+            f"Question 8 cannot resolve the Gradle project directory for module {target}"
+        )
     for line in completed.stdout.splitlines():
         stripped = line.strip()
         if stripped.startswith("> Task "):
@@ -1707,15 +1874,19 @@ gradle.taskGraph.whenReady { graph ->
         if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
             dry_run_tasks.append(fields[0])
         if stripped.startswith("NWF-TASK\t"):
-            fields = stripped.split("\t", 2)
-            if len(fields) == 3 and fields[2] in {"test", "other"}:
-                task_records.append((fields[1], fields[2] == "test"))
+            fields = stripped.split("\t", 3)
+            if len(fields) == 4 and fields[2] in {"test", "other"}:
+                task_records.append(
+                    (fields[1], fields[2] == "test", Path(fields[3]))
+                )
         elif stripped.startswith("NWF-ARCHIVE\t"):
             fields = stripped.split("\t", 2)
             if len(fields) == 3:
                 archive_records.append((fields[1], Path(fields[2])))
 
-    if not task_records or set(dry_run_tasks) != {path for path, _ in task_records}:
+    if not task_records or set(dry_run_tasks) != {
+        path for path, _, _ in task_records
+    }:
         raise EvidenceError(
             "Question 8 cannot verify the complete Gradle task graph"
         )
@@ -1725,7 +1896,7 @@ gradle.taskGraph.whenReady { graph ->
 def verify_gradle_task_graph_avoids_test_execution(task_records, parsed, operation):
     unexcluded_test_tasks = sorted(
         path
-        for path, is_test_task in task_records
+        for path, is_test_task, _ in task_records
         if (
             is_test_task
             or (
@@ -2198,30 +2369,53 @@ def maven_module_effective_pom(root, module, timeout):
         raise EvidenceError(
             f"Question 8 cannot establish the Maven artifact for module {module}"
         )
-    if maven_project_arguments_present(root):
-        raise EvidenceError(
-            "Question 8 cannot inspect Maven artifact configuration when "
-            "MAVEN_ARGS or `.mvn/maven.config` adds unverified arguments"
-        )
     wrapper = root / "mvnw"
     if wrapper.is_symlink():
         raise EvidenceError(f"Question 8 refuses a symlinked Maven wrapper: {wrapper}")
     executable = str(wrapper) if wrapper.is_file() else "mvn"
     command = [executable, "-f", pom.relative_to(root).as_posix()]
+    if maven_project_arguments_present(root, command):
+        raise EvidenceError(
+            "Question 8 cannot inspect Maven artifact configuration when "
+            "MAVEN_ARGS or `.mvn/maven.config` adds unverified arguments"
+        )
     parsed = parse_build_command(command, "maven")
     return maven_effective_pom(root, command, parsed, timeout)
 
 
-def maven_module_application_jar_path(root, module, effective_pom):
+def maven_module_application_jar_paths(root, module, effective_pom):
     def local_name(element):
         return element.tag.rsplit("}", 1)[-1]
 
-    def child_text(element, name):
-        child = next(
+    def child(element, name):
+        if element is None:
+            return None
+        return next(
             (item for item in element if local_name(item) == name),
             None,
         )
-        return (child.text or "").strip() if child is not None else ""
+
+    def child_text(element, name):
+        value = child(element, name)
+        return (value.text or "").strip() if value is not None else ""
+
+    def configured_classifier(configuration):
+        classifier_element = child(configuration, "classifier")
+        if classifier_element is None:
+            return None
+        classifier = (classifier_element.text or "").strip()
+        if not classifier:
+            return ""
+        if (
+            "${" in classifier
+            or classifier in {".", ".."}
+            or Path(classifier).name != classifier
+            or PureWindowsPath(classifier).name != classifier
+        ):
+            raise EvidenceError(
+                "Question 8 cannot resolve the Spring Boot repackage classifier"
+            )
+        return classifier
 
     module_root = (root / module).resolve(strict=True)
     packaging = child_text(effective_pom, "packaging") or "jar"
@@ -2246,6 +2440,7 @@ def maven_module_application_jar_path(root, module, effective_pom):
     if (
         "${" in final_name
         or Path(final_name).name != final_name
+        or PureWindowsPath(final_name).name != final_name
         or final_name in {"", ".", ".."}
     ):
         raise EvidenceError(
@@ -2261,14 +2456,59 @@ def maven_module_application_jar_path(root, module, effective_pom):
         raise EvidenceError(
             "Question 8 refuses a Maven artifact directory outside its module"
         ) from exc
-    artifact = (output_directory / f"{final_name}.jar").resolve(strict=False)
-    try:
-        artifact.relative_to(module_root)
-    except ValueError as exc:
-        raise EvidenceError(
-            "Question 8 refuses a Maven artifact outside its module"
-        ) from exc
-    return artifact
+
+    artifact_names = {final_name}
+    if build is not None:
+        for plugins in build:
+            if local_name(plugins) != "plugins":
+                continue
+            for plugin in plugins:
+                if (
+                    local_name(plugin) != "plugin"
+                    or child_text(plugin, "groupId").casefold()
+                    != "org.springframework.boot"
+                    or child_text(plugin, "artifactId").casefold()
+                    != "spring-boot-maven-plugin"
+                ):
+                    continue
+                plugin_configuration = child(plugin, "configuration")
+                for executions in plugin:
+                    if local_name(executions) != "executions":
+                        continue
+                    for execution in executions:
+                        if local_name(execution) != "execution":
+                            continue
+                        goals = {
+                            (goal.text or "").strip().casefold()
+                            for goals_element in execution
+                            if local_name(goals_element) == "goals"
+                            for goal in goals_element
+                            if local_name(goal) == "goal"
+                        }
+                        if "repackage" not in goals:
+                            continue
+                        plugin_classifier = configured_classifier(
+                            plugin_configuration
+                        )
+                        classifier = configured_classifier(
+                            child(execution, "configuration")
+                        )
+                        if classifier is None:
+                            classifier = plugin_classifier
+                        if classifier:
+                            artifact_names.add(f"{final_name}-{classifier}")
+
+    artifacts = set()
+    for artifact_name in artifact_names:
+        artifact = (output_directory / f"{artifact_name}.jar").resolve(strict=False)
+        try:
+            artifact.relative_to(module_root)
+        except ValueError as exc:
+            raise EvidenceError(
+                "Question 8 refuses a Maven artifact outside its module"
+            ) from exc
+        artifacts.add(artifact)
+    return artifacts
 
 
 def configured_module_application_jar_paths(root, module, timeout):
@@ -2283,9 +2523,7 @@ def configured_module_application_jar_paths(root, module, timeout):
         raise EvidenceError(f"Question 8 refuses a symlinked Maven POM: {pom}")
     if pom.is_file():
         effective_pom = maven_module_effective_pom(root, module_path, timeout)
-        return {
-            maven_module_application_jar_path(root, module_path, effective_pom)
-        }
+        return maven_module_application_jar_paths(root, module_path, effective_pom)
     task_records, archive_records = gradle_inspection(
         root,
         module_path,
@@ -2409,7 +2647,7 @@ def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate
             f"{prefix}{key}: runtime startup requires an executed launch command"
         )
     if tool is not None:
-        if tool == "maven" and maven_project_arguments_present(root):
+        if tool == "maven" and maven_project_arguments_present(root, command):
             raise EvidenceError(
                 f"{prefix}{key}: runtime startup cannot verify Maven project "
                 "arguments from MAVEN_ARGS or `.mvn/maven.config`"
@@ -2442,15 +2680,24 @@ def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate
                     f"{prefix}{key}: runtime startup accepts Spring Boot launches "
                     "only for spring_boot_run checks"
                 )
-            selected = (
-                maven_module_selected(root, key[1], parsed)
-                if tool == "maven"
-                else all(
-                    gradle_module_selected(root, key[1], parsed, task)
-                    for task in runtime_tasks
+            if tool == "maven" and not maven_module_selected(
+                root,
+                key[1],
+                parsed,
+            ):
+                raise EvidenceError(
+                    f"{prefix}{key}: runtime startup command does not select "
+                    "the recorded module"
                 )
-            )
-            if not selected:
+            if tool == "gradle" and not all(
+                gradle_command_may_select_module(
+                    root,
+                    key[1],
+                    parsed,
+                    task,
+                )
+                for task in runtime_tasks
+            ):
                 raise EvidenceError(
                     f"{prefix}{key}: runtime startup command does not select "
                     "the recorded module"
@@ -2490,6 +2737,17 @@ def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate
                     parsed,
                     "Spring Boot launch",
                 )
+                if not gradle_command_selects_module_tasks(
+                    root,
+                    key[1],
+                    parsed,
+                    task_records,
+                    runtime_tasks,
+                ):
+                    raise EvidenceError(
+                        f"{prefix}{key}: runtime startup command does not select "
+                        "the recorded module"
+                    )
             return
         raise EvidenceError(
             f"{prefix}{key}: runtime startup requires a recognized Spring Boot launch, "
@@ -2615,7 +2873,7 @@ def validate_migrate_only_command(root, key, command, timeout=None):
     if verified_non_test_command(root, key, command):
         return
     if tool is not None:
-        if tool == "maven" and maven_project_arguments_present(root):
+        if tool == "maven" and maven_project_arguments_present(root, command):
             raise EvidenceError(
                 "Question 8 cannot verify Maven project arguments from MAVEN_ARGS "
                 "or `.mvn/maven.config`"
@@ -2674,7 +2932,7 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             and {task.casefold() for task in parsed["tasks"]} == {"help:effective-pom"}
             and maven_module_selected(root, key[1], parsed)
         ):
-            preflight_maven_extensions(root, parsed)
+            preflight_maven_extensions(root, parsed, command)
             return
         raise EvidenceError(
             "Question 8 Migrate tests only cannot verify Maven or Gradle goals "

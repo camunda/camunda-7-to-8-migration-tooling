@@ -610,18 +610,32 @@ class ValidationEvidenceTest(unittest.TestCase):
                     stripped = stripped[len("> Task "):]
                 fields = stripped.split()
                 if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
-                    task_records.append(f"NWF-TASK\t{fields[0]}\tother")
+                    task_records.append(
+                        f"NWF-TASK\t{fields[0]}\tother\t{app_root}"
+                    )
             inspected_graph = "\n".join((current_graph or "", *task_records))
             output = inspected_graph if "--dry-run" in command else "compiled"
             return subprocess.CompletedProcess(command, 0, output)
 
         return run
 
-    def gradle_task_graph_runner(self, tasks, archives=()):
+    def gradle_task_graph_runner(self, tasks, archives=(), project_directories=None):
         output = []
         for path, task_type in tasks:
             output.append(f"> Task {path} SKIPPED")
-            output.append(f"NWF-TASK\t{path}\t{task_type}")
+            project_path = path.rsplit(":", 1)[0].strip(":")
+            default_project_directory = (
+                self.root.joinpath(*project_path.split(":"))
+                if project_path
+                else self.root
+            )
+            project_directory = (project_directories or {}).get(
+                f":{project_path}" if project_path else ":",
+                default_project_directory,
+            )
+            output.append(
+                f"NWF-TASK\t{path}\t{task_type}\t{project_directory}"
+            )
         for task, path in archives:
             output.append(f"NWF-ARCHIVE\t{task}\t{path}")
         graph = "\n".join(output)
@@ -1091,6 +1105,30 @@ class ValidationEvidenceTest(unittest.TestCase):
                         self.submit(key, command=command_args)
                     run.assert_not_called()
 
+    def test_migrate_only_rejects_project_build_executables_resolved_from_path(self):
+        self.write_scope(test_run_mode="migrate_only")
+        executable_names = ("mvn", "gradle", "java", "npx", "c8ctl", "docker")
+        for name in executable_names:
+            executable = self.root / name
+            executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            executable.chmod(0o755)
+        search_path = os.pathsep.join(
+            (str(self.root), gate.os.environ.get("PATH", ""))
+        )
+        with patch.dict(gate.os.environ, {"PATH": search_path}):
+            for name in executable_names:
+                for executable_path in (name, f"./{name}"):
+                    with self.subTest(executable=executable_path):
+                        command = [executable_path]
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "untrusted executable path",
+                        ):
+                            gate.validate_trusted_executable_path(
+                                self.root,
+                                command,
+                            )
+
     def test_migrate_only_rejects_untrusted_java_path_before_runtime_launch(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope(test_run_mode="migrate_only")
@@ -1235,6 +1273,49 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
                     run.assert_not_called()
 
+    def test_migrate_only_preflights_nested_maven_wrapper_configuration(self):
+        self.write_scope(test_run_mode="migrate_only")
+        wrapper = self.root / "app/mvnw"
+        wrapper.parent.mkdir(parents=True, exist_ok=True)
+        wrapper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        wrapper.chmod(0o755)
+        argument_file = self.root / "app/agent.args"
+        argument_file.write_text("-javaagent:/tmp/test-agent.jar\n", encoding="utf-8")
+        configs = (
+            (".mvn/extensions.xml", "<extensions />"),
+            (".mvn/jvm.config", "-javaagent:/tmp/test-agent.jar"),
+            (".mvn/jvm.config", "@agent.args"),
+            (".mvn/maven.config", "test"),
+        )
+        environment_names = (
+            "MAVEN_ARGS",
+            "MAVEN_OPTS",
+            *gate.JAVA_OPTION_ENVIRONMENTS,
+        )
+        command = ["app/mvnw", "-pl", "app", "test-compile"]
+        for config, contents in configs:
+            with self.subTest(config=config, contents=contents):
+                for name in (
+                    ".mvn/extensions.xml",
+                    ".mvn/jvm.config",
+                    ".mvn/maven.config",
+                ):
+                    (self.root / "app" / name).unlink(missing_ok=True)
+                config_path = self.root / "app" / config
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                config_path.write_text(contents, encoding="utf-8")
+                with patch.dict(
+                    gate.os.environ,
+                    {name: "" for name in environment_names},
+                ):
+                    with patch.object(gate.subprocess, "run") as run:
+                        with self.assertRaises(gate.EvidenceError):
+                            self.submit(
+                                ("module", "app", "compile", None),
+                                command=command,
+                            )
+                        run.assert_not_called()
+
     def test_maven_artifact_inspection_preflights_extensions_before_invocation(self):
         (self.root / "app/pom.xml").write_text(
             """
@@ -1280,9 +1361,15 @@ class ValidationEvidenceTest(unittest.TestCase):
         key = ("module", "app", "compile", None)
         sources = (
             ("MAVEN_OPTS", "-Dmaven.ext.class.path=/tmp/maven-extension.jar"),
+            ("MAVEN_OPTS", "@agent.args"),
             ("JAVA_TOOL_OPTIONS", "-javaagent:/tmp/test-agent.jar"),
             ("JDK_JAVA_OPTIONS", "-agentpath:/tmp/test-agent.so"),
             (".mvn/jvm.config", "-Dmaven.ext.class.path=/tmp/maven-extension.jar"),
+            (".mvn/jvm.config", "@agent.args"),
+        )
+        (self.root / "agent.args").write_text(
+            "-javaagent:/tmp/test-agent.jar\n",
+            encoding="utf-8",
         )
         environment_names = (
             "MAVEN_OPTS",
@@ -1377,6 +1464,109 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "help:effective-pom",
                         run.call_args_list[0].args[0],
                     )
+
+    def test_migrate_only_resolves_remapped_gradle_projects_by_directory(self):
+        target = "services/app"
+        module_root = self.root / target
+        module_root.mkdir(parents=True)
+        (module_root / "build.gradle").write_text("", encoding="utf-8")
+        (self.root / "settings.gradle").write_text(
+            "include 'app'\n"
+            "project(':app').projectDir = file('services/app')\n",
+            encoding="utf-8",
+        )
+        command = ["gradle", ":app:testClasses"]
+        parsed = gate.parse_build_command(command, "gradle")
+        runner = self.gradle_task_graph_runner(
+            (
+                (":app:compileJava", "other"),
+                (":app:classes", "other"),
+                (":app:compileTestJava", "other"),
+                (":app:testClasses", "other"),
+            ),
+            project_directories={":app": module_root},
+        )
+        with patch.object(gate.subprocess, "run", side_effect=runner):
+            gate.verify_gradle_test_compile_graph(
+                self.root,
+                target,
+                command,
+                parsed,
+                timeout=5,
+            )
+
+    def test_runtime_resolves_remapped_gradle_project_by_directory(self):
+        target = "services/app"
+        module_root = self.root / target
+        module_root.mkdir(parents=True)
+        (module_root / "build.gradle").write_text("", encoding="utf-8")
+        (self.root / "settings.gradle").write_text(
+            "include 'app'\n"
+            "project(':app').projectDir = file('services/app')\n",
+            encoding="utf-8",
+        )
+        command = ["gradle", ":app:bootRun"]
+        parsed = gate.parse_build_command(command, "gradle")
+        runner = self.gradle_task_graph_runner(
+            (
+                (":app:compileJava", "other"),
+                (":app:classes", "other"),
+                (":app:bootRun", "other"),
+            ),
+            project_directories={":app": module_root},
+        )
+        with patch.object(gate.subprocess, "run", side_effect=runner):
+            gate.validate_runtime_launch_command(
+                self.root,
+                ("module", target, "spring_boot_run", None),
+                command,
+                timeout=5,
+                migrate_only=True,
+            )
+
+    def test_migrate_only_rejects_gradle_tasks_from_multiple_modules(self):
+        target = "services/app"
+        module_root = self.root / target
+        other_module_root = self.root / "other"
+        module_root.mkdir(parents=True)
+        other_module_root.mkdir(parents=True)
+        (module_root / "build.gradle").write_text("", encoding="utf-8")
+        (other_module_root / "build.gradle").write_text("", encoding="utf-8")
+        (self.root / "settings.gradle").write_text(
+            "include 'app', 'other'\n"
+            "project(':app').projectDir = file('services/app')\n",
+            encoding="utf-8",
+        )
+        command = ["gradle", ":app:testClasses", ":other:testClasses"]
+        parsed = gate.parse_build_command(command, "gradle")
+        runner = self.gradle_task_graph_runner(
+            (
+                (":app:compileJava", "other"),
+                (":app:classes", "other"),
+                (":app:compileTestJava", "other"),
+                (":app:testClasses", "other"),
+                (":other:compileJava", "other"),
+                (":other:classes", "other"),
+                (":other:compileTestJava", "other"),
+                (":other:testClasses", "other"),
+            ),
+            project_directories={
+                ":app": module_root,
+                ":other": other_module_root,
+            },
+        )
+        with patch.object(gate.subprocess, "run", side_effect=runner):
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "does not select the recorded module",
+            ):
+                gate.verify_gradle_test_compile_graph(
+                    self.root,
+                    target,
+                    command,
+                    parsed,
+                    timeout=5,
+                )
 
     def test_migrate_only_rejects_unclassified_gradle_test_compile_tasks(self):
         self.write_scope(test_run_mode="migrate_only")
@@ -3189,6 +3379,80 @@ class ValidationEvidenceTest(unittest.TestCase):
                     environment="local",
                 ),
             )
+
+    def test_migrate_only_allows_spring_boot_repackage_classifier_jar(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        configurations = (
+            (
+                "plugin-level",
+                "<configuration><classifier>exec</classifier></configuration>"
+                "<executions><execution><goals><goal>repackage</goal></goals>"
+                "</execution></executions>",
+            ),
+            (
+                "execution-level",
+                "<executions><execution><goals><goal>repackage</goal></goals>"
+                "<configuration><classifier>exec</classifier></configuration>"
+                "</execution></executions>",
+            ),
+        )
+        for label, plugin_configuration in configurations:
+            with self.subTest(configuration=label):
+                self.write_scope(test_run_mode="migrate_only")
+                (self.root / "app/pom.xml").write_text(
+                    "<project />\n",
+                    encoding="utf-8",
+                )
+                artifact = self.root / "app/target/app-1.0-exec.jar"
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(artifact, "w") as archive:
+                    archive.writestr(
+                        "META-INF/MANIFEST.MF",
+                        "Manifest-Version: 1.0\nMain-Class: com.example.Application\n",
+                    )
+                effective_pom = f"""
+                <project>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <build>
+                    <directory>{self.root / "app" / "target"}</directory>
+                    <finalName>app-1.0</finalName>
+                    <plugins><plugin>
+                      <groupId>org.springframework.boot</groupId>
+                      <artifactId>spring-boot-maven-plugin</artifactId>
+                      {plugin_configuration}
+                    </plugin></plugins>
+                  </build>
+                </project>
+                """
+                command = ["java", "-jar", "app/target/app-1.0-exec.jar"]
+                with ExitStack() as patches:
+                    patches.enter_context(
+                        patch.object(
+                            gate.subprocess,
+                            "run",
+                            side_effect=self.maven_effective_pom_runner(effective_pom),
+                        )
+                    )
+                    patches.enter_context(
+                        patch.object(
+                            gate,
+                            "run_runtime_command",
+                            return_value=subprocess.CompletedProcess(
+                                command,
+                                0,
+                                RUNTIME_STARTUP_LINE,
+                            ),
+                        )
+                    )
+                    self.assertEqual(
+                        0,
+                        self.submit(
+                            ("module", "app", "executable_jar", None),
+                            command=command,
+                            environment="local",
+                        ),
+                    )
 
     def test_migrate_only_allows_configured_jar_with_test_in_filename(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
