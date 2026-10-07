@@ -333,10 +333,30 @@ not show ignored files.
 | Project root state | Baseline action |
 |---|---|
 | Git repository with a clean working tree and every `source_files` path tracked at `HEAD` | Record the Step 2 commit. |
-| Git repository with a dirty working tree or any `source_files` path missing from `HEAD` | Copy the full project root, including hidden, untracked, and ignored files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. Keep the `.git` entry so the validator can verify the recorded commit. |
+| Git repository with a dirty working tree or any `source_files` path missing from the recorded commit | Use a detached worktree at the recorded commit. Mirror the full project tree into it without copying the source `.git` entry. Record the snapshot path. |
 | Not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
 
+Set `PROJECT_ROOT` to the source project root.
+Set `SOURCE_SNAPSHOT_COMMIT` to the Step 2 `source_snapshot_commit`.
+Set `BASELINE_ROOT` to a new sibling path.
+Create the detached worktree and mirror the source tree:
+
+```sh
+git worktree add --detach "$BASELINE_ROOT" "$SOURCE_SNAPSHOT_COMMIT"
+rsync -a --delete --exclude='/.git' "$PROJECT_ROOT/" "$BASELINE_ROOT/"
+```
+
+The `rsync` command mirrors the full source tree, including hidden, untracked, ignored, modified, and new files.
+It also removes files deleted from the source root.
+The `/.git` exclusion keeps the source root's `.git` entry from replacing the detached worktree's Git metadata.
+When the migrated worktree advances, the detached worktree keeps `HEAD` at the recorded commit.
+Record `BASELINE_ROOT` in `MIGRATION_REPORT.md`.
+If `rsync` is unavailable, then use a copy tool that mirrors deletions and skips the source root's `.git` entry.
+
 If the skill cannot preserve the baseline, then ask the user before Step 3.
+
+When the skill records a module runtime check, it follows the launch-command and timeout rules in
+`references/validation-evidence.md` for both test modes.
 
 When the user selects **Migrate tests only**, apply these rules:
 
@@ -345,16 +365,9 @@ When the user selects **Migrate tests only**, apply these rules:
 - The validator inspects the effective Maven lifecycle and Gradle task graph before it accepts
   test-source compilation.
 - The validator requires a test-source compiler task for Gradle compilation.
-- The validator matches each `java -jar` path to the module's configured Maven or Gradle archive output.
 - The validator rejects Gradle dry runs, excluded tasks, and unclassified task-graph actions.
 - The skill directs the user to add `-DskipTests` to Maven packaging commands.
 - The skill directs the user to exclude every Gradle test task with `-x <task>`.
-- When an `executable_jar` or `external_launcher` check needs a packaged artifact, the user runs
-  packaging outside the evidence recorder.
-- The skill records only a bounded launch command as `executable_jar` or `external_launcher`
-  evidence.
-- When the validator checks `external_launcher` evidence, it accepts a direct `java -jar` command
-  for the module's configured application artifact.
 - The skill records the package command and its reason in `MIGRATION_REPORT.md`.
 - Record each module `tests` check and each process `process_path` check with the `block` action and
   the exact reason `declined by user (Question 8)`.

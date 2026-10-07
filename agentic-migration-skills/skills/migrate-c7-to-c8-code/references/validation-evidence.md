@@ -245,23 +245,8 @@ In `migrate_only` mode, the validation script applies these rules:
 - It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
   checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
   Maven goals or Gradle tasks.
-- It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's
-  `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects
-  every unexcluded `Test` task.
-- When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct
-  `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.
-- It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
-- The JAR path must match the module's configured Maven or Gradle archive output.
-- It rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
-  goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
-  `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
-  startup.
 - The skill directs the user to add `-DskipTests` to Maven packaging commands.
 - The skill directs the user to exclude every Gradle test task with `-x <task>`.
-- When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
-  recorder.
-- The user records a bounded launch command as `executable_jar` or `external_launcher`
-  evidence.
 - It accepts a user-submitted Maven `help:effective-pom` command only for module `configuration`
   checks. It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only
   when the command's normalized file target matches the selected model.
@@ -272,6 +257,39 @@ Use `review` for review checks. Give a substantive note naming the reviewed file
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type model --target models/converted-c8-order.bpmn --kind review --note "The skill checked source integrity, converter findings, form decisions, and DI."
 ```
+
+### Module runtime checks
+
+The validator checks each module runtime command before execution in both `run` and `migrate_only`
+modes. The validator requires a positive timeout for every runtime command. The default timeout is 300 seconds.
+Use `--timeout` to set another positive limit. A command that reaches its timeout is recorded as
+blocked.
+
+A successful exit code alone does not prove application startup. The validator rejects arbitrary
+commands such as `mvn validate`, `python3 -c pass`, and `true` before execution.
+The validator rejects shell-wrapped commands, test runners, test-compilation commands, and Maven or
+Gradle test-execution goals or tasks as runtime evidence.
+The validator rejects unrecognized Maven goals and Gradle tasks.
+
+| Check kind | Accepted application launch |
+|---|---|
+| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. |
+| `executable_jar` or `external_launcher` | Direct `java -jar` for the module's configured application artifact. |
+
+The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.
+When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct
+`java -jar` command for a configured module artifact with a `Main-Class` manifest entry.
+The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
+The validator matches the JAR path to the module's configured Maven or Gradle archive output.
+The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
+goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
+`executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
+startup.
+When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
+recorder. The user records a bounded launch command as `spring_boot_run`, `executable_jar`, or
+`external_launcher` evidence.
+The validator rejects Maven runtime commands when `MAVEN_ARGS` or `.mvn/maven.config` adds
+unverified arguments.
 
 ### Deployment and timer decisions
 

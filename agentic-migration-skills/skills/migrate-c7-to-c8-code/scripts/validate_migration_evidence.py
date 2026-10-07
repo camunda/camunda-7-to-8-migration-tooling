@@ -1526,6 +1526,128 @@ def java_application_jar(root, key, command, timeout=None):
     return True
 
 
+def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate_only=False):
+    prefix = "Question 8 Migrate tests only " if migrate_only else ""
+    if not isinstance(timeout, int) or timeout <= 0:
+        raise EvidenceError(
+            f"{prefix}{key}: runtime startup requires a positive command timeout"
+        )
+    if not command or not command[0]:
+        raise EvidenceError(f"{prefix}{key}: runtime startup requires a launch command")
+    if shell_command(command):
+        raise EvidenceError(
+            f"{prefix}{key}: runtime startup rejects shell-wrapped commands"
+        )
+    if test_runner_command(command):
+        raise EvidenceError(
+            f"{prefix}{key}: runtime startup rejects test-runner commands"
+        )
+
+    tool = build_tool(command)
+    parsed = parse_build_command(command, tool) if tool is not None else None
+    if parsed and parsed["dry_run"]:
+        raise EvidenceError(
+            f"{prefix}{key}: runtime startup requires an executed launch command"
+        )
+    if tool is not None:
+        if tool == "maven" and maven_project_arguments_present(root):
+            raise EvidenceError(
+                f"{prefix}{key}: runtime startup cannot verify Maven project "
+                "arguments from MAVEN_ARGS or `.mvn/maven.config`"
+            )
+        if has_test_compile_task(parsed, tool):
+            raise EvidenceError(
+                f"{prefix}{key}: runtime startup rejects test-compilation commands"
+            )
+        executes_tests = (
+            maven_executes_tests(parsed)
+            if tool == "maven"
+            else gradle_executes_tests(parsed)
+        )
+        if executes_tests:
+            raise EvidenceError(
+                f"{prefix}{key}: runtime startup rejects test-execution goals or tasks"
+            )
+        if runtime_check_uses_packaging_command(key, command):
+            raise EvidenceError(
+                f"{prefix}{key}: packaging does not prove runtime startup. "
+                "Run packaging outside the evidence recorder and record a bounded launch command."
+            )
+
+        runtime_tasks = [
+            task for task in parsed["tasks"] if is_spring_boot_run_task(task, tool)
+        ]
+        if runtime_tasks:
+            if key[0] != "module" or key[2] != "spring_boot_run":
+                raise EvidenceError(
+                    f"{prefix}{key}: runtime startup accepts Spring Boot launches "
+                    "only for spring_boot_run checks"
+                )
+            selected = (
+                maven_module_selected(root, key[1], parsed)
+                if tool == "maven"
+                else all(
+                    gradle_module_selected(root, key[1], parsed, task)
+                    for task in runtime_tasks
+                )
+            )
+            if not selected:
+                raise EvidenceError(
+                    f"{prefix}{key}: runtime startup command does not select "
+                    "the recorded module"
+                )
+            if any(
+                task not in runtime_tasks and task_leaf(task) != "clean"
+                for task in parsed["tasks"]
+            ):
+                raise EvidenceError(
+                    f"{prefix}{key}: runtime startup cannot verify additional "
+                    "build goals alongside a Spring Boot launch"
+                )
+            if (
+                tool == "maven"
+                and (
+                    property_is_true(parsed, "skipTests")
+                    or property_is_true(parsed, "maven.test.skip")
+                )
+            ) or (
+                tool == "gradle"
+                and any(
+                    "test" in task_leaf(task) for task in parsed["excluded_tasks"]
+                )
+            ):
+                raise EvidenceError(
+                    f"{prefix}{key}: runtime startup does not allow test-skip flags"
+                )
+            if tool == "gradle":
+                task_records, _ = gradle_inspection(
+                    root,
+                    key[1],
+                    command,
+                    timeout,
+                )
+                verify_gradle_task_graph_avoids_test_execution(
+                    task_records,
+                    parsed,
+                    "Spring Boot launch",
+                )
+            return
+        raise EvidenceError(
+            f"{prefix}{key}: runtime startup requires a recognized Spring Boot launch, "
+            "not an arbitrary Maven or Gradle goal"
+        )
+
+    if java_application_jar(root, key, command, timeout):
+        return
+    if migrate_only:
+        raise EvidenceError(
+            "Question 8 Migrate tests only rejects unverified executable commands"
+        )
+    raise EvidenceError(
+        f"{prefix}{key}: runtime startup requires a verified application launch command"
+    )
+
+
 def normalized_model_target(root, value):
     if not isinstance(value, str):
         return None
@@ -1586,6 +1708,16 @@ def verified_non_test_command(root, key, command):
 
 
 def validate_migrate_only_command(root, key, command, timeout=None):
+    if key[0] == "module" and key[2] in RUNTIME_CHECKS:
+        validate_runtime_launch_command(
+            root,
+            key,
+            command,
+            timeout,
+            migrate_only=True,
+        )
+        return
+
     tool = build_tool(command)
     parsed = parse_build_command(command, tool) if tool is not None else None
     if parsed and parsed["dry_run"]:
@@ -1642,60 +1774,10 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             task for task in parsed["tasks"] if is_spring_boot_run_task(task, tool)
         ]
         if runtime_tasks:
-            if key[0] != "module" or key[2] != "spring_boot_run":
-                raise EvidenceError(
-                    "Question 8 Migrate tests only accepts Spring Boot launch commands "
-                    "for spring_boot_run checks"
-                )
-            selected = (
-                maven_module_selected(root, key[1], parsed)
-                if tool == "maven"
-                else all(
-                    gradle_module_selected(root, key[1], parsed, task)
-                    for task in runtime_tasks
-                )
+            raise EvidenceError(
+                "Question 8 Migrate tests only accepts Spring Boot launch commands "
+                "only for spring_boot_run checks"
             )
-            if not selected:
-                raise EvidenceError(
-                    f"Question 8 Migrate tests only {key}: Spring Boot launch command "
-                    "does not select the recorded module"
-                )
-            if any(
-                task not in runtime_tasks and task_leaf(task) != "clean"
-                for task in parsed["tasks"]
-            ):
-                raise EvidenceError(
-                    "Question 8 Migrate tests only cannot verify additional build goals "
-                    "alongside a Spring Boot launch"
-                )
-            if (
-                tool == "maven"
-                and (
-                    property_is_true(parsed, "skipTests")
-                    or property_is_true(parsed, "maven.test.skip")
-                )
-            ) or (
-                tool == "gradle"
-                and any(
-                    "test" in task_leaf(task) for task in parsed["excluded_tasks"]
-                )
-            ):
-                raise EvidenceError(
-                    "Question 8 Migrate tests only permits test-skip flags only for packaging checks"
-                )
-            if tool == "gradle":
-                task_records, _ = gradle_inspection(
-                    root,
-                    key[1],
-                    command,
-                    timeout,
-                )
-                verify_gradle_task_graph_avoids_test_execution(
-                    task_records,
-                    parsed,
-                    "Spring Boot launch",
-                )
-            return
         packaging_tasks = (
             {task_leaf(task) for task in parsed["tasks"]} & {"package"}
             if tool == "maven"
@@ -1706,10 +1788,6 @@ def validate_migrate_only_command(root, key, command, timeout=None):
                 "Question 8 Migrate tests only cannot record packaging as runtime evidence "
                 "because packaging does not prove runtime startup. "
                 "Run packaging outside the evidence recorder, then record a bounded launch command."
-            )
-        if (maven_executes_tests(parsed) if tool == "maven" else gradle_executes_tests(parsed)):
-            raise EvidenceError(
-                "Question 8 Migrate tests only forbids test-execution commands for every check"
             )
         if tool == "maven":
             skipped_tests = (
@@ -1737,8 +1815,6 @@ def validate_migrate_only_command(root, key, command, timeout=None):
             "Question 8 Migrate tests only cannot verify Maven or Gradle goals "
             "as non-test commands for this check"
         )
-    if java_application_jar(root, key, command, timeout):
-        return
     raise EvidenceError(
         "Question 8 Migrate tests only rejects unverified executable commands"
     )
@@ -6613,6 +6689,8 @@ def record(root, args):
             raise EvidenceError("--baseline-root is only valid for c7_baseline checks")
         if test_run_mode == "migrate_only":
             validate_migrate_only_command(root, key, command, args.timeout)
+        elif key[0] == "module" and key[2] in RUNTIME_CHECKS:
+            validate_runtime_launch_command(root, key, command, args.timeout)
         try:
             completed = subprocess.run(
                 command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

@@ -524,7 +524,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             scenario=scenario,
             environment=options.get("environment"),
             isolation_plan=options.get("isolation_plan"),
-            timeout=5,
+            timeout=options.get("timeout", 5),
             action=action,
             command=[sys.executable, "-c", "print('check completed')"] if command is None else command,
             baseline_root=options.get("baseline_root"),
@@ -615,6 +615,40 @@ class ValidationEvidenceTest(unittest.TestCase):
         return run
 
     def complete_required_checks(self):
+        runtime_fixture_changed = False
+        for module in self.plan["modules"]:
+            if module["runtime_mode"] not in {"spring-boot", "external-launcher"}:
+                continue
+            artifact_id = Path(module["path"]).name
+            module_root = self.root / module["path"]
+            module_root.mkdir(parents=True, exist_ok=True)
+            pom = module_root / "pom.xml"
+            if not pom.exists():
+                pom.write_text(
+                    "<project><modelVersion>4.0.0</modelVersion>"
+                    "<groupId>com.example</groupId>"
+                    f"<artifactId>{artifact_id}</artifactId>"
+                    "<version>1.0</version><packaging>jar</packaging></project>\n",
+                    encoding="utf-8",
+                )
+                runtime_fixture_changed = True
+            jar = module_root / "target" / f"{artifact_id}-1.0.jar"
+            if not jar.exists():
+                jar.parent.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(jar, "w") as archive:
+                    archive.writestr(
+                        "META-INF/MANIFEST.MF",
+                        "Manifest-Version: 1.0\n"
+                        "Main-Class: com.example.Application\n\n",
+                    )
+                runtime_fixture_changed = True
+        if runtime_fixture_changed:
+            with redirect_stdout(StringIO()):
+                self.assertEqual(
+                    0,
+                    gate.initialize(self.root, reset_source_snapshot=True),
+                )
+
         plan = gate.requirements(self.root, self.plan)
         self.assertEqual([], plan.issues)
         inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
@@ -698,6 +732,45 @@ class ValidationEvidenceTest(unittest.TestCase):
                 options["command"] = plan.test_contract["suites"][
                     (key[1], key[3])
                 ]["command"]
+            elif key[0] == "module" and key[2] in gate.RUNTIME_CHECKS:
+                artifact_id = Path(key[1]).name
+                if key[2] == "spring_boot_run":
+                    options["command"] = [
+                        "mvn",
+                        "-pl",
+                        key[1],
+                        "spring-boot:run",
+                    ]
+                    command_patch = patch.object(
+                        gate.subprocess,
+                        "run",
+                        return_value=gate.subprocess.CompletedProcess(
+                            options["command"], 0, "started"
+                        ),
+                    )
+                else:
+                    jar = (
+                        self.root
+                        / key[1]
+                        / "target"
+                        / f"{artifact_id}-1.0.jar"
+                    )
+                    options["command"] = [
+                        "java",
+                        "-jar",
+                        jar.relative_to(self.root).as_posix(),
+                    ]
+                    effective_pom = (
+                        "<project><modelVersion>4.0.0</modelVersion>"
+                        "<groupId>com.example</groupId>"
+                        f"<artifactId>{artifact_id}</artifactId>"
+                        "<version>1.0</version><packaging>jar</packaging></project>"
+                    )
+                    command_patch = patch.object(
+                        gate.subprocess,
+                        "run",
+                        side_effect=self.maven_effective_pom_runner(effective_pom),
+                    )
             elif key[2] == "test_repeat":
                 options["command"] = self.cpt_command(
                     first_coverage='{"processCoverages":[]}'
@@ -1445,6 +1518,64 @@ class ValidationEvidenceTest(unittest.TestCase):
                                 environment="local",
                             )
                         invoked.assert_not_called()
+
+    def test_run_mode_rejects_unverified_commands_as_runtime_evidence(self):
+        runtime_modes = (
+            ("spring_boot_run", "spring-boot"),
+            ("executable_jar", "spring-boot"),
+            ("external_launcher", "external-launcher"),
+        )
+        commands = (
+            ["mvn", "-pl", "app", "validate"],
+            ["python3", "-c", "pass"],
+            ["true"],
+        )
+        for kind, runtime_mode in runtime_modes:
+            self.plan["modules"][0]["runtime_mode"] = runtime_mode
+            self.write_scope()
+            self.complete_required_checks()
+            key = ("module", "app", kind, None)
+            for command_args in commands:
+                with self.subTest(kind=kind, command=command_args):
+                    with patch.object(
+                        gate.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess(
+                            command_args, 0, "unexpected pass"
+                        ),
+                    ) as invoked:
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "runtime startup",
+                        ):
+                            self.submit(
+                                key,
+                                command=command_args,
+                                environment="local",
+                            )
+                        invoked.assert_not_called()
+
+    def test_runtime_checks_require_a_positive_timeout(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope()
+        self.complete_required_checks()
+        command = ["true"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(command, 0, "unexpected pass"),
+        ) as invoked:
+            with self.assertRaisesRegex(
+                gate.EvidenceError,
+                "runtime startup.*positive.*timeout",
+            ):
+                self.submit(
+                    ("module", "app", "spring_boot_run", None),
+                    command=command,
+                    environment="local",
+                    timeout=None,
+                )
+            invoked.assert_not_called()
 
     def test_migrate_only_allows_verified_runtime_commands(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -2569,6 +2700,115 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         mapping = gate.read_test_mapping(self.root, required=True)
         self.assertEqual("passed", mapping["baseline"]["suites"][0]["result"])
+
+    def test_deferred_c7_baseline_pins_linked_worktree_head(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        project_root = self.root
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        worktree_parent = Path(temporary.name).resolve()
+        repository_root = worktree_parent / "c7-source-repository"
+        shutil.copytree(project_root, repository_root)
+        (repository_root / ".gitignore").write_text(
+            "app/src/test/resources/ignored-baseline.txt\n",
+            encoding="utf-8",
+        )
+
+        def git(path, *arguments):
+            return subprocess.run(
+                ["git", "-C", str(path), *arguments],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+        git(repository_root, "init")
+        git(repository_root, "add", "-A")
+        git(
+            repository_root,
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.com",
+            "commit",
+            "-m",
+            "Record the C7 source",
+        )
+        source_commit = git(repository_root, "rev-parse", "HEAD").stdout.strip()
+        source_root = worktree_parent / "linked-c7-source"
+        baseline_root = worktree_parent / "detached-c7-baseline"
+        copied_worktree_root = worktree_parent / "copied-c7-worktree"
+        git(
+            repository_root,
+            "worktree",
+            "add",
+            "--detach",
+            str(source_root),
+            source_commit,
+        )
+        self.root = source_root.resolve()
+        ignored_file = source_root / "app/src/test/resources/ignored-baseline.txt"
+        ignored_file.parent.mkdir(parents=True, exist_ok=True)
+        ignored_file.write_text("ignored C7 test resource\n", encoding="utf-8")
+        self.configure_test_run(junit, test_run_mode="migrate_only")
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        self.assertEqual(source_commit, inventory["source_snapshot_commit"])
+
+        shutil.copytree(source_root, copied_worktree_root)
+        git(
+            repository_root,
+            "worktree",
+            "add",
+            "--detach",
+            str(baseline_root),
+            source_commit,
+        )
+        shutil.copytree(
+            source_root,
+            baseline_root,
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns(".git"),
+        )
+        self.assertEqual(
+            "ignored C7 test resource\n",
+            (baseline_root / "app/src/test/resources/ignored-baseline.txt").read_text(
+                encoding="utf-8"
+            ),
+        )
+
+        git(
+            source_root,
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.com",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "Advance the linked source worktree",
+        )
+        advanced_commit = git(source_root, "rev-parse", "HEAD").stdout.strip()
+        self.assertNotEqual(source_commit, advanced_commit)
+        self.assertEqual(
+            advanced_commit,
+            git(copied_worktree_root, "rev-parse", "HEAD").stdout.strip(),
+        )
+        self.assertEqual(
+            source_commit,
+            git(baseline_root, "rev-parse", "HEAD").stdout.strip(),
+        )
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "must match the recorded commit",
+        ):
+            gate.resolve_c7_baseline_root(self.root, inventory, copied_worktree_root)
+        self.assertEqual(
+            baseline_root.resolve(),
+            gate.resolve_c7_baseline_root(self.root, inventory, baseline_root),
+        )
 
     def test_deferred_c7_baseline_rejects_paths_into_the_migrated_project(self):
         junit = (
