@@ -14,8 +14,18 @@ The skill ran `docker info` before Question 8. The command failed because Docker
 was stopped. The skill still offered both **Run tests** and **Migrate tests
 only**. The user chose **Migrate tests only**.
 
-The migrated test sources compile. The skill ran no C7 or C8 test command.
-Each test check is blocked because the user declined test execution.
+The migrated test sources compile with the command below. The skill ran no C7 or C8 test command
+during migration. Each test check is blocked because the user declined test execution.
+
+## Test verification
+
+**Status:** `not verified (Migrate tests only)`
+
+## Test-source compilation
+
+| Scope | Command | Result |
+|---|---|---|
+| Migrated test modules | `mvn -pl engine-tests test-compile`<br>`mvn -pl spring-boot-app test-compile`<br>`mvn -pl remote-engine test-compile` | passed |
 
 ## Test checks
 
@@ -27,6 +37,13 @@ Each test check is blocked because the user declined test execution.
 | `mock_boundary` | blocked | declined by user (Question 8) |
 | `process_coverage` | blocked | declined by user (Question 8) |
 | `test_execution` | blocked | declined by user (Question 8) |
+
+## Deferred validation checks
+
+| Kind | Scope | Status | Reason |
+|---|---|---|---|
+| `tests` | C7 `engine-tests`, `engine-tests-legacy`, `spring-boot-app`, and `remote-engine`; C8 `engine-tests`, `spring-boot-app`, and `remote-engine` | blocked | declined by user (Question 8) |
+| `process_path` | `order`, `shipping`, `legacyOrder`, `fulfillment`, `MessageStartReview`, `MixedFinishReview`, `subscription`, `housekeeping`, and `payment` | blocked | declined by user (Question 8) |
 
 ## Test parity
 
@@ -56,6 +73,21 @@ unverified because the user selected **Migrate tests only**.
 | `spring-boot-app:com.camunda.fixture.subscription.HousekeepingStartupTest#startsHousekeepingOnDeployment` | `HousekeepingStartupTest#startsHousekeepingOnDeployment` | blocked | declined by user (Question 8) |
 | `spring-boot-app:com.camunda.fixture.subscription.SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | `SubscriptionStandaloneTest#startsSubscriptionWithoutSpring` | blocked | declined by user (Question 8) |
 | `remote-engine:com.camunda.fixture.payment.PaymentWorkerIT#chargesPaymentThroughEngineRest` | `PaymentWorkerIT#chargesPayment` | blocked | declined by user (Question 8) |
+
+## Verify the test migration
+
+Baseline filesystem snapshot: `../c7-source-baseline/`
+
+1. Run the C7 suites in `../c7-source-baseline/` with `mvn -pl engine-tests,engine-tests-legacy,spring-boot-app test`
+   and `mvn -pl remote-engine verify`.
+2. Start Docker. Run the migrated suites with `mvn -pl engine-tests,spring-boot-app test` and
+   `mvn -pl remote-engine verify`.
+3. Change only `test_run_mode` from `migrate_only` to `run` in
+   `.camunda-migration/validation/step2-inventory.json`. Do not run `init`.
+4. Record each check that the validator `report` action lists as missing. Record each
+   `c7_baseline` check with the `block` action, and name the step 1 run in the reason.
+5. Run the validator `report` action again. The gate stays `NOT READY` without a
+   validator-captured C7 baseline.
 
 ## Readiness
 

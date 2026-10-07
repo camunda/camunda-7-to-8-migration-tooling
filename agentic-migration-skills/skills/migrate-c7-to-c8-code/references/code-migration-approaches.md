@@ -20,6 +20,10 @@ One class does not predict the rest of the project.
 | Pair with AI review | Semantic or mixed delegate/client code needs API and business-behavior context. |
 | Still needs a team decision | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
 
+## Test migration order
+
+When `test_run_mode` is `run`, follow the phase order in `references/test-migration.md`.
+
 ## Approach A - OpenRewrite + AI
 
 Use this approach for repeated, supported, primarily syntactic transformations or a deterministic

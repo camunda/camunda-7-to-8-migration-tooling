@@ -271,12 +271,16 @@ Use `.` for the project root module.
 For example, `.:com.example.JobAnnouncementProcessTest#testPublishOnlyOnWeb`.
 
 When `MIGRATION_REPORT.md` does not exist, the skill creates it.
-Add a `Test Inventory` table to `MIGRATION_REPORT.md` with these columns in this order:
+Add a `Test Inventory` table under a `## Test Inventory` heading in `MIGRATION_REPORT.md`, with these
+columns in this order:
 
 | Test ID | File | Test kind | Signals | Models | Handling | Notes |
 |---|---|---|---|---|---|---|
 
-Add a `Test kind counts` table to `MIGRATION_REPORT.md` with the columns `Test kind` and `Count`.
+Keep the Test Inventory table as the only table in its section. Start every table row with `|`. The validator reads every table row
+between the `Test Inventory` heading and the next heading as an inventory row.
+Add a `Test kind counts` table under its own heading in `MIGRATION_REPORT.md` with the columns
+`Test kind` and `Count`.
 Include a row for every test kind, including zero counts.
 Present the test-kind counts in the Step 2 Summary.
 State how many tests are eligible for CPT migration.
@@ -303,6 +307,437 @@ When the target version is Camunda 8.8, the skill detects every test.
 | Migrate (lower priority) | Report only | `test migration needs Camunda 8.9 or later` |
 | Report only | Keep `Report only` | Where a test is in scope, the skill preserves the existing reason and adds `test migration needs Camunda 8.9 or later`. Where the test kind is `manual redesign`, the skill preserves the existing reason. |
 | Not part of test migration | Keep `Not part of test migration` | Keep the existing reason |
+
+## Test Execution Choice
+
+A migratable test is a Test Inventory test with handling `Migrate`, `Migrate to CPT`, or
+`Migrate (lower priority)`.
+
+Ask Question 8 from `references/interview-questions.md` after the Step 2 Test Inventory is complete.
+The conditions for asking it are in that file.
+
+When the user selects Assessment only and the inventory includes a migratable test, explain both
+Question 8 options in `MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
+
+The skill runs `docker info` before the options and states whether it succeeds.
+If no test command was found for a module, then the skill does not invent one.
+If `docker info` fails, then the skill still offers both options.
+
+| User choice | Baseline step | Step 3 and Step 4 | Test verification |
+|---|---|---|---|
+| **Run tests** | Run each Camunda 7 test command before Step 3 changes any file. Record the baseline. | Migrate the tests, run each CPT test command, and apply the test safeguards. | `verified`, or `blocked` with the reason |
+| **Migrate tests only** | Preserve the C7 baseline as described below. Do not run a test command. | Migrate the tests as in the Run tests path. Compile test sources. Do not run C7 suites, CPT suites, or Step 4 process scenarios. | `not verified (Migrate tests only)` |
+
+When the user selects **Migrate tests only**, preserve the C7 baseline before Step 3:
+
+| Project root | Baseline action |
+|---|---|
+| Git repository with a clean working tree | Record the Step 2 commit. |
+| Git repository with uncommitted changes, or not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
+
+If the skill cannot preserve the baseline, then ask the user before Step 3.
+
+When the user selects **Migrate tests only**, apply these rules:
+
+- Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task. A
+  main-source-only compile does not count.
+- Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
+  Record why in `MIGRATION_REPORT.md`.
+- Record each module `tests` check and each process `process_path` check with the `block` action and
+  the exact reason `declined by user (Question 8)`.
+- The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as
+  defined in `references/project-readiness.md`.
+
+Record the Question 8 answer in the `MIGRATION_REPORT.md` decision log. Also record it as
+`test_run_mode` in `.camunda-migration/validation/step2-inventory.json`, as described in
+`references/validation-evidence.md`.
+Where the Test Inventory has a migratable test, the validator requires `test_run_mode`.
+
+## Step 3 order
+
+When `test_run_mode` is `run`, use these phases in this order:
+
+| Phase | Action |
+|---|---|
+| C7 baseline | Run each suite containing a migratable test or a `Report only` test selected for migration before Step 3 changes any file. |
+| Models | Convert the model copies, including test models. |
+| Tests | Migrate the in-scope tests. Review recipe changes before accepting them. |
+| Freeze | Record hashes for test source files and test resources. |
+| Production code | Migrate production code. This phase ends after every frozen test passes. |
+
+When the selected mode is `migrate_only`, do not run a test command. Follow the declined-test path
+in `validation-evidence.md`.
+
+Keep the Test Inventory in `MIGRATION_REPORT.md`. Keep the machine-readable test mode and suite
+commands in `.camunda-migration/validation/step2-inventory.json`:
+
+A **Run tests** inventory includes `test_suites`:
+
+```json
+{
+  "schema_version": 1,
+  "modules": ["examples/web"],
+  "models": ["models/order.bpmn"],
+  "test_run_mode": "run",
+  "test_suites": [
+    {
+      "module": "examples/web",
+      "name": "unit",
+      "command": ["mvn", "-B", "-pl", "examples/web", "test"],
+      "test_ids": ["examples/web:com.example.OrderTest#testOrder"]
+    }
+  ]
+}
+```
+
+Where deferred verification is planned, a **Migrate tests only** inventory declares `test_suites` in
+Step 2. The validator rejects suites added later, because the source snapshot does not cover them.
+Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
+
+```json
+{
+  "schema_version": 1,
+  "modules": ["examples/web"],
+  "models": ["models/order.bpmn"],
+  "test_run_mode": "migrate_only"
+}
+```
+
+Where Question 8 does not apply, the skill omits `test_run_mode`.
+
+Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in each suite.
+When `test_run_mode` is `run`, assign every migratable test to at least one suite. Use a distinct
+`name` for each suite in a module. The validator uses `command` for the Camunda 7 baseline. It runs
+the command without a shell.
+Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
+
+Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
+The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
+Where Camunda 7 coverage reports use another path, set `coverage_reports` on the matching Step 2
+inventory `test_suites[]` entry to module-relative globs.
+The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
+`target/process_test_coverage/**/*.json`.
+Where a suite uses custom test source or resource directories, list each project-relative path in
+`test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
+When the freeze check runs, each configured root must exist as a directory.
+Where a deferred suite uses custom test roots under `target` or `build`, declare those roots in the
+initial `migrate_only` inventory so the source snapshot includes their files.
+Where a configured root uses generated files under `target` or `build`, generate those files before
+`init`.
+
+## Camunda 7 baseline
+
+Run each suite that contains a migratable test:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
+```
+
+Use the exact command recorded in `step2-inventory.json`. The validator rejects a different
+command. The validator rejects a baseline run after any Step 2 source file changes.
+The Step 2 source snapshot hashes each existing Test Inventory file and every file under each
+configured test source or resource root, including roots under `target` and `build`.
+
+The validator parses JUnit XML with Python's standard library. It reads Surefire files from
+`target/surefire-reports/TEST-*.xml`. It reads Failsafe files from `target/failsafe-reports/`.
+It reads Gradle files from `build/test-results/**/`.
+
+The validator maps each invocation to `<module>:<fully qualified class>#<method>`. The `method`
+part can be a framework display name, including spaces and punctuation, such as a Cucumber scenario
+or Spock feature name. The validator preserves a report name that exactly matches a C7 Test
+Inventory ID or mapped CPT test ID. It removes parameter and repeat suffixes from other JUnit
+report names before matching them. The table below maps invocation results to the method result.
+
+When the baseline check captures a fresh report for every suite test ID, the check passes. A failed or
+skipped C7 test remains visible in the ledger. A C7 test that did not pass is not required to pass
+parity. The baseline check can record valid reports from a C7 command that exits nonzero. The ledger
+retains the individual test results.
+
+| Invocation results | Method result |
+|---|---|
+| Every invocation passed | `passed` |
+| One or more invocations errored | `error` |
+| No invocation errored and one or more failed | `failed` |
+| No invocation errored or failed and one or more skipped | `skipped` |
+
+The validator copies JUnit reports to `.camunda-migration/validation/baseline/`. It records one
+result for each Test Inventory ID in the suite. Where the project uses Git, it records the Step 2 Git commit. It stores the C7 test results in `test-mapping.json`.
+The validator matches each baseline-suite record against its recorded `c7_baseline` check before it uses the record for parity.
+Where a fresh C7 report contains a `Report only` test that the suite omits, the validator also
+records that test.
+
+Where Camunda 7 process-test-coverage reports exist, the validator copies and parses their JSON
+reports. It records covered flow-node and sequence-flow IDs under each `modelKey`. It maps those IDs
+to the covered process.
+
+When a suite cannot run, record it as blocked:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind c7_baseline --scenario unit --reason "The suite requires an unavailable database."
+```
+
+Ask the user whether to continue without that baseline. Record approval in
+`test-mapping.json`:
+
+```json
+{
+  "baseline": {
+    "continue_without_baseline": {
+      "decision": "continue",
+      "reason": "The approved database is unavailable.",
+      "approved_by": "operator"
+    }
+  }
+}
+```
+
+Do not invent test results. Without a C7 baseline, report parity as `not verified`. The validation
+gate remains `NOT READY`.
+
+## Test parity ledger
+
+The validator owns `.camunda-migration/validation/test-mapping.json`. It writes `c7_result` from
+JUnit reports. Never write `c7_result` by hand.
+
+The skill records each test mapping and each approval in the ledger:
+
+```json
+{
+  "schema_version": 1,
+  "baseline": {
+    "commit": "<Step 2 Git commit or null>",
+    "source_digest": "<Step 2 source snapshot digest>",
+    "suites": [
+      {
+        "module": "examples/web",
+        "suite": "unit",
+        "command": ["mvn", "-B", "-pl", "examples/web", "test"],
+        "result": "passed",
+        "reports": ".camunda-migration/validation/baseline/<suite-id>/junit",
+        "report_files": [
+          ".camunda-migration/validation/baseline/<suite-id>/junit/target/surefire-reports/TEST-OrderTest.xml"
+        ],
+        "coverage_reports": null,
+        "coverage_report_files": [],
+        "coverage_available": false,
+        "coverage_by_process": {},
+        "test_results": {
+          "examples/web:com.example.OrderTest#testOrder": {
+            "result": "passed",
+            "invocations": ["passed"],
+            "invocation_count": 1
+          }
+        },
+        "evidence_path": ".camunda-migration/validation/logs/<check-id>.json"
+      }
+    ],
+    "coverage_available": false,
+    "coverage": {},
+    "continue_without_baseline": null
+  },
+  "tests": [
+    {
+      "c7_id": "examples/web:com.example.OrderTest#testOrder",
+      "test_kind": "process test",
+      "handling": "Migrate",
+      "c7_result": "passed",
+      "c8_ids": ["examples/web:com.example.OrderCptTest#testOrder"],
+      "mocks": {
+        "c7": ["Mocks.register(\"orderService\", mock)"],
+        "c8": ["@MockitoBean OrderService"]
+      },
+      "status": "migrated"
+    }
+  ],
+  "freeze": {"files": {}},
+  "test_changes": [],
+  "mock_changes": []
+}
+```
+
+Use these ledger statuses:
+
+| Status | Meaning |
+|---|---|
+| `migrated` | The C7 test maps to one or more CPT tests. |
+| `retired` | The user approved removal of the C7 test. Record a reason and approver. |
+| `manual` | The Test Inventory marks the test `Report only`. The test is not verified. |
+| `added` | The migration added a CPT test without a C7 source test. |
+
+The validator requires the same repeat, parity, freeze, and review evidence for migrated `Report only` tests.
+The validator requires a C7 baseline for every suite that contains a migrated or retired `Report only` test.
+
+When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
+Migrate it or record an approved retirement before claiming `READY`.
+
+When a ledger edit changes a test check's digest, the validator ignores that stale record. Record each still-required check again.
+The validator includes frozen test-file hashes and approved `test_changes` in assertion-strength and
+mock-boundary review digests. When the hashes or approvals change, record each required review again.
+
+Set `retirement.reason` and `retirement.approved_by` on each retired test. The validator rejects a
+retired test without both values.
+
+When all C7 tests are retired and no migrated or added `c8_ids` remain, the validator still checks
+the C7 baseline and retired disposition. It does not require `test_freeze` or `test_repeat`. It
+skips target coverage comparison because no CPT tests remain.
+
+Set `c8_ids` on each added test. Set `suite` to the name of the module test suite that runs it. The
+validator requires `test_repeat` only for that suite and requires each added CPT test to pass in both
+runs.
+Keep `c8_ids` distinct within each ledger row. Never assign one CPT ID to multiple migrated or
+added test rows.
+
+## Freeze migrated tests
+
+When test migration completes, run the freeze check:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
+```
+
+The validator hashes each existing file named by a migrated Test Inventory row. It also hashes
+every file under `src/test/` in each module with a migrated or added CPT test.
+For each suite with migrated or added CPT tests, it hashes every file under the configured
+`test_source_roots` and `test_resource_roots`.
+The source snapshot also locks the configured root paths before migration starts.
+The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
+unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
+rejects it.
+
+While the skill migrates production code, it does not edit a frozen test file. Ask the user before a test file must
+change. Record each approved change with its path, reason, old hash, new hash, and approver:
+
+```json
+{
+  "file": "examples/web/src/test/java/com/example/OrderCptTest.java",
+  "reason": "The user approved a required assertion update.",
+  "old_hash": "sha256:<old hash>",
+  "new_hash": "sha256:<new hash>",
+  "approved_by": "operator"
+}
+```
+
+When the change adds a file, use `null` for the old hash. When the change removes a file, use
+`null` for the new hash. The validator rejects each changed hash without a matching approval.
+
+## CPT repeat and parity checks
+
+The `test_repeat` check runs each CPT suite with mapped migrated or added tests twice:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind test_repeat --scenario unit -- mvn -B -pl examples/web test
+```
+
+The validator parses and preserves each run's JUnit XML. It compares each test method's result and
+invocation results across the two runs. A difference marks the suite flaky. A failed command also
+fails the repeat check.
+
+When both runs and all reviews pass, record the computed parity check:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_parity
+```
+
+The validator does not treat a skipped CPT test as a pass for parity. Each C7 test with
+`c7_result: passed` must map to passing CPT tests in both runs. An approved retired test is the only
+other passing disposition. A failed or skipped C7 baseline test is listed but is not required to
+pass parity. The validator rejects a CPT test ID mapped from multiple migrated C7 tests.
+
+Record assertion-strength reviews once per migrated test class:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest --kind assertion_strength --note "Reviewed assertions for examples/web:com.example.OrderTest."
+```
+
+Compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. If a CPT test cannot retain an assertion, then record a reason.
+
+Record one mock-boundary review per migrated C7 test:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest#testOrder --kind mock_boundary --note "Reviewed C7 test examples/web:com.example.OrderTest#testOrder and its CPT mocks."
+```
+
+| C7 mock boundary | CPT mock boundary | Verdict |
+|---|---|---|
+| C7 registers a domain-service mock. | CPT uses `@MockitoBean` for the same service. | Allowed. |
+| C7 uses `autoMock("bpmn/sample.bpmn")`. | CPT mocks a job type declared in that model's converted copy. | Allowed. |
+| C7 runs a component for real. | CPT adds a worker, child-process, decision, or Spring mock. | Requires user approval. |
+
+The validator resolves each `autoMock` resource to one source model. It allows only job types
+declared in that model's converted copy. If the resource resolves to zero or multiple models, then
+each CPT job-worker mock requires approval.
+
+Record each approved new CPT mock in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and
+`approved_by`. The `cpt_test_id` must identify a CPT test mapped from a migrated C7 test. The
+validator rejects an unapproved new mock.
+
+When one C7 test maps to multiple CPT tests, record `mocks.c8_by_test_id` as an object keyed by
+every ID in `c8_ids`. List each CPT test's mocks under its ID. Set `mocks.c8` to the union of those
+per-test lists. When a multi-ID test has any C8 mocks, the validator requires this map. Where `mocks.c8` is
+empty, the map is optional.
+
+## Coverage parity
+
+The `coverage_parity` check compares C7 and CPT coverage:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind coverage_parity
+```
+
+The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
+CPT process coverage from `target/coverage-report/report.json` by default. Where a suite writes CPT coverage to another path, set `coverage_reports` to module-relative globs
+on the matching module's `test_suites[]` entry in `validation-evidence.json`. The Step 2 inventory's
+`test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
+See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
+
+The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT report schemas use
+`processCoverages[]`. Both arrays contain `processDefinitionId`, `completedElements`, and
+`takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. Where shared element IDs map a renamed process uniquely, the validator uses that mapping. If no converted process contains a C7-covered ID, then the validator ignores that ID. It checks each retained C7-covered ID against both CPT runs.
+If one C7 process maps to multiple converted processes, then the gate reports ambiguity. If
+multiple C7 process IDs map to the same CPT process ID, then the gate reports ambiguity.
+If one C7 process ID appears in multiple source models and a covered element remains in a
+converted model, then the gate reports ambiguity.
+The CPT report identifies processes by ID, not by converted model path. If a covered process ID appears in more than one converted model, then the gate reports ambiguity.
+The validator marks a process row without C7-covered elements as `CPT coverage`. This status reports
+CPT coverage without claiming parity.
+
+The validator also lists CPT decision coverage from `decisionCoverages[].decisionDefinitionId` and
+`decisionCoverages[].matchedRuleIds`. Camunda 7 process-test-coverage does not provide a matching
+decision baseline.
+
+When no C7 coverage report exists, record `No Camunda 7 coverage baseline` in
+`MIGRATION_REPORT.md`. The validator still records CPT coverage. It does not claim coverage parity.
+
+## Report
+
+The validator writes a Test Parity table to `MIGRATION_REPORT.md`. It lists every C7 test, its C7
+result, mapped CPT tests, both CPT run results, status, and notes.
+
+The Notes column lists approved retirement reasons. The section also lists approved test changes
+and approved mock changes. The validator owns the Test Parity and Test Coverage sections.
+
+## Verification Plan for a Deferred Test Run
+
+When the user selects **Migrate tests only**, add a **Verify the test migration** section to
+`MIGRATION_REPORT.md`. Use the actual baseline commit or snapshot path, and the test commands from
+the Test Inventory, project documentation, and CI inventory:
+
+1. Run the Camunda 7 suite from the baseline. Where the baseline is a commit, create a separate
+   worktree with `git worktree add ../c7-baseline <baseline-commit>` and run the module test
+   command there. Where the baseline is a snapshot, run the command in the snapshot directory.
+2. Start Docker or configure a remote CPT runtime. Run the migrated suite, for example `mvn test`.
+3. Change only `test_run_mode` from `migrate_only` to `run` in the Step 2 inventory. Keep the Test
+   Inventory and `test_suites` unchanged. Do not run `init`, because it clears earlier checks.
+4. Record each check that the validator `report` action lists as missing. The validator cannot run
+   a `c7_baseline` check after Step 3 changes files. Record each `c7_baseline` check with the
+   `block` action. Name the baseline run from step 1 in the reason.
+5. Run the validator `report` action again. The gate stays `NOT READY` without a C7 baseline that
+   the validator captured.
+
+The verification plan is not test evidence.
+
+When the user later asks the skill to verify a **Migrate tests only** run, follow this plan. (MAY)
+Never rebuild the C7 baseline from migrated code.
 
 ---
 

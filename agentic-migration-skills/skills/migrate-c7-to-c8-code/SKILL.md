@@ -221,6 +221,8 @@ C7 baseline with the command in `references/validation-evidence.md`.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
+When the user selects **Migrate tests only**, the skill follows `references/test-migration.md` to
+preserve the C7 baseline before Step 3.
 
 #### Code Inventory
 
@@ -315,6 +317,9 @@ When the skill presents test counts, CPT eligibility, and `Report only` findings
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 Follow `references/test-migration.md` for Camunda 8.8 handling.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
+When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
+**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
+`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
 
 #### Custom incident notifications
 
@@ -355,6 +360,9 @@ notification parity.
 Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 
 ### Step 3: Execute Migration
+
+When `test_run_mode` is `run`, follow `references/test-migration.md`. Complete the C7 baseline,
+model migration, test migration, and test freeze before production-code migration.
 
 When the user selects Models only and Analyze-only, run `Analyze-Only Mode` in
 `references/model-migration-approaches.md` instead of Part B.
@@ -421,6 +429,8 @@ Follow the exit rule for the selected mode.
 Follow `references/validation-evidence.md` to record command results and audit required checks.
 Never write a passing command result by hand. Run the gate only after a full migration.
 Assessment-only and analyze-only runs do not claim readiness.
+When `test_run_mode` is `run`, follow `references/test-migration.md` for test parity, freeze,
+repeat-run, and coverage checks.
 
 #### Code checks, when code was migrated
 
@@ -460,6 +470,8 @@ Assessment-only and analyze-only runs do not claim readiness.
    after a failure. Classify infrastructure failures separately from application failures. A
    successful compile alone does not prove that behavior works. A failed or blocked suite prevents
    readiness.
+   When the user selects **Migrate tests only**, follow `references/test-migration.md` to compile
+   test sources without running tests and record every skipped test check as blocked.
 10. **Eventually-consistent queries** — search for every C8 search-request factory method listed in
    `references/code-transform-checklist.md`, not only the `SearchRequest` type name. Every migrated
    search call site has a matching open item in the `MIGRATION_REPORT.md` open-items section. A
@@ -697,6 +709,8 @@ remaining Camunda 7 imports, remaining migration TODOs, `businessKey` uses, the 
 converted models, and the findings that still need follow-up. Run the evidence validator and use its
 generated gate block as the validation-readiness summary in `MIGRATION_REPORT.md`. Record project
 documentation, CI readiness, and the project-readiness verdict separately.
+State test verification as `verified`, `not verified (Migrate tests only)`, or `blocked` with its
+reason.
 
 ### Step 5: AI Follow-up (offer after validation)
 

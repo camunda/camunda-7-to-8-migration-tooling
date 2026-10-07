@@ -118,7 +118,7 @@ Use this readiness verdict table:
 | Verdict | Condition |
 |---|---|
 | `ready` | Every required check passes, and each in-scope document matches migrated assets and configuration. |
-| `needs review` | A migrated run has an unrun required check, a deferred or stale document, unclear scope, or a missing user decision. No required check has failed, and no required runtime dependency is unavailable. |
+| `needs review` | A migrated run has an unrun required check, including tests declined in Question 8, a deferred or stale document, unclear scope, or a missing user decision. No required check has failed, and no required runtime dependency is unavailable. |
 | `blocked` | A required check fails or a required runtime dependency is unavailable. |
 | `not assessed` | The user selects assessment-only or analyze-only and the migration checks do not run. |
 

@@ -25,6 +25,10 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+INTERVIEW_QUESTIONS = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
+)
 SKILL_PATH = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code/SKILL.md"
 
 PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([\w.]+)\s*;?\s*$")
@@ -1097,6 +1101,74 @@ class MigrationGuidanceTest(unittest.TestCase):
                     rows_by_id[legacy_id]["Reason"],
                     "declined by user (Question 8)",
                 )
+
+    def test_question_8_eligibility_covers_every_migrated_handling(self):
+        handling = "**Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**"
+        rows = markdown_table(
+            INTERVIEW_QUESTIONS,
+            ["Scope", "Code approach", "Target", "Test Inventory", "Ask Question 8"],
+        )
+        self.assertEqual(
+            {
+                ("Code only or Code + models", "A or B", "8.9 or later",
+                 f"At least one test has handling {handling}", "Yes"),
+                ("Assessment only or Models only", "Any", "Any", "Any", "No"),
+                ("Any", "C", "Any", "Any", "No"),
+                ("Any", "A or B", "8.8", "Any", "No"),
+                ("Any", "A or B", "8.9 or later", f"No test has handling {handling}", "No"),
+            },
+            {
+                (row["Scope"], row["Code approach"], row["Target"], row["Test Inventory"],
+                 row["Ask Question 8"])
+                for row in rows
+            },
+        )
+        question = INTERVIEW_QUESTIONS.read_text(encoding="utf-8").split(
+            "## Question 8 - Test Execution", 1
+        )[1].split("## Question 8 runtime notice", 1)[0]
+        self.assertIn("**Run tests (recommended, default)**", question)
+        self.assertIn("**Migrate tests only**", question)
+        self.assertIn("Require the user to select an option explicitly.", question)
+        self.assertRegex(
+            SKILL_PATH.read_text(encoding="utf-8"),
+            r"When the Test Inventory includes a test with handling \*\*Migrate\*\*,\s*"
+            r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
+        )
+
+    def test_migrate_only_guidance_and_walkthrough_report(self):
+        guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        for text in (
+            "Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task.",
+            "A main-source-only compile does not count.",
+            "Do not run C7 suites, CPT suites, or Step 4 process scenarios.",
+            "the exact reason `declined by user (Question 8)`",
+            "Copy the full project root, including hidden files, to a sibling directory.",
+            "Never rebuild the C7 baseline from migrated code.",
+            "The validator cannot run a `c7_baseline` check after Step 3 changes files.",
+        ):
+            with self.subTest(text=text):
+                self.assertIn(normalized(text), guidance)
+
+        report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
+        self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
+        self.assertIn("mvn -pl engine-tests test-compile", report)
+        self.assertIn("**Verdict:** `needs review`", report)
+        self.assertIn("**Gate:** `NOT READY`", report)
+        self.assertIn("## Verify the test migration", report)
+        self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
+        self.assertIn(
+            normalized("Record each `c7_baseline` check with the `block` action"),
+            normalized(report),
+        )
+        deferred = markdown_table(EXPECTED_TESTS_ONLY, ["Kind", "Scope", "Status", "Reason"])
+        self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred})
+        for columns in (["Check", "Status", "Reason"], ["Kind", "Scope", "Status", "Reason"]):
+            rows = markdown_table(EXPECTED_TESTS_ONLY, columns)
+            self.assertTrue(rows)
+            self.assertTrue(
+                all(row["Status"] == "blocked" and row["Reason"] == "declined by user (Question 8)"
+                    for row in rows)
+            )
 
     def test_shared_test_sources_migrate_once_and_preserve_unrelated_tests(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))

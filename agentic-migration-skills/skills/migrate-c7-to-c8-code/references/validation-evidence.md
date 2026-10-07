@@ -17,6 +17,9 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 {"schema_version":1,"modules":["examples/web"],"models":["models/order.bpmn"]}
 ```
 
+When Question 8 applies, also record `"test_run_mode": "run"` or
+`"test_run_mode": "migrate_only"` in this inventory. Omit the field when Question 8 does not apply.
+
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
 
@@ -26,9 +29,34 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 `init` assigns a new run ID and marks previous readiness `NOT READY`. Run it again to invalidate old
 check logs without replacing the source snapshot. Run `init` before code conversion to capture
-due-date locations and operations in the Step 2 inventory. Never rewrite that inventory during
-the same migration. The gate detects retained operations in the same source file even when
-arguments, line numbers, or formatting change.
+due-date locations and operations in the Step 2 inventory. Do not change its scope, run ID, or
+source snapshot during the migration. For deferred test verification, change `test_run_mode` from
+`migrate_only` to `run` as described in `references/test-migration.md`. Keep the Test Inventory and
+`test_suites` unchanged. The validator rejects any other change to them after Step 2. Do not run
+`init` for this transition because it clears earlier validation checks. The gate detects retained operations in
+the same source file even when arguments, line numbers, or formatting change.
+After `init`, the source snapshot detects additions, changes, and removals of each source model's
+sibling `converted-c8-*` copy, even outside selected modules.
+
+When the user selects `Run tests`, add `test_run_mode: "run"` and `test_suites` to the Step 2
+inventory. Set each suite's `module`, `name`, exact C7 `command`, and `test_ids`. Set `reports` or
+`coverage_reports` only when the project uses custom paths. Follow `references/test-migration.md`
+for the inventory table and ledger fields.
+
+The **C7 baseline** records the original test results before Step 3 changes any file. Run each suite
+that contains an in-scope test immediately after `init`:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
+```
+
+Use the exact command from the Step 2 inventory. The validator parses JUnit XML and copies each
+report to `.camunda-migration/validation/baseline/`. It records the result for each test ID in
+`.camunda-migration/validation/test-mapping.json`. Never write a C7 test result into that ledger.
+The baseline command may exit nonzero when C7 tests fail. The baseline check passes only when fresh
+reports contain every suite Test ID. The ledger keeps each test failure or skip.
+If the suite cannot run, record `block` with a reason and ask whether to continue without a baseline.
+Record approval in the ledger. A run without a baseline cannot report test parity as verified.
 
 When starting a new migration from a restored C7 baseline, confirm the Step 2 scope and reset the
 snapshot before conversion:
@@ -99,9 +127,89 @@ evidence pass. A failed command or invalid timer observation returns 1 and saves
 Continue with other modules, models, and suites.
 Run recorder invocations sequentially. The default command timeout is five minutes. Use
 `--timeout <seconds>` for checks that need a different limit.
-Never use a command that skips tests, checks only plugin help, or asserts only that a test file exists.
+Never use a command that skips tests for a test check, checks only plugin help, or asserts only that
+a test file exists.
 Use a bounded test that starts the application or packaged JAR. The test must assert startup before
 it stops the process.
+
+After the test migration and before production-code migration, freeze test files and resources:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
+```
+
+The validator freezes existing Test Inventory files marked `Migrate`, files under each in-scope
+module's `src/test/`, and files under configured test roots for suites with migrated tests.
+Set custom `test_source_roots` and `test_resource_roots` in the Step 2 inventory before `init`.
+Each root must be project-relative and inside its suite module. Each root must exist when the
+freeze check runs.
+
+The validator stores freeze hashes and approvals in `test-mapping.json`. Follow
+`references/test-migration.md` for the frozen-test change policy and required `test_changes` fields.
+
+For each migrated suite, run the CPT command twice with `test_repeat`:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind test_repeat --scenario unit -- mvn -B -pl examples/web test
+```
+
+The validator parses both JUnit report sets. It compares method results after it maps parameterized
+and repeated invocations to their method IDs. A changed result fails the repeat check.
+
+Record one `assertion_strength` review per migrated test class:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest --kind assertion_strength --note "Reviewed assertions for examples/web:com.example.OrderTest."
+```
+
+Record one `mock_boundary` review per migrated C7 test:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest#testOrder --kind mock_boundary --note "Reviewed C7 test examples/web:com.example.OrderTest#testOrder and its CPT mocks."
+```
+
+The validator resolves each C7 `autoMock` resource to one source model. It allows only job types
+declared in that model's converted copy. If the resource resolves to zero or multiple models, then
+each CPT job-worker mock requires approval.
+
+After both runs and reviews, record the computed parity check:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_parity
+```
+
+The validator checks every mapped CPT test against the C7 result. A C7 test that passed must map to
+passing CPT tests in both runs or to an approved retirement. A skipped CPT test does not pass parity.
+
+Record `coverage_parity` after the CPT suites run:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind coverage_parity
+```
+
+The validator compares each C7-covered element ID that remains in the converted copy with both CPT
+coverage reports. When no C7 coverage report exists, the validator records `No Camunda 7 coverage
+baseline` and includes the CPT coverage in `MIGRATION_REPORT.md`.
+
+When the user selects **Migrate tests only**, block every module test suite and Step 4 process
+scenario with the exact reason `declined by user (Question 8)`:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind tests --scenario unit --reason "declined by user (Question 8)"
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type process --target models/converted-c8-order.bpmn#order-process --kind process_path --scenario normal --reason "declined by user (Question 8)"
+```
+
+In `migrate_only` mode, the validation script applies these rules:
+
+- It refuses the `run` and `review` actions for `tests` and `process_path` checks.
+- It rejects a `block` action with another reason.
+- The gate rejects a passed or differently blocked `tests` or `process_path` check.
+- It accepts module `compile` evidence only for a `test-compile` or `testClasses` command without
+  `-Dmaven.test.skip`.
+- It does not require `docker_info`.
+
+Where a non-test check needs packaging in `migrate_only` mode, use `-DskipTests` (Maven) or
+`-x test` (Gradle). This is the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
@@ -318,8 +426,13 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 
 | Target | Required checks |
 |---|---|
-| Project `.` | `docker_info` before the first Docker-dependent suite, when any suite needs Docker. Use exactly `docker info`. |
-| Each module | `compile`, one `tests` check per declared suite, `review`, and `active_timer_updates` review or blocker. |
+| Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
+| Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
+| Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
+| Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
+| Each migrated test class | `assertion_strength` review. |
+| Each migrated C7 test | `mock_boundary` review. |
+| Project `.` in `Run tests` mode with C7 `Migrate` rows or mapped migrated CPT tests | `test_parity` and `coverage_parity`. Require `test_freeze` only while migrated or added CPT IDs remain. |
 | Spring Boot runtime module | `configuration`, `spring_boot_run`, and `executable_jar`, in addition to module checks. |
 | External runtime module | `configuration` and `external_launcher`, in addition to module checks. |
 | Each converted BPMN/DMN | `lint`, `review`, then `deployment`. The recorder also checks XML parsing and source separation. |
