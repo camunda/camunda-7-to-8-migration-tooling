@@ -1129,225 +1129,25 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Run tests (recommended, default)**", question)
         self.assertIn("**Migrate tests only**", question)
         self.assertIn("Require the user to select an option explicitly.", question)
-        skill_text = SKILL_PATH.read_text(encoding="utf-8")
-        handling_values = normalized(
-            "**Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**"
-        )
-        step_3 = skill_text.split("### Step 3: Execute Migration", 1)[1].split(
-            "#### Part A - Code Migration", 1
-        )[0]
-        step_4 = skill_text.split("### Step 4: Validation (always runs)", 1)[1].split(
-            "#### Code checks", 1
-        )[0]
-        self.assertIn(handling_values, normalized(step_3))
-        self.assertIn(handling_values, normalized(step_4))
         self.assertRegex(
-            skill_text,
+            SKILL_PATH.read_text(encoding="utf-8"),
             r"When the Test Inventory includes a test with handling \*\*Migrate\*\*,\s*"
             r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
         )
 
-    def test_report_only_reclassification_refreshes_step_two_summary(self):
-        guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        self.assertIn(
-            normalized(
-                "When the user approves `Report only`, the skill recomputes the CPT-eligibility total from the updated Test Inventory."
-            ),
-            guidance,
-        )
-        self.assertIn(
-            normalized(
-                "When the skill finalizes the Step 2 Summary, it recomputes the `Report only` list from that inventory."
-            ),
-            guidance,
-        )
-
     def test_migrate_only_guidance_and_walkthrough_report(self):
         guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
-        execution_order = normalized(
-            "When the Test Inventory has a test marked `Migrate`, `Migrate to CPT`, "
-            "or `Migrate (lower priority)` and `test_run_mode` is `run`, follow the phase "
-            "order in `references/test-migration.md`."
-        )
-        for relative_path in (
-            "skills/migrate-c7-to-c8-code/references/composing-code-and-models.md",
-            "skills/migrate-c7-to-c8-code/references/code-migration-approaches.md",
-        ):
-            with self.subTest(reference=relative_path):
-                text = normalized(
-                    (
-                        REPO_ROOT
-                        / "agentic-migration-skills"
-                        / relative_path
-                    ).read_text(encoding="utf-8")
-                )
-                self.assertIn(execution_order, text)
-
         for text in (
-            "Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or Gradle `:<module>:testClasses` task.",
+            "Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task.",
             "A main-source-only compile does not count.",
             "Do not run C7 suites, CPT suites, or Step 4 process scenarios.",
             "the exact reason `declined by user (Question 8)`",
-            "The validator inspects the effective Maven lifecycle and Gradle task graph before it accepts test-source compilation.",
-            "The skill records the package command and its reason in `MIGRATION_REPORT.md`.",
-            "The skill directs the user to add `-DskipTests` to Maven packaging commands.",
-            "The skill directs the user to exclude every Gradle test task with `-x <task>`.",
-            "When the skill records a module runtime check, it follows the launch-command and timeout rules in `references/validation-evidence.md` for both test modes.",
             "Copy the full project root, including hidden files, to a sibling directory.",
-            "`git status --porcelain`",
-            "Git repository with a dirty working tree",
-            "A clean Git status does not show ignored files.",
-            "Git repository with a clean working tree and every `source_files` path tracked at `HEAD`",
-            "Git repository with a dirty working tree or any `source_files` path missing from the recorded commit",
-            "Use a detached worktree at the recorded commit.",
-            "git worktree add --detach \"$BASELINE_ROOT\" \"$SOURCE_SNAPSHOT_COMMIT\"",
-            "rsync -a --delete --exclude='/.git' \"$PROJECT_ROOT/\" \"$BASELINE_ROOT/\"",
-            "The `rsync` command mirrors the full source tree, including hidden, untracked, ignored, modified, and new files.",
-            "The `/.git` exclusion keeps the source root's `.git` entry from replacing the detached worktree's Git metadata.",
-            "When the migrated worktree advances, the detached worktree keeps `HEAD` at the recorded commit.",
-            "When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This option makes Gradle rerun report-generating tasks and write fresh reports.",
-            "Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`. This command can differ from the Step 2 C7 baseline command.",
             "Never rebuild the C7 baseline from migrated code.",
-            "When the user selects **Migrate tests only**, follow `references/project-readiness.md`.",
-            "Where no required check has failed and no required runtime dependency is unavailable, set the project-readiness verdict to `needs review`.",
-            "A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every suite that contains a migratable test for deferred verification.",
-            "The skill assigns every migratable test to at least one suite in either mode.",
-            "The skill uses a distinct `name` for each suite in a module.",
-            "The suite `module` and `name` identify its C7 baseline owner.",
-            "Where mapped CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.",
-            "The validator uses the C7 module and suite name for `c7_baseline`.",
-            "The validator uses the CPT module and suite name for `test_repeat`.",
-            "When the skill asks Question 8, it verifies that every test that remains migratable belongs to a `test_suites` entry with an exact C7 command.",
-            "Use wrapper, script, POM, and project-directory paths that resolve from the preserved root. The validator rejects command paths that resolve inside the migrated project.",
-            "When a migratable test has no discovered C7 command for its module, the skill asks the user to provide or confirm the exact command or approve `Report only` with a reason.",
-            "If the user confirms neither option, then the skill leaves `test_run_mode` unset and pauses before Step 3.",
-            "Do not ask a question about test migration before Question 8, except to resolve a missing C7 command as described in Test Execution Choice.",
+            "The validator cannot run a `c7_baseline` check after Step 3 changes files.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
-        self.assertNotIn(
-            normalized(
-                "When no required check failed and no required runtime dependency is unavailable, the project-readiness verdict is `needs review`, not `blocked`."
-            ),
-            guidance,
-        )
-        interview_questions = normalized(
-            (
-                REPO_ROOT
-                / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
-            ).read_text(encoding="utf-8")
-        )
-        self.assertIn(
-            normalized(
-                "Ask Question 8 only after every migratable test has an exact C7 command in `test_suites`."
-            ),
-            interview_questions,
-        )
-
-        validation_evidence_path = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/validation-evidence.md"
-        )
-        validation_evidence = normalized(
-            validation_evidence_path.read_text(encoding="utf-8")
-        )
-        for text in (
-            "It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle `testClasses` command that selects the recorded module.",
-            "The validator resolves bare PATH tools against the project working directory. It rejects tools found inside the project unless they are approved Maven or Gradle wrappers.",
-            "The validator accepts Maven and Gradle wrappers only when they are non-symlink files at the project or selected module root.",
-            "Before Maven effective-POM inspection, the validator checks `.mvn/extensions.xml` and `.mvn/jvm.config` at the project root and at the selected wrapper base.",
-            "The validator rejects Maven JVM code-loading options and Java argument-file references from `MAVEN_OPTS`, `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, and `.mvn/jvm.config`.",
-            "The validator checks reactor POMs and local parent POMs for build extensions.",
-            "If any extension exists or the validator cannot resolve a reactor module or parent POM without Maven, then the validator refuses Maven inspection.",
-            "The validator then inspects the effective POM with the command's module, POM, profile, and property options.",
-            "It refuses unclassified lifecycle goals through `test-compile`, including goals without a known default phase.",
-            "It refuses the compile check if Maven cannot generate or parse the effective POM, if the effective `maven.test.skip` property is enabled, or if its packaging has no verified test-source compiler.",
-            "Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It requires a test-source compiler task. It accepts only recognized compile, resource, and JAR tasks. It refuses every excluded task and every unclassified task.",
-            "The validator resolves a Gradle module by its canonical `projectDir`. It checks each task's owning project directory against the inventory module.",
-            "A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.",
-            "It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only when the command's normalized file target matches the selected model.",
-            "The command must not enable `maven.test.skip` in the module or an ancestor POM, on the command line, or in JVM options.",
-            "The validator checks `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`, and `.mvn/jvm.config`.",
-            "It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test checks.",
-            "It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` at the project root or selected wrapper base adds unverified arguments.",
-            "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
-            "The validator checks each module runtime command before execution in both `run` and `migrate_only` modes.",
-            "The suite's `module` and `name` identify the C7 baseline owner.",
-            "Where migrated CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.",
-            "The validator uses the C7 fields for `c7_baseline` and the CPT fields for `test_repeat`.",
-            "The validator includes each mapped CPT module in the current module scope.",
-            "The validator keeps a mapped C7 source module in scope when its snapshot contains due-date operations or non-test files.",
-            "The validator compares module paths with the Step 2 suite mappings and due-date source snapshot.",
-            "The validator requires a positive timeout and a startup marker for every runtime command.",
-            "The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.",
-            "For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.",
-            "The validator accepts these markers only on a complete Spring Boot INFO log line with a timestamp, PID, logger, startup duration, and optional standard runtime-duration suffix.",
-            "For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.",
-            "For `external_launcher`, the validator requires a complete output line that exactly matches the user-supplied marker.",
-            "The validator stores the marker with the check and validates the matching startup signal in captured output.",
-            "The validator treats runtime records without complete startup evidence as not run. Rerun those checks with `--startup-marker`.",
-            "The validator records a runtime command as passed only when its startup signal appears. A command that exits normally must exit with code 0.",
-            "If the command exits with code 0 without the signal, the validator records a failed check.",
-            "The validator starts runtime commands in a new process group.",
-            "When a runtime command times out, the validator terminates the process group.",
-            "If the startup signal appears before timeout, the validator records a passed startup check.",
-            "If the startup signal does not appear before timeout, the validator records a blocked check.",
-            "A nonzero exit code remains a failed check.",
-            "An exit code of 0 alone does not prove application startup. The validator rejects arbitrary commands such as `mvn validate`, `python3 -c pass`, and `true` before execution.",
-            "The validator rejects shell-wrapped commands, test runners, test-compilation commands, and Maven or Gradle test-execution goals or tasks as runtime evidence.",
-            "The validator rejects unrecognized Maven goals and Gradle tasks.",
-            "| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |",
-            "| `executable_jar` | Direct `java -jar` for the module's configured application artifact. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |",
-            "| `external_launcher` | Direct `java -jar` for the module's configured application artifact. | User-supplied marker emitted after application readiness. |",
-            "--startup-marker \"Started OrderApplication\"",
-            "The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.",
-            "When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.",
-            "The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.",
-            "The validator rejects class, module, and source-file launch modes before `-jar`.",
-            "The validator rejects a separate main-class token before `-jar`, including one after a class-path option.",
-            "The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, `-agentpath`, and the legacy `-Xrun` option.",
-            "The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
-            "The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle user homes, and included builds before task-graph inspection.",
-            "The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
-            "The validator matches the JAR path to the module's configured Maven or Gradle archive output, including Spring Boot `repackage` classifiers from the effective POM.",
-            "The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime startup.",
-            "When a runtime check needs a packaged artifact, the user runs packaging outside the evidence recorder.",
-            "The skill directs the user to add `-DskipTests` to Maven packaging commands.",
-            "The skill directs the user to exclude every Gradle test task with `-x <task>`.",
-            "The user records a bounded launch command as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence.",
-            "When `--baseline-root` differs from the project root, the validator rejects command paths that resolve inside the migrated project. Use wrapper, script, POM, and project-directory paths that resolve from the preserved root.",
-            "Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.",
-            "If the inventory has no migratable test and it supplies `test_run_mode`, then the validator rejects the field.",
-            "When the user selects `Run tests` or `Migrate tests only`, the skill checks the Test Inventory.",
-            "A migratable test has handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.",
-            "Where the Test Inventory has a migratable test, the skill records `test_run_mode` and `test_suites` in Step 2.",
-            "The skill sets `test_run_mode` to `\"run\"` or `\"migrate_only\"` for the selected option.",
-            "The skill sets each suite's `module`, `name`, exact C7 `command`, and `test_ids`.",
-            "The skill assigns every migratable test to at least one suite in either mode.",
-            "The skill records these suites in Step 2 for deferred verification.",
-            "The skill does not run their commands in `migrate_only` mode.",
-            "When `test_run_mode` is `run`, run each suite that contains a migratable test and each suite that contains a `Report only` test selected for migration immediately after `init`.",
-            "When the user selects `Migrate tests only`, preserve the C7 baseline and do not run a test command.",
-            "When the user selects a `Report only` test for migration without Question 8, run each suite that contains such a test immediately after `init`.",
-            "Where the project uses custom paths, the skill sets `reports` or `coverage_reports`.",
-            "The skill follows `references/test-migration.md` for the inventory table and ledger fields.",
-            "Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in `test_suites` without `test_run_mode`.",
-        ):
-            with self.subTest(text=text):
-                self.assertIn(normalized(text), validation_evidence)
-        required_checks = markdown_table(
-            validation_evidence_path,
-            ["Target", "Required checks"],
-        )
-        baseline_rule = next(
-            row["Required checks"]
-            for row in required_checks
-            if row["Target"] == "Each applicable Test Inventory suite"
-        )
-        self.assertIn("`run` mode", baseline_rule)
-        self.assertIn("`Report only`", baseline_rule)
-        self.assertIn("`migrate_only` mode", baseline_rule)
-        self.assertIn("without running a test command", baseline_rule)
 
         report = EXPECTED_TESTS_ONLY.read_text(encoding="utf-8")
         self.assertIn("**Status:** `not verified (Migrate tests only)`", report)
@@ -1356,99 +1156,10 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
-        inventory_headers = [
-            "Test ID",
-            "File",
-            "Test kind",
-            "Signals",
-            "Models",
-            "Handling",
-            "Notes",
-        ]
-        inventory = markdown_table(EXPECTED_TESTS_ONLY, inventory_headers)
-        test_kind_count_headers = ["Test kind", "Count"]
-        test_kind_counts = markdown_table(EXPECTED_ASSESSMENT, test_kind_count_headers)
-        self.assertEqual(
-            test_kind_counts,
-            markdown_table(EXPECTED_TESTS_ONLY, test_kind_count_headers),
-        )
-        inventory_test_kind_counts = {
-            kind: sum(row["Test kind"] == kind for row in inventory)
-            for kind in (
-                {row["Test kind"] for row in inventory}
-                | {"out of scope (Camunda 8)"}
-            )
-        }
-        reported_test_kind_counts = {
-            row["Test kind"]: int(row["Count"])
-            for row in test_kind_counts
-        }
-        self.assertEqual(inventory_test_kind_counts, reported_test_kind_counts)
-        eligible_count = sum(
-            row["Handling"]
-            in {"Migrate", "Migrate to CPT", "Migrate (lower priority)"}
-            for row in inventory
-        )
-        self.assertEqual(29, eligible_count)
-        step_2_summary = report.split("## Step 2 Summary", 1)[1].split(
-            "## Test Inventory", 1
-        )[0]
-        step_2_summary_bullets = {
-            line[2:].strip()
-            for line in step_2_summary.splitlines()
-            if line.startswith("- ")
-        }
-        for count in test_kind_counts:
-            with self.subTest(test_kind=count["Test kind"]):
-                self.assertIn(
-                    f"{count['Test kind']}: {int(count['Count'])}",
-                    step_2_summary_bullets,
-                )
         self.assertIn(
-            f"{eligible_count} tests are eligible for CPT migration.",
-            step_2_summary_bullets,
+            normalized("Record each `c7_baseline` check with the `block` action"),
+            normalized(report),
         )
-        self.assert_unique_rows(inventory, "Test ID", EXPECTED_TESTS_ONLY)
-        self.assertEqual(
-            markdown_table(EXPECTED_ASSESSMENT, inventory_headers),
-            inventory,
-        )
-        self.assertIn(
-            "kind `c7_baseline` and `--baseline-root ../c7-source-baseline/`",
-            report,
-        )
-        self.assertIn(
-            normalized(
-                "Clean Git working tree and every `source_files` path tracked at the recorded commit"
-            ),
-            guidance,
-        )
-        self.assertIn(
-            normalized(
-                "Dirty Git working tree, non-Git source, or any `source_files` path missing from the recorded commit"
-            ),
-            guidance,
-        )
-        deferred_plan = report.split("## Verify the test migration", 1)[1].split(
-            "## Readiness", 1
-        )[0]
-        self.assertIn("every `source_files` path tracked at the recorded commit", deferred_plan)
-        self.assertIn("any `source_files` path missing from the recorded commit", deferred_plan)
-        for check in (
-            "`c7_baseline`",
-            "`test_freeze`",
-            "`test_repeat`",
-            "`assertion_strength`",
-            "`mock_boundary`",
-            "`test_parity`",
-            "`coverage_parity`",
-            "`process_path`",
-        ):
-            with self.subTest(deferred_check=check):
-                self.assertIn(check, deferred_plan)
-        self.assertNotIn("kind `tests`", deferred_plan)
-        self.assertIn("mvn -pl engine-tests,engine-tests-legacy,spring-boot-app test", deferred_plan)
-        self.assertIn("mvn -pl engine-tests,spring-boot-app test", deferred_plan)
         deferred = markdown_table(EXPECTED_TESTS_ONLY, ["Kind", "Scope", "Status", "Reason"])
         self.assertEqual({"tests", "process_path"}, {row["Kind"] for row in deferred})
         for columns in (["Check", "Status", "Reason"], ["Kind", "Scope", "Status", "Reason"]):

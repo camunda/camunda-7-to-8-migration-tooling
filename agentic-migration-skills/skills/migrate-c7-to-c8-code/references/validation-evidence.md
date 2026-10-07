@@ -19,8 +19,6 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 
 When Question 8 applies, also record `"test_run_mode": "run"` or
 `"test_run_mode": "migrate_only"` in this inventory. Omit the field when Question 8 does not apply.
-Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.
-If the inventory has no migratable test and it supplies `test_run_mode`, then the validator rejects the field.
 
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
@@ -40,49 +38,16 @@ the same source file even when arguments, line numbers, or formatting change.
 After `init`, the source snapshot detects additions, changes, and removals of each source model's
 sibling `converted-c8-*` copy, even outside selected modules.
 
-When the user selects `Run tests` or `Migrate tests only`, the skill checks the Test Inventory.
-A migratable test has handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.
-Where the Test Inventory has a migratable test, the skill records `test_run_mode` and `test_suites`
-in Step 2.
-The skill sets `test_run_mode` to `"run"` or `"migrate_only"` for the selected option.
-The skill sets each suite's `module`, `name`, exact C7 `command`, and `test_ids`.
-The suite's `module` and `name` identify the C7 baseline owner.
-Where migrated CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.
-These target fields default to the C7 suite's `module` and `name`.
-The validator uses the C7 fields for `c7_baseline` and the CPT fields for `test_repeat`.
-The validator includes each mapped CPT module in the current module scope.
-The validator keeps a mapped C7 source module in scope when its snapshot contains due-date
-operations or non-test files.
-The skill assigns every migratable test to at least one suite in either mode.
-The skill records these suites in Step 2 for deferred verification.
-The skill does not run their commands in `migrate_only` mode.
-Where the project uses custom paths, the skill sets `reports` or `coverage_reports`.
-The skill follows `references/test-migration.md` for the inventory table and ledger fields.
-Where the user selects a **Report only** test for migration, the skill records its Step 2 suite in
-`test_suites` without `test_run_mode`.
+When the user selects `Run tests`, add `test_run_mode: "run"` and `test_suites` to the Step 2
+inventory. Set each suite's `module`, `name`, exact C7 `command`, and `test_ids`. Set `reports` or
+`coverage_reports` only when the project uses custom paths. Follow `references/test-migration.md`
+for the inventory table and ledger fields.
 
-The **C7 baseline** records the original test results before Step 3 changes any file.
-When `test_run_mode` is `run`, run each suite that contains a migratable test and each suite that
-contains a `Report only` test selected for migration immediately after `init`.
-When the user selects `Migrate tests only`, preserve the C7 baseline and do not run a test command.
-When the user selects a `Report only` test for migration without Question 8, run each suite that
-contains such a test immediately after `init`.
+The **C7 baseline** records the original test results before Step 3 changes any file. Run each suite
+that contains an in-scope test immediately after `init`:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
-```
-
-When the user verifies a deferred migration, add `--baseline-root <path>` to the `c7_baseline`
-command. Set `<path>` to the preserved Git worktree or filesystem snapshot.
-The validator checks its source files against the Step 2 snapshot. It also checks the Git commit
-when the project has one. When `--baseline-root` differs from the project root, the validator
-rejects command paths that resolve inside the migrated project. Use wrapper, script, POM, and
-project-directory paths that resolve from the preserved root.
-The validator runs the exact Step 2 suite command from that root and copies its reports into the
-current project:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --baseline-root ../c7-baseline --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
 ```
 
 Use the exact command from the Step 2 inventory. The validator parses JUnit XML and copies each
@@ -126,7 +91,6 @@ After conversion, create `.camunda-migration/validation/validation-evidence.json
 ```
 
 Use project-relative paths. List every migrated module and every in-scope original BPMN/DMN.
-The validator compares module paths with the Step 2 suite mappings and due-date source snapshot.
 Include all independent test suites from each module's build. Set `requires_docker` for each suite.
 Where a module uses a Camunda Spring Boot starter, include its real-client context test as a suite.
 Use `spring-boot`, `external-launcher`, or `none` for `runtime_mode`. Never set `none` for a runtime
@@ -179,7 +143,6 @@ module's `src/test/`, and files under configured test roots for suites with migr
 Set custom `test_source_roots` and `test_resource_roots` in the Step 2 inventory before `init`.
 Each root must be project-relative and inside its suite module. Each root must exist when the
 freeze check runs.
-Where the CPT suite uses custom roots, set them on its `validation-evidence.json` suite entry.
 
 The validator stores freeze hashes and approvals in `test-mapping.json`. Follow
 `references/test-migration.md` for the frozen-test change policy and required `test_changes` fields.
@@ -241,120 +204,18 @@ In `migrate_only` mode, the validation script applies these rules:
 - It refuses the `run` and `review` actions for `tests` and `process_path` checks.
 - It rejects a `block` action with another reason.
 - The gate rejects a passed or differently blocked `tests` or `process_path` check.
-- The validator resolves bare PATH tools against the project working directory. It rejects tools
-  found inside the project unless they are approved Maven or Gradle wrappers.
-- The validator accepts Maven and Gradle wrappers only when they are non-symlink files at the
-  project or selected module root.
-- It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle
-  `testClasses` command that selects the recorded module. The command must not enable
-  `maven.test.skip` in the module or an ancestor POM, on the command line, or in JVM options.
-  The validator checks `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`,
-  and `.mvn/jvm.config`.
-- Before Maven effective-POM inspection, the validator checks `.mvn/extensions.xml` and `.mvn/jvm.config`
-  at the project root and at the selected wrapper base.
-- The validator rejects Maven JVM code-loading options and Java argument-file references from
-  `MAVEN_OPTS`, `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, and `.mvn/jvm.config`.
-- The validator checks reactor POMs and local parent POMs for build extensions.
-- If any extension exists or the validator cannot resolve a reactor module or parent POM without
-  Maven, then the validator refuses Maven inspection.
-- The validator then inspects the effective POM with the command's module, POM, profile, and
-  property options. It refuses unclassified lifecycle goals through `test-compile`, including
-  goals without a known default phase. It refuses the compile check if Maven cannot generate or
-  parse the effective POM, if the effective `maven.test.skip` property is enabled, or if its
-  packaging has no verified test-source compiler.
-- Before Gradle test compilation, the validator inspects the task graph with `--dry-run`. It
-  requires a test-source compiler task. It accepts only recognized compile, resource, and JAR
-  tasks. It refuses every excluded task and every unclassified task.
-- The validator resolves a Gradle module by its canonical `projectDir`. It checks each task's
-  owning project directory against the inventory module.
-- A Gradle command that includes `--dry-run` or `-m` is not test-compilation evidence.
-- The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle
-  user homes, and included builds before task-graph inspection.
-- It rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` at the project root or
-  selected wrapper base adds unverified arguments.
-- It rejects Maven and Gradle test-execution goals or tasks for every `run` check, not only test
-  checks. It also rejects shell-wrapped commands, unrecognized executables, and unrecognized
-  Maven goals or Gradle tasks.
-- The skill directs the user to add `-DskipTests` to Maven packaging commands.
-- The skill directs the user to exclude every Gradle test task with `-x <task>`.
-- It accepts a user-submitted Maven `help:effective-pom` command only for module `configuration`
-  checks. It accepts `npx bpmnlint`, `npx dmnlint`, and `c8ctl` model lint/deployment commands only
-  when the command's normalized file target matches the selected model.
+- It accepts module `compile` evidence only for a `test-compile` or `testClasses` command without
+  `-Dmaven.test.skip`.
 - It does not require `docker_info`.
+
+Where a non-test check needs packaging in `migrate_only` mode, use `-DskipTests` (Maven) or
+`-x test` (Gradle). This is the only exception to the rule against commands that skip tests.
 
 Use `review` for review checks. Give a substantive note naming the reviewed files and decisions:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type model --target models/converted-c8-order.bpmn --kind review --note "The skill checked source integrity, converter findings, form decisions, and DI."
 ```
-
-### Module runtime checks
-
-The validator checks each module runtime command before execution in both `run` and `migrate_only`
-modes. The validator requires a positive timeout and a startup marker for every runtime command.
-The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.
-For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.
-The validator accepts these markers only on a complete Spring Boot INFO log line with a timestamp,
-PID, logger, startup duration, and optional standard runtime-duration suffix.
-For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.
-For `external_launcher`, the validator requires a complete output line that exactly matches the
-user-supplied marker.
-The validator stores the marker with the check and validates the matching startup signal in captured output.
-The validator treats runtime records without complete startup evidence as not run. Rerun those
-checks with `--startup-marker`.
-
-The validator records a runtime command as passed only when its startup signal appears. A command
-that exits normally must exit with code 0. If the command exits with code 0 without the signal, the
-validator records a failed check. A nonzero exit code remains a failed check.
-The validator starts runtime commands in a new process group.
-When a runtime command times out, the validator terminates the process group.
-If the startup signal appears before timeout, the validator records a passed startup check.
-If the startup signal does not appear before timeout, the validator records a blocked check.
-
-An exit code of 0 alone does not prove application startup. The validator rejects arbitrary commands
-such as `mvn validate`, `python3 -c pass`, and `true` before execution.
-The validator rejects shell-wrapped commands, test runners, test-compilation commands, and Maven or
-Gradle test-execution goals or tasks as runtime evidence.
-The validator rejects unrecognized Maven goals and Gradle tasks.
-
-| Check kind | Accepted application launch | Startup signal |
-|---|---|---|
-| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |
-| `executable_jar` | Direct `java -jar` for the module's configured application artifact. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |
-| `external_launcher` | Direct `java -jar` for the module's configured application artifact. | User-supplied marker emitted after application readiness. |
-
-For example, record a Spring Boot launch with a marker that the application emits after readiness:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run \
-  --type module --target app --kind spring_boot_run --environment local \
-  --timeout 30 --startup-marker "Started OrderApplication" -- \
-  mvn -pl app spring-boot:run
-```
-
-The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.
-When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct
-`java -jar` command for a configured module artifact with a `Main-Class` manifest entry.
-The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as
-`-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.
-The validator rejects class, module, and source-file launch modes before `-jar`.
-The validator rejects a separate main-class token before `-jar`, including one after a class-path option.
-The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, `-agentpath`,
-and the legacy `-Xrun` option.
-The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`,
-`JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
-The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.
-The validator matches the JAR path to the module's configured Maven or Gradle archive output,
-including Spring Boot `repackage` classifiers from the effective POM.
-The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
-goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
-`executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
-startup.
-When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
-recorder. The user records a bounded launch command as `spring_boot_run`, `executable_jar`, or
-`external_launcher` evidence.
-The validator rejects Maven commands when `MAVEN_ARGS` or `.mvn/maven.config` at the project root
-or selected wrapper base adds unverified arguments.
 
 ### Deployment and timer decisions
 
@@ -568,7 +429,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 | Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
 | Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
-| Each applicable Test Inventory suite | Record `c7_baseline` before Step 3 in `run` mode or for a `Report only` suite selected for migration without Question 8. In `migrate_only` mode, preserve the baseline without running a test command. |
+| Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
 | Each migrated test class | `assertion_strength` review. |
 | Each migrated C7 test | `mock_boundary` review. |
 | Project `.` in `Run tests` mode with C7 `Migrate` rows or mapped migrated CPT tests | `test_parity` and `coverage_parity`. Require `test_freeze` only while migrated or added CPT IDs remain. |

@@ -141,9 +141,6 @@ Ask only when every condition in the first row below applies:
 | Any | A or B | 8.8 | Any | No |
 | Any | A or B | 8.9 or later | No test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | No |
 
-Ask Question 8 only after every migratable test has an exact C7 command in `test_suites`.
-Follow `references/test-migration.md` when a module command was not discovered.
-
 Show this context before the options:
 
 - The number of tests to migrate, grouped by test kind.

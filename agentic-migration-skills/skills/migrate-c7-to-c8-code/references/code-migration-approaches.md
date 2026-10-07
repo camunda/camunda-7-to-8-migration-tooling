@@ -22,9 +22,7 @@ One class does not predict the rest of the project.
 
 ## Test migration order
 
-When the Test Inventory has a test marked `Migrate`, `Migrate to CPT`, or
-`Migrate (lower priority)` and `test_run_mode` is `run`, follow the phase order in
-`references/test-migration.md`.
+When `test_run_mode` is `run`, follow the phase order in `references/test-migration.md`.
 
 ## Approach A - OpenRewrite + AI
 

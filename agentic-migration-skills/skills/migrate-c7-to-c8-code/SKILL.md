@@ -221,8 +221,8 @@ C7 baseline with the command in `references/validation-evidence.md`.
 
 Where the confirmed root is a Git repository, record `git rev-parse HEAD` and the complete
 `git status --porcelain` output in `MIGRATION_REPORT.md` as the change baseline.
-When the confirmed root is not a Git repository and the user selects **Migrate tests only**, the
-skill follows `references/test-migration.md` to preserve a filesystem baseline before Step 3.
+When the user selects **Migrate tests only**, the skill follows `references/test-migration.md` to
+preserve the C7 baseline before Step 3.
 
 #### Code Inventory
 
@@ -361,10 +361,8 @@ Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before St
 
 ### Step 3: Execute Migration
 
-When `test_run_mode` is `run` and the Test Inventory includes a test with handling **Migrate**,
-**Migrate to CPT**, or **Migrate (lower priority)**, follow `references/test-migration.md`.
-Complete the C7 baseline, model migration, test migration, and test freeze before production-code
-migration.
+When `test_run_mode` is `run`, follow `references/test-migration.md`. Complete the C7 baseline,
+model migration, test migration, and test freeze before production-code migration.
 
 When the user selects Models only and Analyze-only, run `Analyze-Only Mode` in
 `references/model-migration-approaches.md` instead of Part B.
@@ -431,9 +429,8 @@ Follow the exit rule for the selected mode.
 Follow `references/validation-evidence.md` to record command results and audit required checks.
 Never write a passing command result by hand. Run the gate only after a full migration.
 Assessment-only and analyze-only runs do not claim readiness.
-When `test_run_mode` is `run` and the Test Inventory includes a test with handling **Migrate**,
-**Migrate to CPT**, or **Migrate (lower priority)**, follow `references/test-migration.md` for test
-parity, freeze, repeat-run, and coverage checks.
+When `test_run_mode` is `run`, follow `references/test-migration.md` for test parity, freeze,
+repeat-run, and coverage checks.
 
 #### Code checks, when code was migrated
 

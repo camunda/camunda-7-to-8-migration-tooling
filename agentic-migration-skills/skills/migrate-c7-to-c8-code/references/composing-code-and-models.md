@@ -6,9 +6,7 @@ Use this when the scope is Code + models.
 
 ## Execution Order
 
-When the Test Inventory has a test marked `Migrate`, `Migrate to CPT`, or
-`Migrate (lower priority)` and `test_run_mode` is `run`, follow the phase order in
-`references/test-migration.md`.
+When `test_run_mode` is `run`, use the phase order in `references/test-migration.md`.
 
 Follow that reference for the baseline, test mapping, freeze, and parity checks.
 

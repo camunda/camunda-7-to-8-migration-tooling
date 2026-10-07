@@ -287,8 +287,7 @@ State how many tests are eligible for CPT migration.
 List every test with handling `Report only` by Test ID and give its reason.
 Record the reason for each `Report only` test in `Notes`.
 When no test is eligible for CPT migration, state that the count is zero.
-Do not ask a question about test migration before Question 8, except to resolve a missing C7 command
-as described in Test Execution Choice.
+Do not ask an additional question about test migration during Step 2.
 Do not migrate tests during Step 2.
 
 ## Handling overrides
@@ -311,78 +310,39 @@ When the target version is Camunda 8.8, the skill detects every test.
 
 ## Test Execution Choice
 
+A migratable test is a Test Inventory test with handling `Migrate`, `Migrate to CPT`, or
+`Migrate (lower priority)`.
+
 Ask Question 8 from `references/interview-questions.md` after the Step 2 Test Inventory is complete.
 The conditions for asking it are in that file.
-Ask Question 8 only after the missing-command path below is complete.
 
-When the user selects Assessment only and the inventory includes a test with handling **Migrate**,
-**Migrate to CPT**, or **Migrate (lower priority)**, explain both Question 8 options in
-`MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
+When the user selects Assessment only and the inventory includes a migratable test, explain both
+Question 8 options in `MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
 
 The skill runs `docker info` before the options and states whether it succeeds.
+If no test command was found for a module, then the skill does not invent one.
 If `docker info` fails, then the skill still offers both options.
-
-When the skill asks Question 8, it verifies that every test that remains migratable belongs to a
-`test_suites` entry with an exact C7 command.
-When a migratable test has no discovered C7 command for its module, the skill asks the user to
-provide or confirm the exact command or approve `Report only` with a reason.
-The skill records a user-confirmed command in the suite's `command` field.
-Where the user approves `Report only`, the skill updates the Test Inventory and records the user's
-reason in `Notes`.
-When the user approves `Report only`, the skill recomputes the CPT-eligibility total from the updated
-Test Inventory.
-When the skill finalizes the Step 2 Summary, it recomputes the `Report only` list from that inventory.
-If the user confirms neither option, then the skill leaves `test_run_mode` unset and pauses before
-Step 3.
 
 | User choice | Baseline step | Step 3 and Step 4 | Test verification |
 |---|---|---|---|
 | **Run tests** | Run each Camunda 7 test command before Step 3 changes any file. Record the baseline. | Migrate the tests, run each CPT test command, and apply the test safeguards. | `verified`, or `blocked` with the reason |
 | **Migrate tests only** | Preserve the C7 baseline as described below. Do not run a test command. | Migrate the tests as in the Run tests path. Compile test sources. Do not run C7 suites, CPT suites, or Step 4 process scenarios. | `not verified (Migrate tests only)` |
 
-When the user selects **Migrate tests only**, preserve the C7 baseline before Step 3.
-The skill checks `git status --porcelain` before it records a Git baseline. A clean Git status does
-not show ignored files.
+When the user selects **Migrate tests only**, preserve the C7 baseline before Step 3:
 
-| Project root state | Baseline action |
+| Project root | Baseline action |
 |---|---|
-| Git repository with a clean working tree and every `source_files` path tracked at `HEAD` | Record the Step 2 commit. |
-| Git repository with a dirty working tree or any `source_files` path missing from the recorded commit | Use a detached worktree at the recorded commit. Mirror the full project tree into it without copying the source `.git` entry. Record the snapshot path. |
-| Not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
-
-Set `PROJECT_ROOT` to the source project root.
-Set `SOURCE_SNAPSHOT_COMMIT` to the Step 2 `source_snapshot_commit`.
-Set `BASELINE_ROOT` to a new sibling path.
-Create the detached worktree and mirror the source tree:
-
-```sh
-git worktree add --detach "$BASELINE_ROOT" "$SOURCE_SNAPSHOT_COMMIT"
-rsync -a --delete --exclude='/.git' "$PROJECT_ROOT/" "$BASELINE_ROOT/"
-```
-
-The `rsync` command mirrors the full source tree, including hidden, untracked, ignored, modified, and new files.
-It also removes files deleted from the source root.
-The `/.git` exclusion keeps the source root's `.git` entry from replacing the detached worktree's Git metadata.
-When the migrated worktree advances, the detached worktree keeps `HEAD` at the recorded commit.
-Record `BASELINE_ROOT` in `MIGRATION_REPORT.md`.
-If `rsync` is unavailable, then use a copy tool that mirrors deletions and skips the source root's `.git` entry.
+| Git repository with a clean working tree | Record the Step 2 commit. |
+| Git repository with uncommitted changes, or not a Git repository | Copy the full project root, including hidden files, to a sibling directory. Record the snapshot path in `MIGRATION_REPORT.md`. |
 
 If the skill cannot preserve the baseline, then ask the user before Step 3.
 
-When the skill records a module runtime check, it follows the launch-command and timeout rules in
-`references/validation-evidence.md` for both test modes.
-
 When the user selects **Migrate tests only**, apply these rules:
 
-- Compile each module's test sources with a module-specific `mvn -pl <module> test-compile` or
-  Gradle `:<module>:testClasses` task. A main-source-only compile does not count.
-- The validator inspects the effective Maven lifecycle and Gradle task graph before it accepts
-  test-source compilation.
-- The validator requires a test-source compiler task for Gradle compilation.
-- The validator rejects Gradle dry runs, excluded tasks, and unclassified task-graph actions.
-- The skill directs the user to add `-DskipTests` to Maven packaging commands.
-- The skill directs the user to exclude every Gradle test task with `-x <task>`.
-- The skill records the package command and its reason in `MIGRATION_REPORT.md`.
+- Compile each module's test sources with `mvn test-compile` or the Gradle `testClasses` task. A
+  main-source-only compile does not count.
+- Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
+  Record why in `MIGRATION_REPORT.md`.
 - Record each module `tests` check and each process `process_path` check with the `block` action and
   the exact reason `declined by user (Question 8)`.
 - The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as
@@ -391,20 +351,15 @@ When the user selects **Migrate tests only**, apply these rules:
 Record the Question 8 answer in the `MIGRATION_REPORT.md` decision log. Also record it as
 `test_run_mode` in `.camunda-migration/validation/step2-inventory.json`, as described in
 `references/validation-evidence.md`.
-If a Test Inventory row has handling **Migrate**, **Migrate to CPT**, or
-**Migrate (lower priority)**, then the validator requires `test_run_mode`.
-If every row has `Report only` or `Not part of test migration` handling, then the validator does not
-require the field.
+Where the Test Inventory has a migratable test, the validator requires `test_run_mode`.
 
 ## Step 3 order
 
-When `test_run_mode` is `run` and the Test Inventory has a test with handling **Migrate**,
-**Migrate to CPT**, or **Migrate (lower priority)**, use these phases in this order.
-The skill also runs the C7 baseline for each `Report only` test selected for migration.
+When `test_run_mode` is `run`, use these phases in this order:
 
 | Phase | Action |
 |---|---|
-| C7 baseline | Run each suite containing a test with handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)**, and each suite with a `Report only` test selected for migration, before Step 3 changes any file. |
+| C7 baseline | Run each suite containing a migratable test or a `Report only` test selected for migration before Step 3 changes any file. |
 | Models | Convert the model copies, including test models. |
 | Tests | Migrate the in-scope tests. Review recipe changes before accepting them. |
 | Freeze | Record hashes for test source files and test resources. |
@@ -435,28 +390,26 @@ A **Run tests** inventory includes `test_suites`:
 }
 ```
 
-A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every
-suite that contains a migratable test for deferred verification.
-The validator rejects migratable tests that do not belong to a recorded suite.
-The source snapshot rejects suites added after Step 2.
+Where deferred verification is planned, a **Migrate tests only** inventory declares `test_suites` in
+Step 2. The validator rejects suites added later, because the source snapshot does not cover them.
+Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
 
-Where no migratable test exists, the skill omits `test_run_mode`.
-Where the user selects a **Report only** test for migration, the skill records its C7 suite in
-`test_suites` without `test_run_mode`.
+```json
+{
+  "schema_version": 1,
+  "modules": ["examples/web"],
+  "models": ["models/order.bpmn"],
+  "test_run_mode": "migrate_only"
+}
+```
 
-The skill sets `test_run_mode` to `run` or `migrate_only`. The skill sets `test_ids` to Test
-Inventory IDs in each suite.
-The suite `module` and `name` identify its C7 baseline owner.
-Where mapped CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.
-These target fields default to the C7 suite's `module` and `name`.
-The skill assigns every migratable test to at least one suite in either mode.
-The skill uses a distinct `name` for each suite in a module.
-The validator uses each suite's `command` for the Camunda 7 baseline. The validator runs this
-command without a shell.
-The validator uses the C7 module and suite name for `c7_baseline`.
-The validator uses the CPT module and suite name for `test_repeat`.
-The skill keeps the Test Inventory and `test_suites` unchanged after Step 2. The skill records CPT
-mappings in `test-mapping.json`.
+Where Question 8 does not apply, the skill omits `test_run_mode`.
+
+Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in each suite.
+When `test_run_mode` is `run`, assign every migratable test to at least one suite. Use a distinct
+`name` for each suite in a module. The validator uses `command` for the Camunda 7 baseline. It runs
+the command without a shell.
+Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
 
 Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
 The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
@@ -474,8 +427,7 @@ Where a configured root uses generated files under `target` or `build`, generate
 
 ## Camunda 7 baseline
 
-Run each suite that contains a test marked **Migrate**, **Migrate to CPT**, or
-**Migrate (lower priority)** in the Test Inventory:
+Run each suite that contains a migratable test:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
@@ -676,9 +628,6 @@ The `test_repeat` check runs each CPT suite with mapped migrated or added tests 
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind test_repeat --scenario unit -- mvn -B -pl examples/web test
 ```
 
-When the validator repeats a Gradle suite, it adds `--rerun-tasks` to the second invocation. This
-option makes Gradle rerun report-generating tasks and write fresh reports.
-
 The validator parses and preserves each run's JUnit XML. It compares each test method's result and
 invocation results across the two runs. A difference marks the suite flaky. A failed command also
 fails the repeat check.
@@ -767,42 +716,23 @@ result, mapped CPT tests, both CPT run results, status, and notes.
 The Notes column lists approved retirement reasons. The section also lists approved test changes
 and approved mock changes. The validator owns the Test Parity and Test Coverage sections.
 
-When the user selects **Migrate tests only**, follow `references/project-readiness.md`.
-Where no required check has failed and no required runtime dependency is unavailable, set the
-project-readiness verdict to `needs review`.
-
 ## Verification Plan for a Deferred Test Run
 
 When the user selects **Migrate tests only**, add a **Verify the test migration** section to
 `MIGRATION_REPORT.md`. Use the actual baseline commit or snapshot path, and the test commands from
 the Test Inventory, project documentation, and CI inventory:
 
-1. Change only `test_run_mode` from `migrate_only` to `run` in the Step 2 inventory. Keep the Test
+1. Run the Camunda 7 suite from the baseline. Where the baseline is a commit, create a separate
+   worktree with `git worktree add ../c7-baseline <baseline-commit>` and run the module test
+   command there. Where the baseline is a snapshot, run the command in the snapshot directory.
+2. Start Docker or configure a remote CPT runtime. Run the migrated suite, for example `mvn test`.
+3. Change only `test_run_mode` from `migrate_only` to `run` in the Step 2 inventory. Keep the Test
    Inventory and `test_suites` unchanged. Do not run `init`, because it clears earlier checks.
-2. Use the baseline preserved before Step 3:
-
-   | Step 2 source | Baseline source |
-   |---|---|
-   | Clean Git working tree and every `source_files` path tracked at the recorded commit | A worktree at the recorded commit. |
-   | Dirty Git working tree, non-Git source, or any `source_files` path missing from the recorded commit | The recorded filesystem snapshot. |
-
-3. Record `docker_info` before the first Docker-dependent baseline or migrated suite.
-4. Record each C7 baseline with the validator `c7_baseline` check. Set `--baseline-root` to the
-   preserved worktree or snapshot directory. The validator runs the exact Step 2 suite command.
-   Use wrapper, script, POM, and project-directory paths that resolve from the preserved root.
-   The validator rejects command paths that resolve inside the migrated project.
-5. Confirm that `test-mapping.json`, approved `test_changes`, and approved `mock_changes` are
-   complete before recording the remaining checks.
-6. Record `test_freeze` after the migrated test sources and resources are final.
-7. Start Docker or configure a remote CPT runtime. Record `test_repeat` for each suite with mapped
-   or added CPT tests. Use the migrated CPT suite command recorded in `MIGRATION_REPORT.md`.
-   This command can differ from the Step 2 C7 baseline command. Do not use `tests` for a suite with
-   mapped CPT tests.
-8. Record `assertion_strength` for each migrated test class and `mock_boundary` for each migrated
-   C7 test.
-9. Record the computed `test_parity` and `coverage_parity` checks after the repeat checks pass.
-10. Record each Step 4 `process_path` check.
-11. Run the validator `report` action.
+4. Record each check that the validator `report` action lists as missing. The validator cannot run
+   a `c7_baseline` check after Step 3 changes files. Record each `c7_baseline` check with the
+   `block` action. Name the baseline run from step 1 in the reason.
+5. Run the validator `report` action again. The gate stays `NOT READY` without a C7 baseline that
+   the validator captured.
 
 The verification plan is not test evidence.
 

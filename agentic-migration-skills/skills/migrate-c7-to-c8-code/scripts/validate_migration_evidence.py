@@ -7,14 +7,11 @@ import html
 import json
 import os
 import re
-import shlex
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
-import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
@@ -42,14 +39,6 @@ GATE_HEADING = "## Aggregate validation gate"
 TEST_PARITY_HEADING = "## Test Parity"
 TEST_COVERAGE_HEADING = "## Test Coverage"
 RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
-TEST_INVENTORY_HANDLING = {
-    "migrate": "Migrate",
-    "migrate to cpt": "Migrate",
-    "migrate (lower priority)": "Migrate",
-    "report only": "Report only",
-    "not part of test migration": "Not part of test migration",
-    "out of scope": "Not part of test migration",
-}
 SAFE_ENVIRONMENTS = ("local", "non-production")
 SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     ".venv", ".worktree", ".worktrees", "__pycache__",
@@ -81,222 +70,8 @@ TEST_LEDGER_CHECK_KINDS = {
     "mock_boundary",
 }
 TEST_RUN_MODES = {"run", "migrate_only"}
-JAVA_TEST_RUNNER_MAIN_CLASSES = {
-    "org.junit.platform.console.consolelauncher",
-    "org.junit.runner.junitcore",
-    "org.testng.testng",
-    "org.apache.maven.surefire.booter.forkedbooter",
-    "io.cucumber.core.cli.main",
-}
-JAVA_LAUNCHER_EARLY_EXIT_OPTIONS = frozenset(
-    {
-        "-?",
-        "-h",
-        "-help",
-        "--help",
-        "--help-extra",
-        "-X",
-        "-version",
-        "--version",
-        "-fullversion",
-        "-Xinternalversion",
-        "--dry-run",
-        "--list-modules",
-        "-d",
-        "--describe-module",
-        "--validate-modules",
-    }
-)
-JAVA_LAUNCHER_ALTERNATE_ENTRY_OPTIONS = frozenset({"-m", "--module", "--source"})
-JAVA_LAUNCHER_OPTIONS_WITH_VALUE = frozenset(
-    {
-        "--add-exports",
-        "--add-modules",
-        "--add-opens",
-        "--add-reads",
-        "--class-path",
-        "--enable-native-access",
-        "--limit-modules",
-        "--module-path",
-        "--patch-module",
-        "--upgrade-module-path",
-        "-classpath",
-        "-cp",
-        "-p",
-    }
-)
-JAVA_LAUNCHER_CODE_LOADING_OPTIONS = (
-    "-javaagent:",
-    "-agentlib:",
-    "-agentpath:",
-    "-Xrun",
-)
-JAVA_OPTION_ENVIRONMENTS = ("JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
-MAVEN_EXECUTABLES = {"mvn", "mvnw"}
-GRADLE_EXECUTABLES = {"gradle", "gradlew"}
-PROJECT_WRAPPER_EXECUTABLES = {
-    "mvnw",
-    "mvnw.bat",
-    "mvnw.cmd",
-    "gradlew",
-    "gradlew.bat",
-}
-TRUSTED_PATH_EXECUTABLES = MAVEN_EXECUTABLES | GRADLE_EXECUTABLES | {
-    "java",
-    "npx",
-    "c8ctl",
-    "docker",
-}
-GRADLE_BUILD_LOGIC_OPTIONS = frozenset(
-    {
-        "-I",
-        "--init-script",
-        "-b",
-        "--build-file",
-        "-c",
-        "--settings-file",
-        "-g",
-        "--gradle-user-home",
-        "--include-build",
-    }
-)
-GRADLE_BUILD_LOGIC_LONG_OPTIONS = (
-    "--init-script",
-    "--build-file",
-    "--settings-file",
-    "--gradle-user-home",
-    "--include-build",
-)
-GRADLE_BUILD_LOGIC_SHORT_OPTIONS = ("-I", "-b", "-c", "-g")
-SHELL_EXECUTABLES = {"bash", "cmd", "dash", "powershell", "pwsh", "sh", "zsh"}
-MAVEN_TEST_EXECUTION_GOALS = {
-    "deploy",
-    "install",
-    "integration-test",
-    "post-integration-test",
-    "pre-integration-test",
-    "prepare-package",
-    "test",
-    "verify",
-}
-MAVEN_PACKAGING_GOALS = {
-    "assemble",
-    "assembly",
-    "build",
-    "build-image",
-    "bundle",
-    "ear",
-    "ejb",
-    "exploded",
-    "jar",
-    "jar-no-fork",
-    "jlink",
-    "jpackage",
-    "nar",
-    "native-image",
-    "rar",
-    "repackage",
-    "shade",
-    "single",
-    "test-jar",
-    "war",
-}
-GRADLE_PACKAGE_TASKS = {"assemble", "bootjar", "build", "jar", "war"}
-GRADLE_TEST_SOURCE_COMPILE_TASKS = {
-    "compiletestgroovy",
-    "compiletestjava",
-    "compiletestkotlin",
-    "compiletestscala",
-}
-GRADLE_TEST_COMPILE_GRAPH_TASKS = {
-    "classes",
-    "compilegroovy",
-    "compilejava",
-    "compilekotlin",
-    "compilescala",
-    "compiletestfixturesgroovy",
-    "compiletestfixturesjava",
-    "compiletestfixtureskotlin",
-    "compiletestfixturesscala",
-    "compiletestgroovy",
-    "compiletestjava",
-    "compiletestkotlin",
-    "compiletestscala",
-    "jar",
-    "kaptgeneratestubskotlin",
-    "kaptgeneratestubstestkotlin",
-    "kaptkotlin",
-    "kapttestkotlin",
-    "processresources",
-    "processtestfixturesresources",
-    "processtestresources",
-    "testclasses",
-    "testfixturesclasses",
-    "testfixturesjar",
-}
-MAVEN_TEST_COMPILE_SAFE_GOALS = {
-    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"),
-    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"),
-    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"),
-    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"),
-    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"),
-}
-MAVEN_TEST_COMPILE_PACKAGINGS = {"ejb", "jar", "maven-plugin", "war"}
-MAVEN_PACKAGING_LIFECYCLE_PACKAGINGS = (
-    MAVEN_TEST_COMPILE_PACKAGINGS | {"ear", "pom"}
-)
-MAVEN_DEFAULT_LIFECYCLE_PHASES = (
-    "validate",
-    "initialize",
-    "generate-sources",
-    "process-sources",
-    "generate-resources",
-    "process-resources",
-    "compile",
-    "process-classes",
-    "generate-test-sources",
-    "process-test-sources",
-    "generate-test-resources",
-    "process-test-resources",
-    "test-compile",
-    "process-test-classes",
-    "test",
-    "prepare-package",
-    "package",
-    "pre-integration-test",
-    "integration-test",
-    "post-integration-test",
-    "verify",
-    "install",
-    "deploy",
-)
-MAVEN_PACKAGING_PHASES = frozenset(
-    MAVEN_DEFAULT_LIFECYCLE_PHASES[
-        MAVEN_DEFAULT_LIFECYCLE_PHASES.index("package"):
-    ]
-)
-MAVEN_CLEAN_LIFECYCLE_PHASES = ("pre-clean", "clean", "post-clean")
-GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
-MAVEN_SKIP_TEST_GOALS = {
-    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"),
-}
-MAVEN_GOAL_DEFAULT_PHASES = {
-    ("org.apache.maven.plugins", "maven-clean-plugin", "clean"): "clean",
-    ("org.apache.maven.plugins", "maven-compiler-plugin", "compile"): "compile",
-    ("org.apache.maven.plugins", "maven-compiler-plugin", "testcompile"): "test-compile",
-    ("org.apache.maven.plugins", "maven-ear-plugin", "ear"): "package",
-    ("org.apache.maven.plugins", "maven-ejb-plugin", "ejb"): "package",
-    ("org.apache.maven.plugins", "maven-failsafe-plugin", "integration-test"): "integration-test",
-    ("org.apache.maven.plugins", "maven-failsafe-plugin", "verify"): "verify",
-    ("org.apache.maven.plugins", "maven-jar-plugin", "jar"): "package",
-    ("org.apache.maven.plugins", "maven-resources-plugin", "resources"): "process-resources",
-    ("org.apache.maven.plugins", "maven-resources-plugin", "testresources"): "process-test-resources",
-    ("org.apache.maven.plugins", "maven-surefire-plugin", "test"): "test",
-    ("org.apache.maven.plugins", "maven-war-plugin", "war"): "package",
-    ("org.springframework.boot", "spring-boot-maven-plugin", "repackage"): "package",
-}
 
 
 @dataclass
@@ -425,2522 +200,14 @@ def read_test_run_mode(inventory):
     return mode
 
 
-def command_executable(command):
-    return (
-        PureWindowsPath(command[0]).name.casefold()
-        .removesuffix(".exe")
-        .removesuffix(".cmd")
-        .removesuffix(".bat")
-    )
-
-
-def executable_search_path(root):
-    root = Path(root)
-    entries = []
-    for entry in os.environ.get("PATH", os.defpath).split(os.pathsep):
-        if not entry:
-            entries.append(str(root))
-            continue
-        path = Path(entry)
-        if path.is_absolute() or PureWindowsPath(entry).drive:
-            entries.append(entry)
-        else:
-            entries.append(str(root / path))
-    return os.pathsep.join(entries)
-
-
-def path_is_within(path, root):
-    try:
-        Path(path).relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
-def validate_trusted_executable_path(root, command, *, wrapper_roots=()):
-    if not command or not command[0]:
-        return
-    executable = command_executable(command)
-    if executable not in TRUSTED_PATH_EXECUTABLES:
-        return
-
-    raw_executable = command[0]
-    windows_path = PureWindowsPath(raw_executable)
-    path = Path(raw_executable)
-    has_path = (
-        path.is_absolute()
-        or windows_path.is_absolute()
-        or bool(windows_path.drive)
-        or "/" in raw_executable
-        or "\\" in raw_executable
-    )
-    root = Path(root).resolve(strict=True)
-    search_path = executable_search_path(root)
-
-    def reject():
-        raise EvidenceError(
-            "Question 8 rejects an untrusted executable path. Use the expected "
-            "PATH executable or a project Maven or Gradle wrapper."
-        )
-
-    allowed_wrapper_roots = {root}
-    for wrapper_root in wrapper_roots:
-        try:
-            resolved_root = Path(wrapper_root).resolve(strict=True)
-            resolved_root.relative_to(root)
-        except FileNotFoundError:
-            continue
-        except (OSError, RuntimeError, ValueError):
-            reject()
-        allowed_wrapper_roots.add(resolved_root)
-    raw_name = windows_path.name.casefold()
-
-    if raw_name in PROJECT_WRAPPER_EXECUTABLES:
-        if windows_path.drive and os.name != "nt":
-            reject()
-        if has_path:
-            wrapper_path = path if path.is_absolute() else root / path
-        else:
-            wrapper_lookup = shutil.which(raw_executable, path=search_path)
-            if wrapper_lookup is not None:
-                wrapper_path = Path(wrapper_lookup)
-            elif os.name == "nt":
-                wrapper_path = root / raw_name
-            else:
-                reject()
-        if wrapper_path.is_symlink():
-            reject()
-        try:
-            resolved_wrapper = wrapper_path.resolve(strict=True)
-        except (OSError, RuntimeError, ValueError):
-            reject()
-        if (
-            not resolved_wrapper.is_file()
-            or resolved_wrapper.name.casefold() != raw_name
-            or resolved_wrapper.parent not in allowed_wrapper_roots
-        ):
-            reject()
-        return resolved_wrapper
-
-    if windows_path.drive and os.name != "nt":
-        reject()
-    expected_path = shutil.which(executable, path=search_path)
-    if expected_path is None:
-        if has_path:
-            reject()
-        return None
-    candidate_path = Path(expected_path)
-    if not candidate_path.is_absolute():
-        candidate_path = root / candidate_path
-    if path_is_within(candidate_path.absolute(), root):
-        reject()
-    try:
-        resolved_path = candidate_path.resolve(strict=True)
-        resolved_expected_path = Path(expected_path).resolve(strict=True)
-    except (OSError, RuntimeError):
-        reject()
-    if path_is_within(resolved_path, root):
-        reject()
-    if has_path:
-        executable_path = path if path.is_absolute() else root / path
-        try:
-            resolved_executable_path = executable_path.resolve(strict=True)
-        except (OSError, RuntimeError):
-            reject()
-        if resolved_executable_path != resolved_expected_path:
-            reject()
-        return resolved_executable_path
-    return resolved_expected_path
-
-
-def build_tool(command):
-    executable = command_executable(command)
-    if executable in MAVEN_EXECUTABLES:
-        return "maven"
-    if executable in GRADLE_EXECUTABLES:
-        return "gradle"
-    return None
-
-
-def unverified_gradle_build_logic_option(argument):
-    if argument in GRADLE_BUILD_LOGIC_OPTIONS:
-        return True
-    option_name = argument.partition("=")[0]
-    if any(
-        option_name.startswith(option) or (
-            len(option_name) > 2 and option.startswith(option_name)
-        )
-        for option in GRADLE_BUILD_LOGIC_LONG_OPTIONS
-    ):
-        return True
-    return any(
-        argument.startswith(option) and argument != option
-        for option in GRADLE_BUILD_LOGIC_SHORT_OPTIONS
-    )
-
-
-def parse_build_command(command, tool):
-    parsed = {
-        "tasks": [],
-        "projects": [],
-        "pom_files": [],
-        "project_dirs": [],
-        "excluded_tasks": [],
-        "properties": {},
-        "cli_options": [],
-        "dry_run": False,
-    }
-
-    def add_property(value):
-        name, separator, property_value = value.partition("=")
-        if name:
-            parsed["properties"].setdefault(name, []).append(
-                property_value if separator else None
-            )
-
-    index = 1
-    while index < len(command):
-        argument = command[index]
-        if tool == "maven":
-            if argument in ("-D", "--define"):
-                value = command[index + 1] if index + 1 < len(command) else ""
-                add_property(value)
-                parsed["cli_options"].extend((argument, value))
-                index += 2
-                continue
-            if argument.startswith("-D") and len(argument) > 2:
-                add_property(argument[2:])
-                parsed["cli_options"].append(argument)
-                index += 1
-                continue
-            if argument.startswith("--define="):
-                add_property(argument.partition("=")[2])
-                parsed["cli_options"].append(argument)
-                index += 1
-                continue
-            if argument in ("-pl", "--projects"):
-                if index + 1 < len(command):
-                    parsed["projects"].append(command[index + 1])
-                    parsed["cli_options"].extend((argument, command[index + 1]))
-                index += 2
-                continue
-            if argument.startswith(("-pl=", "--projects=")):
-                parsed["projects"].append(argument.partition("=")[2])
-                parsed["cli_options"].append(argument)
-                index += 1
-                continue
-            if argument in ("-f", "--file"):
-                if index + 1 < len(command):
-                    parsed["pom_files"].append(command[index + 1])
-                    parsed["cli_options"].extend((argument, command[index + 1]))
-                index += 2
-                continue
-            if argument.startswith(("-f=", "--file=")):
-                parsed["pom_files"].append(argument.partition("=")[2])
-                parsed["cli_options"].append(argument)
-                index += 1
-                continue
-            if argument in {
-                "-P", "--activate-profiles", "-s", "--settings", "-T",
-                "--threads", "-t", "--toolchains", "-l", "--log-file",
-                "-rf", "--resume-from",
-            }:
-                parsed["cli_options"].append(argument)
-                if index + 1 < len(command):
-                    parsed["cli_options"].append(command[index + 1])
-                index += 2
-                continue
-        else:
-            if unverified_gradle_build_logic_option(argument):
-                raise EvidenceError(
-                    "Question 8 rejects unverified Gradle build-logic options"
-                )
-            if argument in ("-m", "--dry-run") or argument.startswith("--dry-run="):
-                parsed["dry_run"] = True
-                index += 1
-                continue
-            if argument in ("-p", "--project-dir"):
-                if index + 1 < len(command):
-                    parsed["project_dirs"].append(command[index + 1])
-                index += 2
-                continue
-            if argument.startswith(("-p=", "--project-dir=")):
-                parsed["project_dirs"].append(argument.partition("=")[2])
-                index += 1
-                continue
-            if argument in ("-x", "--exclude-task"):
-                if index + 1 < len(command):
-                    parsed["excluded_tasks"].append(command[index + 1])
-                index += 2
-                continue
-            if argument.startswith(("-x=", "--exclude-task=")):
-                parsed["excluded_tasks"].append(argument.partition("=")[2])
-                index += 1
-                continue
-            if argument.startswith("--exclude-task"):
-                parsed["excluded_tasks"].append(
-                    argument[len("--exclude-task"):].lstrip("=")
-                )
-                index += 1
-                continue
-            if argument.startswith("-x") and len(argument) > 2:
-                parsed["excluded_tasks"].append(argument[2:].lstrip("="))
-                index += 1
-                continue
-            if argument in {
-                "-D", "-P", "--system-prop", "--project-prop", "-I",
-                "--init-script", "-b", "--build-file", "-c", "--settings-file",
-                "-g", "--gradle-user-home", "--args", "--tests",
-            }:
-                index += 2
-                continue
-        if argument.startswith("-"):
-            if tool == "maven":
-                parsed["cli_options"].append(argument)
-            index += 1
-        else:
-            parsed["tasks"].append(argument)
-            index += 1
-    return parsed
-
-
-def project_relative_path(root, value):
-    if not isinstance(value, str) or not value.strip() or PureWindowsPath(value).drive:
-        return None
-    path = Path(value)
-    try:
-        base = root.resolve(strict=True)
-        resolved = path.resolve(strict=False) if path.is_absolute() else (base / path).resolve(strict=False)
-        return resolved.relative_to(base).as_posix() or "."
-    except (OSError, RuntimeError, ValueError):
-        return None
-
-
-def module_wrapper_roots(root, key):
-    if key[0] != "module":
-        return ()
-    module_path = project_relative_path(root, key[1])
-    return (root / module_path,) if module_path is not None else ()
-
-
-def maven_module_selected(root, target, parsed):
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        return False
-    if parsed["projects"]:
-        selected = set()
-        excluded = set()
-        for project_list in parsed["projects"]:
-            for selector in project_list.split(","):
-                selector = selector.strip()
-                is_excluded = selector.startswith(("!", "-"))
-                if is_excluded:
-                    selector = selector[1:]
-                module_path = project_relative_path(root, selector)
-                if module_path is not None:
-                    (excluded if is_excluded else selected).add(module_path)
-        if target_path not in selected or target_path in excluded:
-            return False
-    if parsed["pom_files"]:
-        pom_modules = set()
-        for pom_file in parsed["pom_files"]:
-            pom_path = project_relative_path(root, pom_file)
-            if pom_path is not None and Path(pom_path).name == "pom.xml":
-                pom_modules.add(Path(pom_path).parent.as_posix() or ".")
-        if target_path not in pom_modules:
-            return False
-    return bool(parsed["projects"] or parsed["pom_files"]) or target_path == "."
-
-
-def gradle_module_selected(root, target, project_directory):
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        return False
-    module_directory = (Path(root) / target_path).resolve(strict=True)
-    task_directory = Path(project_directory)
-    return task_directory.is_absolute() and task_directory.resolve(strict=False) == module_directory
-
-
-def gradle_task_module(task):
-    if not task.startswith(":") and ":" in task:
-        return None
-    parts = [part for part in task.split(":") if part]
-    if not parts:
-        return None
-    return "/".join(parts[:-1]) or "."
-
-
-def gradle_command_may_select_module(root, target, parsed, task):
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        return False
-    if parsed["project_dirs"]:
-        selected = {
-            project_relative_path(root, project_dir)
-            for project_dir in parsed["project_dirs"]
-        }
-        return selected == {target_path} and gradle_task_module(task) == "."
-    if any(
-        (Path(root) / name).is_file() or (Path(root) / name).is_symlink()
-        for name in ("settings.gradle", "settings.gradle.kts")
-    ):
-        return True
-    return gradle_task_module(task) == target_path
-
-
-def gradle_command_selects_module_tasks(
-    root,
-    target,
-    parsed,
-    task_records,
-    requested_tasks,
-):
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        return False
-    selected_project_dirs = {
-        project_relative_path(root, project_dir)
-        for project_dir in parsed["project_dirs"]
-    }
-    if parsed["project_dirs"] and selected_project_dirs != {target_path}:
-        return False
-    unqualified_task_is_module_specific = (
-        target_path == "." or selected_project_dirs == {target_path}
-    )
-    if not requested_tasks:
-        return False
-    for requested in requested_tasks:
-        selected = False
-        for task_path, _, project_directory in task_records:
-            if not gradle_module_selected(root, target, project_directory):
-                continue
-            if ":" in requested:
-                if task_path == f":{requested.lstrip(':')}":
-                    selected = True
-                    break
-            elif (
-                unqualified_task_is_module_specific
-                and task_leaf(task_path) == task_leaf(requested)
-            ):
-                selected = True
-                break
-        if not selected:
-            return False
-    return True
-
-
-def property_is_true(parsed, name):
-    values = parsed["properties"].get(name, [])
-    if not values:
-        return False
-    value = values[-1]
-    return value is None or value.strip().casefold() not in {"0", "false", "no", "off"}
-
-
-def read_maven_options(path, label):
-    if path.is_symlink():
-        raise EvidenceError(f"Refusing symlinked Maven configuration: {path}")
-    try:
-        content = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return []
-    except OSError as exc:
-        raise EvidenceError(f"Cannot read {label}: {path}: {exc}") from exc
-    try:
-        return shlex.split(content, comments=True)
-    except ValueError as exc:
-        raise EvidenceError(f"Cannot parse {label}: {path}: {exc}") from exc
-
-
-def maven_configuration_roots(root, command=None):
-    root = Path(root).resolve(strict=True)
-    roots = [root]
-    if not command or command_executable(command) != "mvnw":
-        return roots
-
-    raw_executable = command[0]
-    windows_path = PureWindowsPath(raw_executable)
-    path = Path(raw_executable)
-    has_path = (
-        path.is_absolute()
-        or windows_path.is_absolute()
-        or bool(windows_path.drive)
-        or "/" in raw_executable
-        or "\\" in raw_executable
-    )
-    if has_path:
-        wrapper = path if path.is_absolute() else root / path
-    else:
-        wrapper_lookup = shutil.which(
-            raw_executable,
-            path=executable_search_path(root),
-        )
-        if wrapper_lookup is None:
-            return roots
-        wrapper = Path(wrapper_lookup)
-    try:
-        wrapper_root = wrapper.resolve(strict=True).parent
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise EvidenceError(
-            f"Question 8 cannot resolve the Maven wrapper base: {wrapper}"
-        ) from exc
-    if not path_is_within(wrapper_root, root):
-        raise EvidenceError(
-            "Question 8 cannot verify Maven configuration for a wrapper outside the project"
-        )
-    if wrapper_root not in roots:
-        roots.append(wrapper_root)
-    return roots
-
-
-def maven_project_arguments_present(root, command=None):
-    if os.environ.get("MAVEN_ARGS", "").strip():
-        return True
-    return any(
-        read_maven_options(
-            configuration_root / ".mvn" / "maven.config",
-            "Maven project arguments",
-        )
-        for configuration_root in maven_configuration_roots(root, command)
-    )
-
-
-def maven_pom_skips_test_compilation(root, target):
-    root = root.resolve(strict=True)
-    module = (root / target).resolve(strict=False)
-    try:
-        module.relative_to(root)
-    except ValueError as exc:
-        raise EvidenceError(f"Maven module is outside the project root: {target}") from exc
-    current = module
-    false_values = {"", "0", "false", "no", "off"}
-    while True:
-        pom = current / "pom.xml"
-        if pom.is_symlink():
-            raise EvidenceError(f"Refusing symlinked Maven POM: {pom}")
-        if pom.is_file():
-            try:
-                document = ET.parse(pom)
-            except (OSError, ET.ParseError) as exc:
-                raise EvidenceError(f"Cannot inspect Maven POM {pom}: {exc}") from exc
-            if any(
-                (element.text or "").strip().casefold() not in false_values
-                for element in document.iter()
-                if element.tag.rsplit("}", 1)[-1].casefold() == "maven.test.skip"
-            ):
-                return True
-        if current == root:
-            return False
-        parent = current.parent
-        try:
-            parent.relative_to(root)
-        except ValueError:
-            return False
-        current = parent
-
-
-def maven_jvm_option_sources(root, command=None):
-    option_sources = []
-    for name in ("MAVEN_OPTS", *JAVA_OPTION_ENVIRONMENTS):
-        value = os.environ.get(name, "")
-        if not value.strip():
-            continue
-        try:
-            option_sources.append(shlex.split(value, comments=True))
-        except ValueError as exc:
-            raise EvidenceError(f"Cannot parse Maven JVM options: {exc}") from exc
-    option_sources.extend(
-        read_maven_options(
-            configuration_root / ".mvn" / "jvm.config",
-            "Maven JVM options",
-        )
-        for configuration_root in maven_configuration_roots(root, command)
-    )
-    return option_sources
-
-
-def maven_jvm_options_load_code(options):
-    code_loading_prefixes = tuple(
-        prefix.casefold() for prefix in JAVA_LAUNCHER_CODE_LOADING_OPTIONS
-    )
-    for index, option in enumerate(options):
-        normalized = option.casefold()
-        if normalized.startswith("@"):
-            return True
-        if normalized.startswith(code_loading_prefixes):
-            return True
-        if normalized.startswith("--define="):
-            normalized = "-d" + normalized.partition("=")[2]
-        elif normalized in {"-d", "--define"} and index + 1 < len(options):
-            normalized = "-d" + options[index + 1].casefold()
-        if normalized.partition("=")[0] == "-dmaven.ext.class.path":
-            return True
-    return False
-
-
-def maven_test_compilation_disabled(root, parsed, command=None):
-    if property_is_true(parsed, "maven.test.skip"):
-        return True
-    for options in maven_jvm_option_sources(root, command):
-        parsed_options = parse_build_command(["mvn", *options], "maven")
-        if property_is_true(parsed_options, "maven.test.skip"):
-            return True
-    return False
-
-
-def maven_module_selection_is_exact(root, target, parsed):
-    target_path = project_relative_path(root, target)
-    if target_path is None or not (parsed["projects"] or parsed["pom_files"]):
-        return False
-    if any(
-        option in {
-            "-am",
-            "--also-make",
-            "-amd",
-            "--also-make-dependents",
-            "-rf",
-            "--resume-from",
-        }
-        for option in parsed["cli_options"]
-    ):
-        return False
-
-    if parsed["projects"]:
-        selected = set()
-        excluded = set()
-        for project_list in parsed["projects"]:
-            for selector in project_list.split(","):
-                selector = selector.strip()
-                is_excluded = selector.startswith(("!", "-"))
-                if is_excluded:
-                    selector = selector[1:]
-                module_path = project_relative_path(root, selector)
-                if module_path is None:
-                    return False
-                (excluded if is_excluded else selected).add(module_path)
-        if selected != {target_path} or target_path in excluded:
-            return False
-
-    if parsed["pom_files"]:
-        pom_modules = set()
-        for pom_file in parsed["pom_files"]:
-            pom_path = project_relative_path(root, pom_file)
-            if pom_path is None or Path(pom_path).name != "pom.xml":
-                return False
-            pom_modules.add(Path(pom_path).parent.as_posix() or ".")
-        if pom_modules != {target_path}:
-            return False
-    return maven_module_selected(root, target, parsed)
-
-
-def maven_local_name(element):
-    return element.tag.rsplit("}", 1)[-1]
-
-
-def maven_pom_declares_extensions(document):
-    false_values = {"", "0", "false", "no", "off"}
-    for build in document.iter():
-        if maven_local_name(build) != "build":
-            continue
-        for child in build:
-            child_name = maven_local_name(child)
-            if child_name == "extensions" and list(child):
-                return True
-            if child_name not in {"plugins", "pluginManagement"}:
-                continue
-            for plugin in child:
-                if maven_local_name(plugin) != "plugin":
-                    continue
-                if any(
-                    maven_local_name(extension) == "extensions"
-                    and (extension.text or "").strip().casefold() not in false_values
-                    for extension in plugin
-                ):
-                    return True
-    return False
-
-
-def maven_pom_paths(root, parsed):
-    paths = {root / "pom.xml"}
-
-    for pom_file in parsed["pom_files"]:
-        pom_path = project_relative_path(root, pom_file)
-        if pom_path is None or Path(pom_path).name != "pom.xml":
-            raise EvidenceError(
-                "Question 8 cannot verify Maven extensions for an untrusted POM path"
-            )
-        paths.add(root / pom_path)
-
-    for project_list in parsed["projects"]:
-        for selector in project_list.split(","):
-            selector = selector.strip()
-            if selector.startswith(("!", "-")):
-                continue
-            module_path = project_relative_path(root, selector)
-            if module_path is None:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions for an untrusted project path"
-                )
-            paths.add(root / module_path / "pom.xml")
-    return paths
-
-
-def maven_wrapper_roots(root, parsed):
-    roots = {root}
-    for pom_file in parsed["pom_files"]:
-        pom_path = project_relative_path(root, pom_file)
-        if pom_path is not None:
-            roots.add(root / Path(pom_path).parent)
-    for project_list in parsed["projects"]:
-        for selector in project_list.split(","):
-            selector = selector.strip()
-            if selector.startswith(("!", "-")):
-                continue
-            module_path = project_relative_path(root, selector)
-            if module_path is not None:
-                roots.add(root / module_path)
-    return roots
-
-
-def maven_reactor_module_poms(root, pom, document):
-    paths = []
-    for modules in document.iter():
-        if maven_local_name(modules) != "modules":
-            continue
-        for module in modules:
-            if maven_local_name(module) != "module":
-                continue
-            module_value = (module.text or "").strip()
-            if not module_value or "${" in module_value:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions because a reactor "
-                    "module path is unresolved"
-                )
-            module_path = Path(module_value)
-            if module_path.is_absolute() or PureWindowsPath(module_value).drive:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions for a reactor module "
-                    "outside the project"
-                )
-            try:
-                resolved_module = (pom.parent / module_path).resolve(strict=False)
-                resolved_module.relative_to(root)
-            except (OSError, RuntimeError, ValueError) as exc:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions for a reactor module "
-                    "outside the project"
-                ) from exc
-            module_pom = (
-                resolved_module
-                if resolved_module.suffix.casefold() == ".xml"
-                else resolved_module / "pom.xml"
-            )
-            if module_pom.is_symlink() or not module_pom.is_file():
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions because a reactor "
-                    "module POM is missing or symlinked"
-                )
-            paths.append(module_pom)
-    return paths
-
-
-def maven_parent_pom(root, pom, document):
-    parent = next(
-        (element for element in document if maven_local_name(element) == "parent"),
-        None,
-    )
-    if parent is None:
-        return None
-
-    expected_coordinates = tuple(
-        next(
-            (
-                (element.text or "").strip()
-                for element in parent
-                if maven_local_name(element) == field
-            ),
-            "",
-        )
-        for field in ("groupId", "artifactId", "version")
-    )
-    if any(not value or "${" in value for value in expected_coordinates):
-        raise EvidenceError(
-            "Question 8 cannot verify Maven extensions because the parent POM "
-            "coordinates are unresolved"
-        )
-
-    relative_path_element = next(
-        (
-            element
-            for element in parent
-            if maven_local_name(element) == "relativePath"
-        ),
-        None,
-    )
-    if relative_path_element is None:
-        relative_path = Path("../pom.xml")
-    else:
-        relative_path_value = (relative_path_element.text or "").strip()
-        if not relative_path_value:
-            raise EvidenceError(
-                "Question 8 cannot verify Maven extensions because the parent POM "
-                "uses an unresolved repository path"
-            )
-        relative_path = Path(relative_path_value)
-    if relative_path.is_absolute() or PureWindowsPath(str(relative_path)).drive:
-        raise EvidenceError(
-            "Question 8 cannot verify Maven extensions because the parent POM "
-            "path is outside the project"
-        )
-
-    parent_pom = pom.parent / relative_path
-    if parent_pom.is_dir():
-        parent_pom = parent_pom / "pom.xml"
-    if parent_pom.is_symlink():
-        raise EvidenceError(
-            f"Question 8 cannot verify Maven extensions through symlinked POM {parent_pom}"
-        )
-    try:
-        resolved_parent = parent_pom.resolve(strict=True)
-        resolved_parent.relative_to(root)
-    except FileNotFoundError as exc:
-        raise EvidenceError(
-            "Question 8 cannot verify Maven extensions because the parent POM "
-            "cannot be inspected before Maven runs"
-        ) from exc
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise EvidenceError(
-            "Question 8 cannot verify Maven extensions because the parent POM "
-            "is outside the project or cannot be inspected"
-        ) from exc
-    if not resolved_parent.is_file():
-        raise EvidenceError(
-            "Question 8 cannot verify Maven extensions because the parent POM "
-            "is not a file"
-        )
-    return resolved_parent, expected_coordinates
-
-
-def preflight_maven_extensions(root, parsed, command=None):
-    root = Path(root).resolve(strict=True)
-    configuration_roots = maven_configuration_roots(root, command)
-    for configuration_root in configuration_roots:
-        extensions_file = configuration_root / ".mvn" / "extensions.xml"
-        if extensions_file.exists() or extensions_file.is_symlink():
-            raise EvidenceError(
-                "Question 8 refuses Maven core extensions before effective-POM inspection"
-            )
-    jvm_options = [
-        option
-        for option_source in maven_jvm_option_sources(root, command)
-        for option in option_source
-    ]
-    jvm_options.extend(parsed["cli_options"])
-    if maven_jvm_options_load_code(jvm_options):
-        raise EvidenceError(
-            "Question 8 refuses Maven extensions or JVM code-loading options "
-            "before effective-POM inspection"
-        )
-
-    pending = list(maven_pom_paths(root, parsed))
-    inspected = set()
-    documents = {}
-    while pending:
-        pom = pending.pop()
-        current = pom
-        expected_coordinates = None
-        chain = set()
-        while True:
-            if current.is_symlink():
-                raise EvidenceError(
-                    f"Question 8 cannot verify Maven extensions through symlinked POM {current}"
-                )
-            try:
-                resolved = current.resolve(strict=True)
-            except FileNotFoundError:
-                if expected_coordinates is None:
-                    break
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions because the parent POM "
-                    "cannot be inspected before Maven runs"
-                )
-            except (OSError, RuntimeError) as exc:
-                raise EvidenceError(
-                    f"Question 8 cannot inspect Maven POM {current}: {exc}"
-                ) from exc
-            try:
-                resolved.relative_to(root)
-            except ValueError as exc:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions for a POM outside the project"
-                ) from exc
-            if resolved in chain:
-                raise EvidenceError(
-                    "Question 8 cannot verify Maven extensions through a circular parent POM chain"
-                )
-            chain.add(resolved)
-            if resolved not in documents:
-                try:
-                    documents[resolved] = ET.parse(resolved).getroot()
-                except (OSError, ET.ParseError) as exc:
-                    raise EvidenceError(
-                        f"Question 8 cannot inspect Maven POM {resolved}: {exc}"
-                    ) from exc
-            document = documents[resolved]
-
-            if expected_coordinates is not None:
-                actual_coordinates = tuple(
-                    next(
-                        (
-                            (element.text or "").strip()
-                            for element in document
-                            if maven_local_name(element) == field
-                        ),
-                        "",
-                    )
-                    for field in ("groupId", "artifactId", "version")
-                )
-                if (
-                    any(not value or "${" in value for value in actual_coordinates)
-                    or actual_coordinates != expected_coordinates
-                ):
-                    raise EvidenceError(
-                        "Question 8 cannot verify Maven extensions because the local "
-                        "parent POM does not match its declared coordinates"
-                    )
-                expected_coordinates = None
-
-            if resolved not in inspected:
-                inspected.add(resolved)
-                if maven_pom_declares_extensions(document):
-                    raise EvidenceError(
-                        f"Question 8 refuses Maven build extensions declared in {resolved}"
-                    )
-                pending.extend(
-                    maven_reactor_module_poms(root, resolved, document)
-                )
-            parent = maven_parent_pom(root, resolved, document)
-            if parent is None:
-                break
-            current, expected_coordinates = parent
-
-
-def maven_effective_pom(root, command, parsed, timeout):
-    validate_trusted_executable_path(
-        root,
-        command,
-        wrapper_roots=maven_wrapper_roots(root, parsed),
-    )
-    preflight_maven_extensions(root, parsed, command)
-    with tempfile.TemporaryDirectory(
-        prefix=".migrate-only-effective-pom-",
-        dir=root,
-    ) as temporary_directory:
-        output_path = Path(temporary_directory) / "effective-pom.xml"
-        inspection_command = [
-            command[0],
-            *parsed["cli_options"],
-            f"-Doutput={output_path}",
-            "help:effective-pom",
-        ]
-        try:
-            completed = subprocess.run(
-                inspection_command,
-                cwd=root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                errors="replace",
-                timeout=timeout if timeout is not None else 120,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise EvidenceError(
-                "Question 8 could not inspect the effective Maven lifecycle "
-                "because `help:effective-pom` timed out"
-            ) from exc
-        except OSError as exc:
-            raise EvidenceError(
-                f"Question 8 could not inspect the effective Maven lifecycle: {exc}"
-            ) from exc
-        if completed.returncode != 0 or not output_path.is_file():
-            raise EvidenceError(
-                "Question 8 could not inspect the effective Maven lifecycle"
-            )
-        try:
-            return ET.parse(output_path).getroot()
-        except (OSError, ET.ParseError) as exc:
-            raise EvidenceError(
-                "Question 8 could not parse the effective Maven lifecycle"
-            ) from exc
-
-
-def maven_effective_property_is_enabled(effective_pom, property_name):
-    false_values = {"", "0", "false", "no", "off"}
-    normalized_name = property_name.casefold()
-    return any(
-        (property_element.text or "").strip().casefold() not in false_values
-        for properties in effective_pom
-        if properties.tag.rsplit("}", 1)[-1] == "properties"
-        for property_element in properties
-        if property_element.tag.rsplit("}", 1)[-1].casefold() == normalized_name
-    )
-
-
-def maven_unclassified_lifecycle_execution(
-    root,
-    effective_pom,
-    parsed,
-    last_phase,
-    safe_goals,
-    *,
-    skipped_test_goals=frozenset(),
-):
-    extensions_file = root / ".mvn" / "extensions.xml"
-    if extensions_file.exists() or extensions_file.is_symlink():
-        return "Maven core extensions"
-
-    def local_name(element):
-        return element.tag.rsplit("}", 1)[-1]
-
-    def child_text(element, name):
-        child = next(
-            (item for item in element if local_name(item) == name),
-            None,
-        )
-        return (child.text or "").strip() if child is not None else ""
-
-    def test_execution_skip_configuration_is_safe(plugin):
-        owners = [plugin]
-        for executions in (
-            child for child in plugin if local_name(child) == "executions"
-        ):
-            owners.extend(
-                child for child in executions if local_name(child) == "execution"
-            )
-        for owner in owners:
-            for configuration in (
-                child for child in owner if local_name(child) == "configuration"
-            ):
-                for option in (
-                    child
-                    for child in configuration
-                    if local_name(child) in {"skip", "skipTests"}
-                ):
-                    value = (option.text or "").strip().casefold()
-                    if value not in {"true", "${skiptests}"}:
-                        return False
-        return True
-
-    if (
-        last_phase in {"test-compile", "package"}
-        and maven_effective_property_is_enabled(effective_pom, "maven.test.skip")
-    ):
-        return "effective `maven.test.skip` property disables test compilation"
-
-    packaging = child_text(effective_pom, "packaging") or "jar"
-    if last_phase == "test-compile" and packaging.casefold() not in MAVEN_TEST_COMPILE_PACKAGINGS:
-        return f"Maven packaging {packaging} has no verified test-source compiler"
-    if (
-        last_phase == "package"
-        and packaging.casefold() not in MAVEN_PACKAGING_LIFECYCLE_PACKAGINGS
-    ):
-        return f"Maven packaging {packaging} has no verified package lifecycle"
-
-    builds = [
-        child for child in effective_pom if local_name(child) == "build"
-    ]
-    clean_requested = "clean" in {
-        task_leaf(task) for task in parsed["tasks"]
-    }
-    relevant_phases = set(
-        MAVEN_DEFAULT_LIFECYCLE_PHASES[
-            :MAVEN_DEFAULT_LIFECYCLE_PHASES.index(last_phase) + 1
-        ]
-    )
-    if clean_requested:
-        relevant_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
-    known_phases = set(MAVEN_DEFAULT_LIFECYCLE_PHASES)
-    known_phases.update(MAVEN_CLEAN_LIFECYCLE_PHASES)
-    skipped_test_plugins = {
-        (group_id.casefold(), artifact_id.casefold())
-        for group_id, artifact_id, _ in MAVEN_SKIP_TEST_GOALS
-    }
-
-    for build in builds:
-        if any(
-            local_name(child) == "extensions" and list(child)
-            for child in build
-        ):
-            return "Maven build extensions"
-        if (
-            last_phase == "package"
-            and property_is_true(parsed, "skipTests")
-        ):
-            for management in (
-                child for child in build if local_name(child) == "pluginManagement"
-            ):
-                for plugins in (
-                    child for child in management if local_name(child) == "plugins"
-                ):
-                    for plugin in (
-                        child for child in plugins if local_name(child) == "plugin"
-                    ):
-                        group_id = child_text(plugin, "groupId") or "org.apache.maven.plugins"
-                        artifact_id = child_text(plugin, "artifactId")
-                        if any(
-                            group_id.casefold() == skipped_group
-                            and artifact_id.casefold() == skipped_artifact
-                            for skipped_group, skipped_artifact, _ in MAVEN_SKIP_TEST_GOALS
-                        ) and not test_execution_skip_configuration_is_safe(plugin):
-                            return (
-                                f"{group_id}:{artifact_id} pluginManagement "
-                                "overrides `-DskipTests`"
-                            )
-        for plugins in (
-            child for child in build if local_name(child) == "plugins"
-        ):
-            for plugin in (child for child in plugins if local_name(child) == "plugin"):
-                group_id = child_text(plugin, "groupId") or "org.apache.maven.plugins"
-                artifact_id = child_text(plugin, "artifactId")
-                if child_text(plugin, "extensions").casefold() == "true":
-                    return f"{group_id}:{artifact_id} build extension"
-                if (
-                    last_phase == "package"
-                    and property_is_true(parsed, "skipTests")
-                    and (group_id.casefold(), artifact_id.casefold())
-                    in skipped_test_plugins
-                    and not test_execution_skip_configuration_is_safe(plugin)
-                ):
-                    return (
-                        f"{group_id}:{artifact_id} plugin or execution "
-                        "overrides `-DskipTests`"
-                    )
-                for executions in (
-                    child for child in plugin if local_name(child) == "executions"
-                ):
-                    for execution in (
-                        child for child in executions if local_name(child) == "execution"
-                    ):
-                        phase = child_text(execution, "phase").casefold()
-                        for goals in (
-                            child for child in execution if local_name(child) == "goals"
-                        ):
-                            for goal in (
-                                child for child in goals if local_name(child) == "goal"
-                            ):
-                                goal_name = (goal.text or "").strip().casefold()
-                                identity = (
-                                    group_id.casefold(),
-                                    artifact_id.casefold(),
-                                    goal_name,
-                                )
-                                effective_phase = phase or MAVEN_GOAL_DEFAULT_PHASES.get(identity)
-                                if not effective_phase:
-                                    return (
-                                        f"{group_id}:{artifact_id}:{goal_name} "
-                                        "without a known default phase"
-                                    )
-                                if effective_phase not in known_phases:
-                                    return (
-                                        f"{group_id}:{artifact_id} at unknown phase "
-                                        f"{effective_phase}"
-                                    )
-                                if effective_phase not in relevant_phases:
-                                    continue
-                                if identity in safe_goals:
-                                    continue
-                                if (
-                                    identity in skipped_test_goals
-                                    and property_is_true(parsed, "skipTests")
-                                ):
-                                    if test_execution_skip_configuration_is_safe(plugin):
-                                        continue
-                                    return (
-                                        f"{group_id}:{artifact_id}:{goal_name} "
-                                        f"at {effective_phase} overrides `-DskipTests`"
-                                    )
-                                return (
-                                    f"{group_id}:{artifact_id}:{goal_name} "
-                                    f"at {effective_phase}"
-                                )
-    return None
-
-
-def maven_unclassified_test_compile_execution(root, effective_pom, parsed):
-    return maven_unclassified_lifecycle_execution(
-        root,
-        effective_pom,
-        parsed,
-        "test-compile",
-        MAVEN_TEST_COMPILE_SAFE_GOALS,
-    )
-
-
-def verify_maven_test_compile_lifecycle(root, command, parsed, timeout):
-    effective_pom = maven_effective_pom(root, command, parsed, timeout)
-    unclassified = maven_unclassified_test_compile_execution(
-        root,
-        effective_pom,
-        parsed,
-    )
-    if unclassified:
-        raise EvidenceError(
-            "Question 8 cannot verify that Maven test compilation avoids test "
-            f"execution: unclassified effective lifecycle action {unclassified}"
-        )
-
-
-def verify_gradle_test_compile_graph(root, target, command, parsed, timeout):
-    task_records, _ = gradle_inspection(root, target, command, timeout)
-    verify_gradle_task_graph_avoids_test_execution(
-        task_records,
-        parsed,
-        "test-source compilation",
-    )
-    if not any(
-        task_leaf(task) in GRADLE_TEST_SOURCE_COMPILE_TASKS
-        and gradle_module_selected(root, target, project_directory)
-        for task, _, project_directory in task_records
-    ):
-        raise EvidenceError(
-            "Question 8 Gradle test-source compilation task graph does not include "
-            "a module test-source compiler task"
-        )
-    requested_test_compile_tasks = [
-        task for task in parsed["tasks"] if task_leaf(task) == "testclasses"
-    ]
-    if not gradle_command_selects_module_tasks(
-        root,
-        target,
-        parsed,
-        task_records,
-        requested_test_compile_tasks,
-    ):
-        raise EvidenceError(
-            "Question 8 Gradle test-source compilation command does not select "
-            "the recorded module"
-        )
-    unclassified = sorted(
-        task for task, _, _ in task_records
-        if task_leaf(task) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
-    )
-    if unclassified:
-        raise EvidenceError(
-            "Question 8 cannot verify that Gradle test-source compilation avoids test "
-            "execution: unclassified task-graph actions "
-            + ", ".join(unclassified)
-        )
-
-
-def task_leaf(task):
-    return task.rsplit(":", 1)[-1].casefold()
-
-
-def compiles_test_sources(root, target, command, parsed=None, timeout=None):
-    tool = build_tool(command)
-    if tool is None:
-        return False
-    parsed = parsed or parse_build_command(command, tool)
-    tasks = [task_leaf(task) for task in parsed["tasks"]]
-    if tool == "maven":
-        if (
-            parsed["dry_run"]
-            or not maven_module_selection_is_exact(root, target, parsed)
-            or maven_test_compilation_disabled(root, parsed, command)
-            or maven_pom_skips_test_compilation(root, target)
-            or maven_project_arguments_present(root, command)
-            or "test-compile" not in tasks
-            or set(tasks) - {"clean", "test-compile"}
-        ):
-            return False
-        verify_maven_test_compile_lifecycle(root, command, parsed, timeout)
-        return True
-    if (
-        parsed["dry_run"]
-        or parsed["excluded_tasks"]
-        or not any(
-            task_leaf(task) == "testclasses"
-            and gradle_command_may_select_module(root, target, parsed, task)
-            for task in parsed["tasks"]
-        )
-        or set(tasks) - {"clean", "testclasses"}
-    ):
-        return False
-    verify_gradle_test_compile_graph(root, target, command, parsed, timeout)
-    return True
-
-
-def gradle_task_is_excluded(parsed, task):
-    return any(
-        excluded_task == task
-        or (
-            ":" not in excluded_task
-            and excluded_task == task.rsplit(":", 1)[-1]
-        )
-        for excluded_task in parsed["excluded_tasks"]
-    )
-
-
-def gradle_module_task_path(root, target, parsed, task):
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        return None
-    module_path = "." if parsed["project_dirs"] else target_path
-    if module_path == ".":
-        return f":{task}"
-    return f":{module_path.replace('/', ':')}:{task}"
-
-
-def maven_executes_tests(parsed):
-    tasks = {task_leaf(task) for task in parsed["tasks"]}
-    if tasks & MAVEN_TEST_EXECUTION_GOALS:
-        return True
-    return "package" in tasks and not property_is_true(parsed, "skipTests")
-
-
-def gradle_executes_tests(parsed):
-    for task in parsed["tasks"]:
-        leaf = task_leaf(task)
-        if leaf in {"build", "check"}:
-            if not gradle_task_is_excluded(parsed, "test"):
-                return True
-        elif "test" in leaf and leaf not in GRADLE_TEST_COMPILE_TASKS:
-            if not gradle_task_is_excluded(parsed, task):
-                return True
-    return False
-
-
-def has_test_compile_task(parsed, tool):
-    if tool == "maven":
-        return any(task_leaf(task) == "test-compile" for task in parsed["tasks"])
-    return any(task_leaf(task) in GRADLE_TEST_COMPILE_TASKS for task in parsed["tasks"])
-
-
-def gradle_inspection_context(root, target, executable_hint=None, project_dirs=()):
-    root = root.resolve(strict=True)
-    target_path = project_relative_path(root, target)
-    if target_path is None:
-        raise EvidenceError(
-            f"Question 8 cannot establish a Gradle project for module {target}"
-        )
-    module_root = (root / target_path).resolve(strict=True)
-
-    def has_build_file(directory, names):
-        for name in names:
-            path = directory / name
-            if path.is_symlink():
-                raise EvidenceError(f"Question 8 refuses symlinked Gradle configuration: {path}")
-            if path.is_file():
-                return True
-        return False
-
-    settings = has_build_file(root, ("settings.gradle", "settings.gradle.kts"))
-    root_build = has_build_file(root, ("build.gradle", "build.gradle.kts"))
-    module_build = has_build_file(module_root, ("build.gradle", "build.gradle.kts"))
-    selected_project_dirs = {
-        project_relative_path(root, project_dir)
-        for project_dir in project_dirs
-    }
-    if project_dirs:
-        if selected_project_dirs != {target_path} or not module_build:
-            raise EvidenceError(
-                f"Question 8 cannot verify the Gradle project directory for module {target}"
-            )
-        gradle_root = module_root
-    elif settings:
-        gradle_root = root
-    elif module_build:
-        gradle_root = module_root
-    elif target_path == "." and root_build:
-        gradle_root = root
-    else:
-        raise EvidenceError(
-            f"Question 8 cannot establish Gradle build configuration for module {target}"
-        )
-
-    wrapper = gradle_root / "gradlew"
-    if wrapper.is_symlink():
-        raise EvidenceError(f"Question 8 refuses a symlinked Gradle wrapper: {wrapper}")
-    executable = (
-        str(wrapper)
-        if wrapper.is_file()
-        else executable_hint or shutil.which("gradle")
-    )
-    if not executable:
-        raise EvidenceError("Question 8 cannot inspect the configured Gradle build")
-    return gradle_root, module_root, executable
-
-
-def gradle_inspection(root, target, command, timeout):
-    parsed = parse_build_command(command, "gradle") if command else None
-    gradle_root, module_root, executable = gradle_inspection_context(
-        root,
-        target,
-        command[0] if command else None,
-        parsed["project_dirs"] if parsed is not None else (),
-    )
-    validate_trusted_executable_path(
-        root,
-        [executable],
-        wrapper_roots=(gradle_root,),
-    )
-    init_script = """import org.gradle.api.tasks.bundling.AbstractArchiveTask
-
-gradle.projectsEvaluated {
-    def selectedDirectory = new File(
-        gradle.startParameter.projectProperties.get("nwfModuleDirectory")
-    ).canonicalFile
-    def selectedProjects = gradle.rootProject.allprojects.findAll {
-        it.projectDir.canonicalFile == selectedDirectory
-    }
-    if (selectedProjects.size() != 1) {
-        println("NWF-PROJECT-ERROR")
-    } else {
-        def selectedProject = selectedProjects[0]
-        selectedProject.tasks.withType(AbstractArchiveTask).each { task ->
-            println("NWF-ARCHIVE\\t${task.path}\\t${task.archiveFile.get().asFile.canonicalPath}")
-        }
-    }
-}
-
-gradle.taskGraph.whenReady { graph ->
-    graph.allTasks.each { task ->
-        def isTestTask = task instanceof org.gradle.api.tasks.testing.Test
-        println("NWF-TASK\\t${task.path}\\t${isTestTask ? 'test' : 'other'}\\t${task.project.projectDir.canonicalPath}")
-    }
-}
-"""
-    with tempfile.TemporaryDirectory(
-        prefix=".migrate-only-gradle-inspection-",
-        dir=root,
-    ) as temporary_directory:
-        init_path = Path(temporary_directory) / "inspect.gradle"
-        try:
-            init_path.write_text(init_script, encoding="utf-8")
-        except OSError as exc:
-            raise EvidenceError(f"Question 8 cannot create Gradle inspection script: {exc}") from exc
-        inspection_command = (
-            [executable, "tasks"]
-            if command is None
-            else list(command)
-        )
-        inspection_command.extend(
-            (
-                "--init-script",
-                str(init_path),
-                f"-PnwfModuleDirectory={module_root}",
-                "--dry-run",
-                "--console=plain",
-            )
-        )
-        try:
-            completed = subprocess.run(
-                inspection_command,
-                cwd=gradle_root if command is None else root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                errors="replace",
-                timeout=timeout if timeout is not None else 120,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as exc:
-            raise EvidenceError(
-                "Question 8 Gradle task-graph inspection timed out"
-            ) from exc
-        except OSError as exc:
-            raise EvidenceError(
-                f"Question 8 cannot inspect the Gradle task graph: {exc}"
-            ) from exc
-        if completed.returncode != 0:
-            raise EvidenceError(
-                "Question 8 cannot inspect the Gradle task graph "
-                f"(exit code {completed.returncode})"
-            )
-
-    task_records = []
-    archive_records = []
-    dry_run_tasks = []
-    if "NWF-PROJECT-ERROR" in completed.stdout:
-        raise EvidenceError(
-            f"Question 8 cannot resolve the Gradle project directory for module {target}"
-        )
-    for line in completed.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("> Task "):
-            stripped = stripped[len("> Task "):]
-        fields = stripped.split()
-        if len(fields) >= 2 and fields[0].startswith(":") and fields[1] == "SKIPPED":
-            dry_run_tasks.append(fields[0])
-        if stripped.startswith("NWF-TASK\t"):
-            fields = stripped.split("\t", 3)
-            if len(fields) == 4 and fields[2] in {"test", "other"}:
-                task_records.append(
-                    (fields[1], fields[2] == "test", Path(fields[3]))
-                )
-        elif stripped.startswith("NWF-ARCHIVE\t"):
-            fields = stripped.split("\t", 2)
-            if len(fields) == 3:
-                archive_records.append((fields[1], Path(fields[2])))
-
-    if not task_records or set(dry_run_tasks) != {
-        path for path, _, _ in task_records
-    }:
-        raise EvidenceError(
-            "Question 8 cannot verify the complete Gradle task graph"
-        )
-    return task_records, archive_records
-
-
-def verify_gradle_task_graph_avoids_test_execution(task_records, parsed, operation):
-    unexcluded_test_tasks = sorted(
-        path
-        for path, is_test_task, _ in task_records
-        if (
-            is_test_task
-            or (
-                "test" in task_leaf(path)
-                and task_leaf(path) not in GRADLE_TEST_COMPILE_GRAPH_TASKS
-            )
-        )
-        and not gradle_task_is_excluded(parsed, path)
-    )
-    if unexcluded_test_tasks:
-        raise EvidenceError(
-            f"Question 8 cannot verify that Gradle {operation} avoids test execution: "
-            "unexcluded test tasks " + ", ".join(unexcluded_test_tasks)
-        )
-
-
-def runtime_check_uses_packaging_command(key, command):
-    if (
-        key[0] != "module"
-        or key[2] not in RUNTIME_CHECKS
-        or not command
-    ):
-        return False
-    tool = build_tool(command)
-    if tool is None:
-        return False
-    parsed = parse_build_command(command, tool)
-    if tool == "maven":
-        packaging_tasks = MAVEN_PACKAGING_PHASES | MAVEN_PACKAGING_GOALS
-        return any(
-            task_leaf(task.partition("@")[0]) in packaging_tasks
-            for task in parsed["tasks"]
-        )
-    return any(
-        task_leaf(task) in GRADLE_PACKAGE_TASKS for task in parsed["tasks"]
-    )
-
-
-def is_runtime_check(key):
-    return key[0] == "module" and key[2] in RUNTIME_CHECKS
-
-
-SPRING_BOOT_RUNTIME_CHECKS = {"spring_boot_run", "executable_jar"}
-
-
-def spring_boot_startup_application(marker):
-    if not isinstance(marker, str):
-        return None
-    match = re.fullmatch(r"Started ([A-Za-z_$][A-Za-z0-9_$]*)", marker.strip())
-    return match.group(1) if match else None
-
-
-def runtime_startup_marker_observed(key, check):
-    if not is_runtime_check(key):
-        return False
-    marker = check.get("startup_marker")
-    output = check.get("output")
-    if key[2] in SPRING_BOOT_RUNTIME_CHECKS:
-        application = spring_boot_startup_application(marker)
-        if application is None or not isinstance(output, str):
-            return False
-        startup_line = re.compile(
-            r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}"
-            r"(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\s+"
-            r"INFO\s+\d+\s+---\s+"
-            r"(?:\[[^\]\r\n]+\]\s+){1,2}"
-            r"[^:\r\n]+\s+:\s+Started\s+"
-            + re.escape(application)
-            + r"\s+in\s+\d+(?:\.\d+)?\s+seconds"
-            + r"(?:\s+\((?:JVM|process) running for \d+(?:\.\d+)?\))?"
-        )
-        return any(startup_line.fullmatch(line) for line in output.splitlines())
-    return (
-        isinstance(marker, str)
-        and bool(marker.strip())
-        and isinstance(output, str)
-        and marker in output.splitlines()
-    )
-
-
-def kill_process(process):
-    try:
-        process.kill()
-    except OSError:
-        if process.poll() is None:
-            raise
-    process.wait()
-
-
-class _WindowsProcessJob:
-    PROCESS_SET_QUOTA = 0x0100
-    PROCESS_TERMINATE = 0x0001
-    THREAD_SUSPEND_RESUME = 0x0002
-    TH32CS_SNAPTHREAD = 0x00000004
-    CREATE_SUSPENDED = 0x00000004
-    ERROR_NO_MORE_FILES = 18
-
-    def __init__(self):
-        import ctypes
-        from ctypes import wintypes
-
-        self._ctypes = ctypes
-        self._wintypes = wintypes
-        self._kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        self._handle = None
-        self._invalid_handle = ctypes.c_void_p(-1).value
-        self._kernel32.CreateJobObjectW.argtypes = (
-            wintypes.LPVOID,
-            wintypes.LPCWSTR,
-        )
-        self._kernel32.CreateJobObjectW.restype = wintypes.HANDLE
-        self._kernel32.OpenProcess.argtypes = (
-            wintypes.DWORD,
-            wintypes.BOOL,
-            wintypes.DWORD,
-        )
-        self._kernel32.OpenProcess.restype = wintypes.HANDLE
-        self._kernel32.AssignProcessToJobObject.argtypes = (
-            wintypes.HANDLE,
-            wintypes.HANDLE,
-        )
-        self._kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
-        self._kernel32.TerminateJobObject.argtypes = (
-            wintypes.HANDLE,
-            wintypes.UINT,
-        )
-        self._kernel32.TerminateJobObject.restype = wintypes.BOOL
-        self._kernel32.CreateToolhelp32Snapshot.argtypes = (
-            wintypes.DWORD,
-            wintypes.DWORD,
-        )
-        self._kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-        self._kernel32.Thread32First.argtypes = (
-            wintypes.HANDLE,
-            wintypes.LPVOID,
-        )
-        self._kernel32.Thread32First.restype = wintypes.BOOL
-        self._kernel32.Thread32Next.argtypes = (
-            wintypes.HANDLE,
-            wintypes.LPVOID,
-        )
-        self._kernel32.Thread32Next.restype = wintypes.BOOL
-        self._kernel32.OpenThread.argtypes = (
-            wintypes.DWORD,
-            wintypes.BOOL,
-            wintypes.DWORD,
-        )
-        self._kernel32.OpenThread.restype = wintypes.HANDLE
-        self._kernel32.ResumeThread.argtypes = (wintypes.HANDLE,)
-        self._kernel32.ResumeThread.restype = wintypes.DWORD
-        self._kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
-        self._kernel32.CloseHandle.restype = wintypes.BOOL
-
-        self._handle = self._kernel32.CreateJobObjectW(None, None)
-        if not self._handle:
-            raise ctypes.WinError(ctypes.get_last_error())
-
-    def _close_handle(self, handle):
-        if not self._kernel32.CloseHandle(handle):
-            raise self._ctypes.WinError(self._ctypes.get_last_error())
-
-    def assign(self, process):
-        process_handle = self._kernel32.OpenProcess(
-            self.PROCESS_SET_QUOTA | self.PROCESS_TERMINATE,
-            False,
-            process.pid,
-        )
-        if not process_handle:
-            raise self._ctypes.WinError(self._ctypes.get_last_error())
-        try:
-            if not self._kernel32.AssignProcessToJobObject(
-                self._handle,
-                process_handle,
-            ):
-                raise self._ctypes.WinError(self._ctypes.get_last_error())
-        finally:
-            self._close_handle(process_handle)
-
-    def resume(self, process):
-        class ThreadEntry32(self._ctypes.Structure):
-            _fields_ = (
-                ("dwSize", self._wintypes.DWORD),
-                ("cntUsage", self._wintypes.DWORD),
-                ("th32ThreadID", self._wintypes.DWORD),
-                ("th32OwnerProcessID", self._wintypes.DWORD),
-                ("tpBasePri", self._wintypes.LONG),
-                ("tpDeltaPri", self._wintypes.LONG),
-                ("dwFlags", self._wintypes.DWORD),
-            )
-
-        # Popen closes the initial thread handle, so find the suspended thread by PID.
-        snapshot = self._kernel32.CreateToolhelp32Snapshot(
-            self.TH32CS_SNAPTHREAD,
-            0,
-        )
-        if not snapshot or snapshot == self._invalid_handle:
-            raise self._ctypes.WinError(self._ctypes.get_last_error())
-        thread_handle = None
-        try:
-            entry = ThreadEntry32()
-            entry.dwSize = self._ctypes.sizeof(entry)
-            found = self._kernel32.Thread32First(
-                snapshot,
-                self._ctypes.byref(entry),
-            )
-            while found:
-                if entry.th32OwnerProcessID == process.pid:
-                    thread_handle = self._kernel32.OpenThread(
-                        self.THREAD_SUSPEND_RESUME,
-                        False,
-                        entry.th32ThreadID,
-                    )
-                    if not thread_handle:
-                        raise self._ctypes.WinError(
-                            self._ctypes.get_last_error()
-                        )
-                    break
-                entry.dwSize = self._ctypes.sizeof(entry)
-                found = self._kernel32.Thread32Next(
-                    snapshot,
-                    self._ctypes.byref(entry),
-                )
-            if thread_handle is None:
-                error = self._ctypes.get_last_error()
-                if error != self.ERROR_NO_MORE_FILES:
-                    raise self._ctypes.WinError(error)
-                raise OSError(
-                    "Could not find the runtime process thread to resume"
-                )
-            while True:
-                suspend_count = self._kernel32.ResumeThread(thread_handle)
-                if suspend_count == 0xFFFFFFFF:
-                    raise self._ctypes.WinError(self._ctypes.get_last_error())
-                if suspend_count <= 1:
-                    break
-        finally:
-            if thread_handle is not None:
-                self._close_handle(thread_handle)
-            self._close_handle(snapshot)
-
-    def terminate(self):
-        if self._handle is None:
-            raise OSError("The Windows runtime process job is closed")
-        if not self._kernel32.TerminateJobObject(self._handle, 1):
-            raise self._ctypes.WinError(self._ctypes.get_last_error())
-
-    def close(self):
-        if self._handle is None:
-            return
-        handle = self._handle
-        self._handle = None
-        self._close_handle(handle)
-
-
-def terminate_runtime_process_tree(process, job=None):
-    if os.name == "nt":
-        if job is None:
-            raise OSError(
-                "Could not terminate the Windows runtime process tree "
-                "without its Job Object"
-            )
-        job.terminate()
-    else:
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        except OSError:
-            kill_process(process)
-            raise
-    process.wait()
-
-
-def run_runtime_command(command, cwd, timeout):
-    options = {
-        "cwd": cwd,
-        "stdout": subprocess.PIPE,
-        "stderr": subprocess.STDOUT,
-        "text": True,
-        "errors": "replace",
-    }
-    job = None
-    if os.name == "nt":
-        job = _WindowsProcessJob()
-        options["creationflags"] = (
-            subprocess.CREATE_NEW_PROCESS_GROUP | job.CREATE_SUSPENDED
-        )
-    else:
-        options["start_new_session"] = True
-    process = None
-    process_tree_terminated = False
-    try:
-        process = subprocess.Popen(command, **options)
-        if job is not None:
-            assigned = False
-            resumed = False
-            try:
-                # Assign before resume so spawned descendants inherit the job.
-                job.assign(process)
-                assigned = True
-                job.resume(process)
-                resumed = True
-            except OSError as exc:
-                raise OSError(
-                    f"Could not start the runtime process in a Windows Job "
-                    f"Object: {exc}"
-                ) from exc
-            finally:
-                if not resumed:
-                    if assigned:
-                        job.terminate()
-                        process.wait()
-                    else:
-                        kill_process(process)
-                    process_tree_terminated = True
-        try:
-            output, _ = process.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired as exc:
-            try:
-                terminate_runtime_process_tree(process, job)
-                process_tree_terminated = True
-            except OSError:
-                if process.stdout is not None:
-                    process.stdout.close()
-                raise
-            output, _ = process.communicate()
-            raise subprocess.TimeoutExpired(command, timeout, output=output) from exc
-        return subprocess.CompletedProcess(command, process.returncode, output)
-    finally:
-        try:
-            if process is not None and not process_tree_terminated:
-                terminate_runtime_process_tree(process, job)
-        finally:
-            if job is not None:
-                job.close()
-
-
-def is_spring_boot_run_task(task, tool):
-    if tool == "maven":
-        if task == "spring-boot:run":
-            return True
-        coordinates = task.split(":")
-        return (
-            len(coordinates) in {3, 4}
-            and coordinates[0] == "org.springframework.boot"
-            and coordinates[1] == "spring-boot-maven-plugin"
-            and coordinates[-1] == "run"
-            and (len(coordinates) == 3 or bool(coordinates[2]))
-        )
-    return task_leaf(task) == "bootrun"
-
-
-def shell_command(command):
-    if build_tool(command) is not None:
-        return False
-    executable = command_executable(command)
-    raw_executable = PureWindowsPath(command[0]).name.casefold()
-    return executable in SHELL_EXECUTABLES or raw_executable.endswith(
-        (".bash", ".bat", ".cmd", ".ps1", ".sh")
-    )
-
-
-def test_runner_command(command):
-    executable = command_executable(command)
-    if executable in {"node", "py", "python", "python3"} and any(
-        "test" in PureWindowsPath(argument).name.casefold()
-        and Path(argument).suffix.casefold() in {".cjs", ".js", ".mjs", ".py", ".ts"}
+def compiles_test_sources(command):
+    goals = {argument.rsplit(":", 1)[-1] for argument in command[1:]}
+    skips = any(
+        argument.removeprefix("-D").startswith("maven.test.skip")
+        and argument.removeprefix("-D") != "maven.test.skip=false"
         for argument in command[1:]
-        if not argument.startswith("-")
-    ):
-        return True
-    if executable in {"pytest", "py.test", "tox", "nosetests", "dotnet"}:
-        return executable != "dotnet" or any(arg.casefold() == "test" for arg in command[1:])
-    if executable in {"python", "python3", "py"}:
-        return any(
-            arg == "-m" and index + 1 < len(command)
-            and command[index + 1].casefold() in {"pytest", "unittest", "nose", "tox"}
-            for index, arg in enumerate(command[1:], start=1)
-        )
-    if executable in {"npm", "pnpm", "yarn", "bun"}:
-        arguments = [arg.casefold() for arg in command[1:]]
-        return any(
-            argument == "test" or argument.startswith("test:")
-            for argument in arguments
-        )
-    if executable in {"go", "make"}:
-        return any(arg.casefold() == "test" for arg in command[1:])
-    if executable == "java":
-        return any(
-            main_class in argument.casefold()
-            for argument in command[1:]
-            for main_class in JAVA_TEST_RUNNER_MAIN_CLASSES
-        )
-    return "test" in executable
-
-
-def java_manifest_entry_points(manifest):
-    headers = {}
-    current_header = None
-    for line in manifest.splitlines():
-        if not line:
-            break
-        if line.startswith(" "):
-            if current_header is None:
-                return None
-            headers[current_header] += line[1:]
-            continue
-        name, separator, value = line.partition(":")
-        if not separator or not name.strip():
-            return None
-        current_header = name.strip().casefold()
-        if current_header in headers:
-            return None
-        headers[current_header] = value.lstrip()
-    return {
-        header_name: headers[header_name].strip()
-        for header_name in ("main-class", "start-class")
-        if headers.get(header_name)
-    }
-
-
-def java_launcher_options_can_skip_application(options):
-    index = 0
-    while index < len(options):
-        option = options[index]
-        option_name, separator, _ = option.partition("=")
-        if (
-            option.startswith("@")
-            or option.startswith(JAVA_LAUNCHER_CODE_LOADING_OPTIONS)
-            or option_name in JAVA_LAUNCHER_EARLY_EXIT_OPTIONS
-            or option_name in JAVA_LAUNCHER_ALTERNATE_ENTRY_OPTIONS
-        ):
-            return True
-        if option_name in JAVA_LAUNCHER_OPTIONS_WITH_VALUE:
-            if not separator:
-                if index + 1 >= len(options):
-                    return True
-                index += 2
-            else:
-                index += 1
-            continue
-        if not option.startswith("-"):
-            return True
-        index += 1
-    return False
-
-
-def java_environment_options_can_skip_application():
-    for name in JAVA_OPTION_ENVIRONMENTS:
-        try:
-            options = shlex.split(os.environ.get(name, ""))
-        except ValueError as exc:
-            raise EvidenceError(f"Cannot parse {name}: {exc}") from exc
-        if java_launcher_options_can_skip_application(options):
-            return True
-    return False
-
-
-def maven_module_effective_pom(root, module, timeout):
-    module_path = project_relative_path(root, module)
-    if module_path is None:
-        raise EvidenceError(
-            f"Question 8 cannot establish the Maven module path for {module}"
-        )
-    module_root = root / module_path
-    pom = module_root / "pom.xml"
-    if pom.is_symlink():
-        raise EvidenceError(f"Question 8 refuses a symlinked Maven POM: {pom}")
-    if not pom.is_file():
-        raise EvidenceError(
-            f"Question 8 cannot establish the Maven artifact for module {module}"
-        )
-    wrapper = root / "mvnw"
-    if wrapper.is_symlink():
-        raise EvidenceError(f"Question 8 refuses a symlinked Maven wrapper: {wrapper}")
-    executable = str(wrapper) if wrapper.is_file() else "mvn"
-    command = [executable, "-f", pom.relative_to(root).as_posix()]
-    if maven_project_arguments_present(root, command):
-        raise EvidenceError(
-            "Question 8 cannot inspect Maven artifact configuration when "
-            "MAVEN_ARGS or `.mvn/maven.config` adds unverified arguments"
-        )
-    parsed = parse_build_command(command, "maven")
-    return maven_effective_pom(root, command, parsed, timeout)
-
-
-def maven_module_application_jar_paths(root, module, effective_pom):
-    def local_name(element):
-        return element.tag.rsplit("}", 1)[-1]
-
-    def child(element, name):
-        if element is None:
-            return None
-        return next(
-            (item for item in element if local_name(item) == name),
-            None,
-        )
-
-    def child_text(element, name):
-        value = child(element, name)
-        return (value.text or "").strip() if value is not None else ""
-
-    def configured_classifier(configuration):
-        classifier_element = child(configuration, "classifier")
-        if classifier_element is None:
-            return None
-        classifier = (classifier_element.text or "").strip()
-        if not classifier:
-            return ""
-        if (
-            "${" in classifier
-            or classifier in {".", ".."}
-            or Path(classifier).name != classifier
-            or PureWindowsPath(classifier).name != classifier
-        ):
-            raise EvidenceError(
-                "Question 8 cannot resolve the Spring Boot repackage classifier"
-            )
-        return classifier
-
-    module_root = (root / module).resolve(strict=True)
-    packaging = child_text(effective_pom, "packaging") or "jar"
-    if packaging.casefold() != "jar":
-        raise EvidenceError(
-            f"Question 8 cannot establish an executable JAR for Maven packaging {packaging}"
-        )
-    build = next(
-        (child for child in effective_pom if local_name(child) == "build"),
-        None,
     )
-    artifact_id = child_text(effective_pom, "artifactId")
-    version = child_text(effective_pom, "version")
-    directory = child_text(build, "directory") if build is not None else ""
-    final_name = child_text(build, "finalName") if build is not None else ""
-    if not final_name:
-        if not artifact_id or not version or "${" in artifact_id or "${" in version:
-            raise EvidenceError(
-                "Question 8 cannot resolve the Maven module's configured artifact name"
-            )
-        final_name = f"{artifact_id}-{version}"
-    if (
-        "${" in final_name
-        or Path(final_name).name != final_name
-        or PureWindowsPath(final_name).name != final_name
-        or final_name in {"", ".", ".."}
-    ):
-        raise EvidenceError(
-            "Question 8 cannot resolve the Maven module's configured artifact name"
-        )
-    output_directory = Path(directory or "target")
-    if not output_directory.is_absolute():
-        output_directory = module_root / output_directory
-    output_directory = output_directory.resolve(strict=False)
-    try:
-        output_directory.relative_to(module_root)
-    except ValueError as exc:
-        raise EvidenceError(
-            "Question 8 refuses a Maven artifact directory outside its module"
-        ) from exc
-
-    artifact_names = {final_name}
-    if build is not None:
-        for plugins in build:
-            if local_name(plugins) != "plugins":
-                continue
-            for plugin in plugins:
-                if (
-                    local_name(plugin) != "plugin"
-                    or child_text(plugin, "groupId").casefold()
-                    != "org.springframework.boot"
-                    or child_text(plugin, "artifactId").casefold()
-                    != "spring-boot-maven-plugin"
-                ):
-                    continue
-                plugin_configuration = child(plugin, "configuration")
-                for executions in plugin:
-                    if local_name(executions) != "executions":
-                        continue
-                    for execution in executions:
-                        if local_name(execution) != "execution":
-                            continue
-                        goals = {
-                            (goal.text or "").strip().casefold()
-                            for goals_element in execution
-                            if local_name(goals_element) == "goals"
-                            for goal in goals_element
-                            if local_name(goal) == "goal"
-                        }
-                        if "repackage" not in goals:
-                            continue
-                        plugin_classifier = configured_classifier(
-                            plugin_configuration
-                        )
-                        classifier = configured_classifier(
-                            child(execution, "configuration")
-                        )
-                        if classifier is None:
-                            classifier = plugin_classifier
-                        if classifier:
-                            artifact_names.add(f"{final_name}-{classifier}")
-
-    artifacts = set()
-    for artifact_name in artifact_names:
-        artifact = (output_directory / f"{artifact_name}.jar").resolve(strict=False)
-        try:
-            artifact.relative_to(module_root)
-        except ValueError as exc:
-            raise EvidenceError(
-                "Question 8 refuses a Maven artifact outside its module"
-            ) from exc
-        artifacts.add(artifact)
-    return artifacts
-
-
-def configured_module_application_jar_paths(root, module, timeout):
-    module_path = project_relative_path(root, module)
-    if module_path is None:
-        raise EvidenceError(
-            f"Question 8 cannot establish the build configuration for module {module}"
-        )
-    module_root = root / module_path
-    pom = module_root / "pom.xml"
-    if pom.is_symlink():
-        raise EvidenceError(f"Question 8 refuses a symlinked Maven POM: {pom}")
-    if pom.is_file():
-        effective_pom = maven_module_effective_pom(root, module_path, timeout)
-        return maven_module_application_jar_paths(root, module_path, effective_pom)
-    task_records, archive_records = gradle_inspection(
-        root,
-        module_path,
-        None,
-        timeout,
-    )
-    if not task_records or not archive_records:
-        raise EvidenceError(
-            f"Question 8 cannot establish a configured Maven or Gradle artifact for module {module}"
-        )
-    return {
-        path.resolve(strict=False)
-        for task, path in archive_records
-        if task_leaf(task) in {"bootjar", "jar"}
-        if path.suffix.casefold() == ".jar"
-    }
-
-
-def java_application_jar(root, key, command, timeout=None):
-    if (
-        key[0] != "module"
-        or key[2] not in {"executable_jar", "external_launcher"}
-        or key[3] is not None
-        or command_executable(command) != "java"
-    ):
-        return False
-    arguments = command[1:]
-    if test_runner_command(command) or arguments.count("-jar") != 1:
-        return False
-    jar_index = arguments.index("-jar")
-    if jar_index + 1 >= len(arguments):
-        return False
-    if (
-        java_launcher_options_can_skip_application(arguments[:jar_index])
-        or java_environment_options_can_skip_application()
-    ):
-        raise EvidenceError(
-            f"{key}: Java launcher options or an alternate entry point can prevent "
-            "application startup"
-        )
-    jar_path = Path(arguments[jar_index + 1])
-    if jar_path.suffix.casefold() != ".jar":
-        return False
-    jar_path = jar_path if jar_path.is_absolute() else root / jar_path
-    if jar_path.is_symlink():
-        raise EvidenceError(f"{key}: Question 8 refuses a symlinked Java artifact")
-    try:
-        jar_path = jar_path.resolve(strict=True)
-        module_root = (root / key[1]).resolve(strict=True)
-        relative_jar = jar_path.relative_to(module_root)
-    except (OSError, RuntimeError, ValueError) as exc:
-        raise EvidenceError(
-            f"{key}: Question 8 cannot establish that the Java JAR belongs to the module"
-        ) from exc
-    if not (
-        relative_jar.parts[0] == "target"
-        or relative_jar.parts[:2] == ("build", "libs")
-    ):
-        raise EvidenceError(
-            f"{key}: Question 8 cannot establish that the Java JAR is a module build artifact"
-        )
-    configured_artifacts = configured_module_application_jar_paths(
-        root,
-        key[1],
-        timeout,
-    )
-    if jar_path not in configured_artifacts:
-        raise EvidenceError(
-            f"{key}: Question 8 cannot establish that the Java JAR is the "
-            "module's configured application artifact"
-        )
-    try:
-        with zipfile.ZipFile(jar_path) as archive:
-            with archive.open("META-INF/MANIFEST.MF") as manifest_file:
-                manifest = manifest_file.read(65536).decode("utf-8", errors="replace")
-    except (OSError, KeyError, RuntimeError, zipfile.BadZipFile) as exc:
-        raise EvidenceError(
-            f"{key}: Question 8 cannot establish that the Java JAR is executable"
-        ) from exc
-    entry_points = java_manifest_entry_points(manifest)
-    if not entry_points or not entry_points.get("main-class"):
-        return False
-    for header_name, entry_point in (
-        ("Main-Class", entry_points.get("main-class")),
-        ("Start-Class", entry_points.get("start-class")),
-    ):
-        if entry_point and entry_point.casefold() in JAVA_TEST_RUNNER_MAIN_CLASSES:
-            raise EvidenceError(
-                f"{key}: Question 8 rejects Java test-runner {header_name} entry point "
-                f"{entry_point}"
-            )
-    return True
-
-
-def validate_runtime_launch_command(root, key, command, timeout=None, *, migrate_only=False):
-    prefix = "Question 8 Migrate tests only " if migrate_only else ""
-    if not isinstance(timeout, int) or timeout <= 0:
-        raise EvidenceError(
-            f"{prefix}{key}: runtime startup requires a positive command timeout"
-        )
-    if not command or not command[0]:
-        raise EvidenceError(f"{prefix}{key}: runtime startup requires a launch command")
-    validate_trusted_executable_path(
-        root,
-        command,
-        wrapper_roots=module_wrapper_roots(root, key),
-    )
-    if shell_command(command):
-        raise EvidenceError(
-            f"{prefix}{key}: runtime startup rejects shell-wrapped commands"
-        )
-    if test_runner_command(command):
-        raise EvidenceError(
-            f"{prefix}{key}: runtime startup rejects test-runner commands"
-        )
-
-    tool = build_tool(command)
-    parsed = parse_build_command(command, tool) if tool is not None else None
-    if parsed and parsed["dry_run"]:
-        raise EvidenceError(
-            f"{prefix}{key}: runtime startup requires an executed launch command"
-        )
-    if tool is not None:
-        if tool == "maven" and maven_project_arguments_present(root, command):
-            raise EvidenceError(
-                f"{prefix}{key}: runtime startup cannot verify Maven project "
-                "arguments from MAVEN_ARGS or `.mvn/maven.config`"
-            )
-        if has_test_compile_task(parsed, tool):
-            raise EvidenceError(
-                f"{prefix}{key}: runtime startup rejects test-compilation commands"
-            )
-        executes_tests = (
-            maven_executes_tests(parsed)
-            if tool == "maven"
-            else gradle_executes_tests(parsed)
-        )
-        if executes_tests:
-            raise EvidenceError(
-                f"{prefix}{key}: runtime startup rejects test-execution goals or tasks"
-            )
-        if runtime_check_uses_packaging_command(key, command):
-            raise EvidenceError(
-                f"{prefix}{key}: packaging does not prove runtime startup. "
-                "Run packaging outside the evidence recorder and record a bounded launch command."
-            )
-
-        runtime_tasks = [
-            task for task in parsed["tasks"] if is_spring_boot_run_task(task, tool)
-        ]
-        if runtime_tasks:
-            if key[0] != "module" or key[2] != "spring_boot_run":
-                raise EvidenceError(
-                    f"{prefix}{key}: runtime startup accepts Spring Boot launches "
-                    "only for spring_boot_run checks"
-                )
-            if tool == "maven" and not maven_module_selected(
-                root,
-                key[1],
-                parsed,
-            ):
-                raise EvidenceError(
-                    f"{prefix}{key}: runtime startup command does not select "
-                    "the recorded module"
-                )
-            if tool == "gradle" and not all(
-                gradle_command_may_select_module(
-                    root,
-                    key[1],
-                    parsed,
-                    task,
-                )
-                for task in runtime_tasks
-            ):
-                raise EvidenceError(
-                    f"{prefix}{key}: runtime startup command does not select "
-                    "the recorded module"
-                )
-            if any(
-                task not in runtime_tasks and task_leaf(task) != "clean"
-                for task in parsed["tasks"]
-            ):
-                raise EvidenceError(
-                    f"{prefix}{key}: runtime startup cannot verify additional "
-                    "build goals alongside a Spring Boot launch"
-                )
-            if (
-                tool == "maven"
-                and (
-                    property_is_true(parsed, "skipTests")
-                    or property_is_true(parsed, "maven.test.skip")
-                )
-            ) or (
-                tool == "gradle"
-                and any(
-                    "test" in task_leaf(task) for task in parsed["excluded_tasks"]
-                )
-            ):
-                raise EvidenceError(
-                    f"{prefix}{key}: runtime startup does not allow test-skip flags"
-                )
-            if tool == "gradle":
-                task_records, _ = gradle_inspection(
-                    root,
-                    key[1],
-                    command,
-                    timeout,
-                )
-                verify_gradle_task_graph_avoids_test_execution(
-                    task_records,
-                    parsed,
-                    "Spring Boot launch",
-                )
-                if not gradle_command_selects_module_tasks(
-                    root,
-                    key[1],
-                    parsed,
-                    task_records,
-                    runtime_tasks,
-                ):
-                    raise EvidenceError(
-                        f"{prefix}{key}: runtime startup command does not select "
-                        "the recorded module"
-                    )
-            return
-        raise EvidenceError(
-            f"{prefix}{key}: runtime startup requires a recognized Spring Boot launch, "
-            "not an arbitrary Maven or Gradle goal"
-        )
-
-    if java_application_jar(root, key, command, timeout):
-        return
-    if migrate_only:
-        raise EvidenceError(
-            "Question 8 Migrate tests only rejects unverified executable commands"
-        )
-    raise EvidenceError(
-        f"{prefix}{key}: runtime startup requires a verified application launch command"
-    )
-
-
-def normalized_model_target(root, value):
-    if not isinstance(value, str):
-        return None
-    return project_relative_path(root, value.split("#", 1)[0])
-
-
-def verified_non_test_command(root, key, command):
-    executable = command_executable(command)
-    model_target = (
-        normalized_model_target(root, key[1])
-        if key[0] == "model"
-        else None
-    )
-
-    def model_target_matches(value):
-        return (
-            model_target is not None
-            and normalized_model_target(root, value) == model_target
-        )
-
-    model_suffix = (
-        Path(key[1].split("#", 1)[0]).suffix.casefold()
-        if key[0] == "model"
-        else ""
-    )
-    if (
-        executable == "npx"
-        and key[0] == "model"
-        and key[2] == "lint"
-        and len(command) > 2
-        and (
-            model_suffix == ".bpmn" and command[1].casefold() == "bpmnlint"
-            or model_suffix == ".dmn" and command[1].casefold() == "dmnlint"
-        )
-        and model_target_matches(command[2])
-    ):
-        return True
-    if executable == "c8ctl" and key[0] == "model":
-        return (
-            key[2] == "lint"
-            and len(command) > 3
-            and (
-                model_suffix == ".bpmn"
-                and tuple(argument.casefold() for argument in command[1:3])
-                == ("bpmn", "lint")
-                or model_suffix == ".dmn"
-                and tuple(argument.casefold() for argument in command[1:3])
-                == ("dmn", "lint")
-            )
-            and model_target_matches(command[3])
-        ) or (
-            key[2] == "deployment"
-            and len(command) > 2
-            and command[1].casefold() == "deploy"
-            and model_target_matches(command[2])
-        )
-    return False
-
-
-def validate_migrate_only_command(root, key, command, timeout=None):
-    validate_trusted_executable_path(
-        root,
-        command,
-        wrapper_roots=module_wrapper_roots(root, key),
-    )
-    if key[0] == "module" and key[2] in RUNTIME_CHECKS:
-        validate_runtime_launch_command(
-            root,
-            key,
-            command,
-            timeout,
-            migrate_only=True,
-        )
-        return
-
-    tool = build_tool(command)
-    parsed = parse_build_command(command, tool) if tool is not None else None
-    if parsed and parsed["dry_run"]:
-        if key[0] == "module" and key[2] == "compile":
-            raise EvidenceError(
-                f"{key}: Question 8 Migrate tests only requires actual test-source compilation"
-            )
-        raise EvidenceError(
-            "Question 8 Migrate tests only does not accept Gradle dry-run commands"
-        )
-    if key[0] == "module" and key[2] == "compile":
-        if compiles_test_sources(root, key[1], command, parsed, timeout):
-            return
-        raise EvidenceError(
-            f"{key}: Question 8 Migrate tests only requires module-specific "
-            "test-source compilation with Maven `test-compile` or Gradle `testClasses`, "
-            "without an enabled `maven.test.skip` property or excluded Gradle tasks"
-        )
-    if shell_command(command):
-        raise EvidenceError(
-            "Question 8 Migrate tests only does not accept shell-wrapped commands"
-        )
-    if key == ("project", ".", "docker_info", None):
-        if command == ["docker", "info"]:
-            return
-        raise EvidenceError("Question 8 Migrate tests only requires the exact `docker info` command")
-    if test_runner_command(command):
-        raise EvidenceError(
-            "Question 8 Migrate tests only forbids test-execution commands for every check"
-        )
-    if verified_non_test_command(root, key, command):
-        return
-    if tool is not None:
-        if tool == "maven" and maven_project_arguments_present(root, command):
-            raise EvidenceError(
-                "Question 8 cannot verify Maven project arguments from MAVEN_ARGS "
-                "or `.mvn/maven.config`"
-            )
-        if has_test_compile_task(parsed, tool):
-            raise EvidenceError(
-                "Question 8 Migrate tests only accepts test-source compilation only "
-                "for module compile checks"
-            )
-        executes_tests = (
-            maven_executes_tests(parsed)
-            if tool == "maven"
-            else gradle_executes_tests(parsed)
-        )
-        if executes_tests:
-            raise EvidenceError(
-                "Question 8 Migrate tests only forbids test-execution commands for every check"
-            )
-        runtime_tasks = [
-            task for task in parsed["tasks"] if is_spring_boot_run_task(task, tool)
-        ]
-        if runtime_tasks:
-            raise EvidenceError(
-                "Question 8 Migrate tests only accepts Spring Boot launch commands "
-                "only for spring_boot_run checks"
-            )
-        packaging_tasks = (
-            {task_leaf(task) for task in parsed["tasks"]} & {"package"}
-            if tool == "maven"
-            else {task_leaf(task) for task in parsed["tasks"]} & GRADLE_PACKAGE_TASKS
-        )
-        if packaging_tasks:
-            raise EvidenceError(
-                "Question 8 Migrate tests only cannot record packaging as runtime evidence "
-                "because packaging does not prove runtime startup. "
-                "Run packaging outside the evidence recorder, then record a bounded launch command."
-            )
-        if tool == "maven":
-            skipped_tests = (
-                property_is_true(parsed, "skipTests")
-                or property_is_true(parsed, "maven.test.skip")
-            )
-        else:
-            skipped_tests = any(
-                "test" in task_leaf(task) for task in parsed["excluded_tasks"]
-            )
-        if skipped_tests:
-            raise EvidenceError(
-                "Question 8 Migrate tests only permits test-skip flags only for packaging checks"
-            )
-        if (
-            tool == "maven"
-            and key[0] == "module"
-            and key[2] == "configuration"
-            and parsed["tasks"]
-            and {task.casefold() for task in parsed["tasks"]} == {"help:effective-pom"}
-            and maven_module_selected(root, key[1], parsed)
-        ):
-            preflight_maven_extensions(root, parsed, command)
-            return
-        raise EvidenceError(
-            "Question 8 Migrate tests only cannot verify Maven or Gradle goals "
-            "as non-test commands for this check"
-        )
-    raise EvidenceError(
-        "Question 8 Migrate tests only rejects unverified executable commands"
-    )
+    return bool(goals & TEST_SOURCE_COMPILE_GOALS) and not skips
 
 
 def concrete_reference(value):
@@ -2982,7 +249,7 @@ def collect_source_files(
     module_paths = set(modules)
     for module in modules:
         scan_module(root, module, module_paths, hashes)
-    if test_contract is not None:
+    if test_contract is not None and test_contract["mode"] in TEST_RUN_MODES:
         module_paths = set(test_contract["modules"])
         for test in test_contract["tests"]:
             add_existing_source_file_hash(
@@ -3062,10 +329,6 @@ def test_suite_snapshot(suite):
         "reports": suite["reports"],
         "coverage_reports": suite["coverage_reports"],
     }
-    if suite["cpt_module"] != suite["module"]:
-        snapshot["cpt_module"] = suite["cpt_module"]
-    if suite["cpt_suite"] != suite["name"]:
-        snapshot["cpt_suite"] = suite["cpt_suite"]
     for root_type in ("test_source_roots", "test_resource_roots"):
         roots = suite.get(root_type, [])
         if roots:
@@ -3149,22 +412,14 @@ def initialize(root, reset_source_snapshot=False):
         if (
             not reset_source_snapshot
             and "run_id" in inventory
-            and (
-                inventory.get("test_run_mode") == "run"
-                or (
-                    "test_run_mode" not in inventory
-                    and inventory.get("test_suites")
-                )
-            )
+            and inventory.get("test_run_mode") == "run"
         ):
             raise EvidenceError(
                 "The C7 test baseline cannot be captured after this migration run started; "
                 "restore the C7 baseline before init --reset-source-snapshot"
             )
         current_test_contract = (
-            test_contract(root, inventory)
-            if "test_run_mode" in inventory or "test_suites" in inventory
-            else None
+            test_contract(root, inventory) if "test_run_mode" in inventory else None
         )
         source_files = collect_source_files(
             root,
@@ -3198,7 +453,7 @@ def initialize(root, reset_source_snapshot=False):
             "Step 2 inventory lacks the test contract source snapshot; "
             "restore the C7 baseline before init --reset-source-snapshot"
         )
-    elif "test_run_mode" in inventory or "test_suites" in inventory:
+    elif "test_run_mode" in inventory:
         validate_source_snapshot_test_contract(root, inventory)
     inventory["run_id"] = uuid4().hex
     write_json(root, INVENTORY, inventory)
@@ -3246,14 +501,7 @@ def scope(root, evidence):
         if any(not isinstance(entry, dict) for entry in entries):
             raise EvidenceError(f"Every {kind} must be an object")
         declared = strings([entry.get(key) for entry in entries], f"evidence {kind}s")
-        expected = set(original)
-        if kind == "module":
-            expected = {
-                target
-                for targets in step2_module_targets(inventory, original).values()
-                for target in targets
-            }
-        if expected != set(declared):
+        if set(original) != set(declared):
             raise EvidenceError(f"Evidence {kind}s differ from the confirmed Step 2 scope")
         resolved = [project_path(root, path, kind) for path in declared]
         if len(resolved) != len(set(resolved)):
@@ -3768,8 +1016,13 @@ def test_report_inventory(root, *, required=True):
         handling_text = re.sub(
             r"[\s_-]+", " ", values[columns["handling"]].casefold()
         ).strip()
-        handling = TEST_INVENTORY_HANDLING.get(handling_text)
-        if handling is None:
+        if handling_text.startswith("migrate"):
+            handling = "Migrate"
+        elif handling_text.startswith("report only"):
+            handling = "Report only"
+        elif handling_text == "not part of test migration":
+            continue
+        else:
             raise EvidenceError(
                 f"{test_id}: unsupported Test Inventory handling "
                 f"{values[columns['handling']]!r}"
@@ -3824,15 +1077,10 @@ def report_patterns(value, default, label):
     return patterns
 
 
-def test_directory_roots(root, module, module_paths, values, label, *, allow_missing_module=False):
+def test_directory_roots(root, module, module_paths, values, label):
     roots = strings(values, label)
-    module_path = project_path(
-        root,
-        module,
-        "Step 2 test suite module",
-        must_exist=not allow_missing_module,
-    )
-    if module_path.exists() and not module_path.is_dir():
+    module_path = project_path(root, module, "Step 2 test suite module", must_exist=True)
+    if not module_path.is_dir():
         raise EvidenceError(f"Step 2 test suite module is not a directory: {module}")
     nested_modules = []
     for other in module_paths:
@@ -3859,39 +1107,45 @@ def test_directory_roots(root, module, module_paths, values, label, *, allow_mis
 
 def test_contract(root, inventory):
     mode = read_test_run_mode(inventory)
+    if mode is None:
+        if any(
+            test["handling"] == "Migrate"
+            for test in test_report_inventory(root, required=False)
+        ):
+            raise EvidenceError(
+                "Step 2 test_run_mode is required when the Test Inventory contains "
+                "migratable tests"
+            )
+        return {
+            "mode": None,
+            "tests": [],
+            "suites": {},
+            "test_suites": {},
+            "modules": inventory.get("modules", []),
+        }
+
     tests = test_report_inventory(root, required=False)
     module_paths = set(strings(inventory.get("modules"), "Step 2 modules"))
+    test_by_id = {test["id"]: test for test in tests}
     for test in tests:
         if test["module"] not in module_paths:
             raise EvidenceError(
                 f"{test['id']}: Test Inventory module is outside the Step 2 scope"
             )
+
     migrate_ids = {
         test["id"] for test in tests if test["handling"] == "Migrate"
     }
-    if mode is None and migrate_ids:
-        raise EvidenceError(
-            "Step 2 test_run_mode is required when the Test Inventory contains migratable tests"
-        )
-    if mode is not None and not migrate_ids:
-        raise EvidenceError(
-            "Step 2 test_run_mode is not allowed unless the Test Inventory contains migratable tests"
-        )
-    test_by_id = {test["id"]: test for test in tests}
     suite_entries = inventory.get("test_suites", [])
     if not isinstance(suite_entries, list):
         raise EvidenceError("Step 2 test_suites must be an array")
     suites = {}
     test_suites = {}
-    migrated_suites = {}
-    migrated_test_suites = {}
     for entry in suite_entries:
         if not isinstance(entry, dict):
             raise EvidenceError("Every Step 2 test suite must be an object")
         module = entry.get("module")
         name = entry.get("name")
-        cpt_module = entry.get("cpt_module", module)
-        cpt_suite = entry.get("cpt_suite", name)
         command = entry.get("command")
         test_ids = entry.get("test_ids")
         if (
@@ -3899,18 +1153,12 @@ def test_contract(root, inventory):
             or module not in module_paths
             or not isinstance(name, str)
             or not name
-            or not isinstance(cpt_module, str)
-            or not cpt_module
-            or not isinstance(cpt_suite, str)
-            or not cpt_suite
             or not isinstance(command, list)
             or not command
             or any(not isinstance(part, str) or not part for part in command)
         ):
             raise EvidenceError("Step 2 test suite needs a module, name, and command")
-        project_path(root, cpt_module, "Step 2 CPT test suite module")
         key = (module, name)
-        cpt_key = (cpt_module, cpt_suite)
         if key in suites:
             raise EvidenceError(f"{module}: duplicate Step 2 test suite {name}")
         test_ids = strings(test_ids, f"{module} {name} Test IDs")
@@ -3926,18 +1174,9 @@ def test_contract(root, inventory):
                     f"{test_id}: test suite module differs from the Test Inventory"
                 )
             test_suites.setdefault(test_id, []).append(key)
-            memberships = migrated_test_suites.setdefault(test_id, [])
-            if cpt_key not in memberships:
-                memberships.append(cpt_key)
-        migrate_test_ids = [
-            test_id for test_id in test_ids if test_id in migrate_ids
-        ]
         suites[key] = {
             "module": module,
             "name": name,
-            "cpt_module": cpt_module,
-            "cpt_suite": cpt_suite,
-            "cpt_suite_key": cpt_key,
             "command": command,
             "test_ids": test_ids,
             "reports": report_patterns(
@@ -3954,7 +1193,6 @@ def test_contract(root, inventory):
                 module_paths,
                 entry.get("test_source_roots", []),
                 f"{module} {name} test_source_roots",
-                allow_missing_module=cpt_module != module,
             ),
             "test_resource_roots": test_directory_roots(
                 root,
@@ -3962,48 +1200,27 @@ def test_contract(root, inventory):
                 module_paths,
                 entry.get("test_resource_roots", []),
                 f"{module} {name} test_resource_roots",
-                allow_missing_module=cpt_module != module,
             ),
-            "migrate_test_ids": migrate_test_ids,
+            "migrate_test_ids": [test_id for test_id in test_ids if test_id in migrate_ids],
         }
-        target_suite = migrated_suites.setdefault(
-            cpt_key,
-            {
-                "module": cpt_module,
-                "name": cpt_suite,
-                "cpt_module": cpt_module,
-                "cpt_suite": cpt_suite,
-                "test_ids": [],
-                "migrate_test_ids": [],
-                "source_suites": [],
-            },
-        )
-        target_suite["source_suites"].append(key)
-        target_suite["test_ids"].extend(test_ids)
-        target_suite["migrate_test_ids"].extend(migrate_test_ids)
 
-    for suite in migrated_suites.values():
-        suite["test_ids"] = list(dict.fromkeys(suite["test_ids"]))
-        suite["migrate_test_ids"] = list(dict.fromkeys(suite["migrate_test_ids"]))
-
-    for test_id in migrate_ids:
-        if not test_suites.get(test_id):
-            raise EvidenceError(
-                f"{test_id}: no Step 2 test suite records this migrated test"
-            )
+    if mode == "run":
+        for test_id in migrate_ids:
+            if not test_suites.get(test_id):
+                raise EvidenceError(
+                    f"{test_id}: no Step 2 test suite records this migrated test"
+                )
     return {
         "mode": mode,
         "tests": tests,
         "suites": suites,
         "test_suites": test_suites,
-        "migrated_suites": migrated_suites,
-        "migrated_test_suites": migrated_test_suites,
         "modules": sorted(module_paths),
     }
 
 
 def validate_source_snapshot_test_contract(root, inventory):
-    if "test_run_mode" not in inventory and "test_suites" not in inventory:
+    if "test_run_mode" not in inventory:
         return None
     current_test_contract = test_contract(root, inventory)
     if not source_test_contract_matches_snapshot(
@@ -4013,18 +1230,19 @@ def validate_source_snapshot_test_contract(root, inventory):
         raise EvidenceError(
             "Test Inventory or C7 suite commands changed after the Step 2 snapshot"
         )
-    missing_snapshot_files = sorted(
-        {
-            test["file"]
-            for test in current_test_contract["tests"]
-            if test["file"] not in inventory["source_files"]
-        }
-    )
-    if missing_snapshot_files:
-        raise EvidenceError(
-            "C7 source snapshot omits Test Inventory file(s): "
-            + ", ".join(missing_snapshot_files)
+    if current_test_contract["mode"] in TEST_RUN_MODES:
+        missing_snapshot_files = sorted(
+            {
+                test["file"]
+                for test in current_test_contract["tests"]
+                if test["file"] not in inventory["source_files"]
+            }
         )
+        if missing_snapshot_files:
+            raise EvidenceError(
+                "C7 source snapshot omits Test Inventory file(s): "
+                + ", ".join(missing_snapshot_files)
+            )
     return current_test_contract
 
 
@@ -4138,134 +1356,6 @@ def read_test_mapping(root, required=False):
     return mapping
 
 
-def c7_module_has_non_test_content(inventory, source_module):
-    source_files = inventory.get("source_files")
-    contract = inventory.get("source_snapshot_test_contract")
-    if (
-        not isinstance(source_files, dict)
-        or not isinstance(contract, dict)
-        or not isinstance(contract.get("tests"), list)
-        or not isinstance(contract.get("suites"), list)
-    ):
-        return True
-    test_files = {
-        test["file"]
-        for test in contract["tests"]
-        if isinstance(test, dict)
-        and test.get("module") == source_module
-        and isinstance(test.get("file"), str)
-    }
-    test_roots = []
-    for suite in contract["suites"]:
-        if not isinstance(suite, dict):
-            return True
-        if suite.get("module") != source_module:
-            continue
-        for root_type in ("test_source_roots", "test_resource_roots"):
-            roots = suite.get(root_type, [])
-            if not isinstance(roots, list) or any(
-                not isinstance(root, str) for root in roots
-            ):
-                return True
-            test_roots.extend(roots)
-    build_metadata = {
-        ".editorconfig",
-        ".gitattributes",
-        ".gitignore",
-        "LICENSE",
-        "LICENSE.md",
-        "LICENSE.txt",
-        "NOTICE",
-        "NOTICE.txt",
-        "README.adoc",
-        "README.md",
-        "README.txt",
-        "build.gradle",
-        "build.gradle.kts",
-        "gradle.properties",
-        "gradlew",
-        "gradlew.bat",
-        "pom.xml",
-        "settings.gradle",
-        "settings.gradle.kts",
-    }
-    test_source_directories = {
-        "integrationTest",
-        "it",
-        "test",
-        "test-fixtures",
-        "testFixtures",
-    }
-    for source_path in source_files:
-        if not isinstance(source_path, str):
-            return True
-        try:
-            relative = (
-                Path(source_path)
-                if source_module == "."
-                else Path(source_path).relative_to(source_module)
-            )
-        except ValueError:
-            continue
-        if source_path in test_files or any(
-            source_path == root or source_path.startswith(f"{root.rstrip('/')}/")
-            for root in test_roots
-        ):
-            continue
-        parts = relative.parts
-        if any(
-            parts[index] == "src"
-            and parts[index + 1] in test_source_directories
-            for index in range(len(parts) - 1)
-        ):
-            continue
-        if (
-            relative.as_posix() in build_metadata
-            or parts and parts[0] in {".mvn", "gradle"}
-            or relative.suffix.casefold() in {".adoc", ".md", ".txt"}
-        ):
-            continue
-        return True
-    return False
-
-
-def step2_module_targets(inventory, source_modules):
-    target_modules_by_source = {}
-    suites = inventory.get("test_suites")
-    if isinstance(suites, list):
-        for suite in suites:
-            if not isinstance(suite, dict):
-                continue
-            source_module = suite.get("module")
-            if source_module not in source_modules:
-                continue
-            cpt_module = suite.get("cpt_module", source_module)
-            if isinstance(cpt_module, str) and cpt_module:
-                target_modules_by_source.setdefault(source_module, []).append(cpt_module)
-    source_updates = inventory.get("source_updates")
-    mappings = {}
-    for source_module in source_modules:
-        suite_targets = target_modules_by_source.get(source_module, [])
-        if suite_targets and any(target != source_module for target in suite_targets):
-            targets = set(suite_targets)
-        else:
-            targets = {source_module}
-        source_hits = (
-            source_updates.get(source_module)
-            if isinstance(source_updates, dict)
-            else None
-        )
-        if not isinstance(source_updates, dict) or not isinstance(source_hits, dict) or source_hits:
-            targets.add(source_module)
-        if (
-            any(target != source_module for target in targets)
-            and c7_module_has_non_test_content(inventory, source_module)
-        ):
-            targets.add(source_module)
-        mappings[source_module] = targets
-    return mappings
-
-
 def json_digest(value):
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -4329,11 +1419,10 @@ def fresh_reports(root, module, patterns, before, label):
     ]
 
 
-def copy_reports(root, module, reports, destination, source_root=None):
+def copy_reports(root, module, reports, destination):
     root = root.resolve(strict=True)
-    source_root = root if source_root is None else source_root.resolve(strict=True)
-    module_root = project_path(source_root, module, "report module", must_exist=True)
-    reject_symlink_components(source_root, source_root / module, "report module")
+    module_root = project_path(root, module, "report module", must_exist=True)
+    reject_symlink_components(root, root / module, "report module")
     destination_root = ensure_directory_path(
         root, root / destination, "report destination"
     )
@@ -4527,66 +1616,41 @@ def current_test_files(root, plan, mapping=None):
         if test["id"] in migrated_test_ids
         or mapping is None and test["handling"] == "Migrate"
     ]
-    cpt_suites = plan.test_contract.get("cpt_suites", {})
-    module_paths = {module for module, _ in cpt_suites}
+    migrated_modules = {test["module"] for test in migrated_tests}
+    module_paths = set(plan.test_contract.get("modules", migrated_modules))
     cpt_modules = set()
     for test_id in cpt_test_ids:
         module, separator, _ = test_id.partition(":")
         if separator and module in module_paths:
             cpt_modules.add(module)
-    migrated_suites = plan.test_contract.get("migrated_suites", {})
-    for (module, _), suite in migrated_suites.items():
-        if module not in module_paths:
-            continue
-        if suite_has_cpt_tests(suite, mapping) or (
-            mapping is None and suite["migrate_test_ids"]
-        ):
-            cpt_modules.add(module)
-    modules = sorted(cpt_modules)
+    modules = sorted(migrated_modules | cpt_modules)
     files = {}
     inventory_files = {Path(test["file"]).as_posix() for test in migrated_tests}
-    for test in migrated_tests:
-        add_existing_source_file_hash(
-            root,
-            test["file"],
-            "Test Inventory file",
-            files,
-        )
     roots_by_module = {module: set() for module in modules}
-    for suite_key, suite_config in cpt_suites.items():
-        module, name = suite_key
-        source_suite = migrated_suites.get(suite_key)
-        if module not in roots_by_module or not (
-            source_suite and suite_has_cpt_tests(source_suite, mapping)
-            or suite_has_added_cpt_tests(module, name, mapping)
-        ):
+    for suite in plan.test_contract["suites"].values():
+        module = suite["module"]
+        if module not in roots_by_module or not suite_has_cpt_tests(suite, mapping):
             continue
-        root_values = {
-            root_type: list(suite_config.get(root_type, []))
-            for root_type in ("test_source_roots", "test_resource_roots")
-        }
-        if source_suite:
-            for source_key in source_suite["source_suites"]:
-                original_suite = plan.test_contract["suites"][source_key]
-                if source_key[0] != module:
-                    continue
-                for root_type in root_values:
-                    root_values[root_type].extend(original_suite[root_type])
         for root_type in ("test_source_roots", "test_resource_roots"):
-            for value in dict.fromkeys(root_values[root_type]):
+            for value in suite[root_type]:
                 path = project_path(
                     root,
                     value,
-                    f"{module} {name} {root_type}",
+                    f"{module} {suite['name']} {root_type}",
                     must_exist=True,
                 )
                 if not path.is_dir():
                     raise EvidenceError(
-                        f"{module} {name} {root_type} is not a directory: {value}"
+                        f"{module} {suite['name']} {root_type} is not a directory: {value}"
                     )
                 roots_by_module[module].add(path.relative_to(root))
     for module in modules:
         hashes = {}
+        for test in migrated_tests:
+            if test["module"] == module:
+                add_existing_source_file_hash(
+                    root, test["file"], "Test Inventory file", hashes
+                )
         scan_module(root, module, module_paths, hashes)
         for test_root in sorted(roots_by_module[module]):
             scan_test_root(root, module, module_paths, root / test_root, hashes)
@@ -4860,16 +1924,8 @@ def suite_requires_c7_baseline(suite, contract, mapping):
     if mapping is None:
         return False
     rows = test_rows_by_id(mapping)
-    has_added_tests = any(
-        isinstance(test, dict) and test.get("status") == "added"
-        for test in mapping["tests"]
-    )
     return any(
-        rows.get(test_id, {}).get("status") == "migrated"
-        or (
-            rows.get(test_id, {}).get("status") == "retired"
-            and (contract["mode"] == "run" or has_added_tests)
-        )
+        rows.get(test_id, {}).get("status") in ("migrated", "retired")
         for test_id in suite_report_only_test_ids(suite, contract)
     )
 
@@ -4885,17 +1941,12 @@ def test_validation_enabled(contract, migrated_test_ids, mapping):
         and rows.get(test["id"], {}).get("status") == "retired"
         for test in contract["tests"]
     )
-    has_migratable_tests = any(
-        test["handling"] == "Migrate" for test in contract["tests"]
-    )
-    return contract["mode"] != "migrate_only" and (
+    return contract["mode"] == "run" and (
         bool(migrated_test_ids)
         or bool(expected_cpt_test_ids(mapping))
         or has_added_tests
-        or (
-            contract["mode"] == "run"
-            and (has_retired_report_only_tests or has_migratable_tests)
-        )
+        or has_retired_report_only_tests
+        or any(test["handling"] == "Migrate" for test in contract["tests"])
     )
 
 
@@ -4920,14 +1971,10 @@ def suite_has_cpt_tests(suite, mapping):
         return False
     rows = test_rows_by_id(mapping)
     test_ids = set(suite.get("test_ids", suite.get("migrate_test_ids", [])))
-    cpt_module = suite.get("cpt_module", suite.get("module"))
-    source_suites = set(
-        suite.get("source_suites", [(suite.get("module"), suite.get("name"))])
-    )
     for baseline_suite in mapping.get("baseline", {}).get("suites", []):
         if (
-            (baseline_suite.get("module"), baseline_suite.get("suite"))
-            not in source_suites
+            baseline_suite.get("module") != suite.get("module")
+            or baseline_suite.get("suite") != suite.get("name")
         ):
             continue
         for test_id in baseline_suite.get("test_results", {}):
@@ -4945,21 +1992,10 @@ def suite_has_cpt_tests(suite, mapping):
             isinstance(test, dict)
             and test.get("status") == "migrated"
             and isinstance(c8_ids, list)
-            and any(
-                isinstance(c8_id, str)
-                and (
-                    cpt_module is None
-                    or c8_id.startswith(f"{cpt_module}:")
-                )
-                for c8_id in c8_ids
-            )
+            and any(isinstance(c8_id, str) and c8_id for c8_id in c8_ids)
         ):
             return True
-    return suite_has_added_cpt_tests(
-        suite.get("cpt_module", suite.get("module")),
-        suite.get("cpt_suite", suite.get("name")),
-        mapping,
-    )
+    return suite_has_added_cpt_tests(suite.get("module"), suite.get("name"), mapping)
 
 
 def normalized_mock(value):
@@ -5145,32 +2181,17 @@ def ledger_row_suite_keys(test, contract, mapping):
             if suite_key[1] == test.get("suite")
         ]
     test_id = test.get("c7_id")
-    source_keys = {
+    keys = {
         suite_key
         for suite_key, suite in contract["suites"].items()
         if test_id in suite.get("test_ids", suite.get("migrate_test_ids", []))
     }
-    source_keys.update(contract.get("test_suites", {}).get(test_id, []))
     for baseline_suite in mapping.get("baseline", {}).get("suites", []):
         if isinstance(baseline_suite, dict) and test_id in baseline_suite.get(
             "test_results", {}
         ):
-            source_keys.add(
-                (baseline_suite.get("module"), baseline_suite.get("suite"))
-            )
-    cpt_keys = set()
-    for source_key in source_keys:
-        suite = contract["suites"].get(source_key)
-        if suite is not None:
-            cpt_module = suite.get("cpt_module", source_key[0])
-            cpt_suite = suite.get("cpt_suite", source_key[1])
-            cpt_keys.add(
-                suite.get(
-                    "cpt_suite_key",
-                    (cpt_module, cpt_suite),
-                )
-            )
-    return sorted(key for key in cpt_keys if key in module_test_suites(contract))
+            keys.add((baseline_suite.get("module"), baseline_suite.get("suite")))
+    return sorted(key for key in keys if key in contract["suites"])
 
 
 def cpt_test_results(test_id, repeat_runs, suite_keys):
@@ -5390,8 +2411,7 @@ def coverage_parity_issues(plan, checks, mapping):
     repeat_runs = test_repeat_checks(plan, checks)
     cpt_coverage = [{}, {}]
     cpt_decisions = [{}, {}]
-    suites = contract.get("migrated_suites") or contract["suites"]
-    for suite_key, suite in suites.items():
+    for suite_key, suite in contract["suites"].items():
         if not suite_has_cpt_tests(suite, mapping):
             continue
         runs = repeat_runs.get(suite_key)
@@ -5686,16 +2706,6 @@ def test_runs_match(first, second):
     )
 
 
-def test_repeat_command(command, run_number):
-    if (
-        run_number == 2
-        and build_tool(command) == "gradle"
-        and "--rerun-tasks" not in command
-    ):
-        return [*command, "--rerun-tasks"]
-    return command
-
-
 def record_test_repeat(root, plan, args, mapping):
     suite_key = (args.target, args.scenario)
     suite_config = plan.test_contract["cpt_suites"].get(suite_key)
@@ -5713,7 +2723,7 @@ def record_test_repeat(root, plan, args, mapping):
             root,
             args.target,
             args.scenario,
-            test_repeat_command(command, run_number),
+            command,
             args.timeout,
             run_number,
             suite_config,
@@ -5796,12 +2806,10 @@ def requirements(root, evidence):
             "tests": [],
             "suites": {},
             "test_suites": {},
-            "migrated_suites": {},
-            "migrated_test_suites": {},
             "modules": inventory.get("modules", []),
         }
     if (
-        ("test_run_mode" in inventory or "test_suites" in inventory)
+        "test_run_mode" in inventory
         and not source_test_contract_matches_snapshot(
             source_test_contract(tests),
             inventory.get("source_snapshot_test_contract"),
@@ -5813,7 +2821,7 @@ def requirements(root, evidence):
         )
     migrated_test_ids = set()
     mapping = None
-    if tests["mode"] != "migrate_only" and tests["tests"]:
+    if tests["mode"] == "run":
         try:
             mapping = read_test_mapping(root)
             migrated_test_ids = mapped_migrated_test_ids(mapping)
@@ -5829,58 +2837,30 @@ def requirements(root, evidence):
                 issues.append(
                     f"unmapped CPT test {test_id}: migrated test is missing from the Test Inventory"
                 )
-            elif not tests["migrated_test_suites"].get(test_id):
+            elif not tests["test_suites"].get(test_id):
                 issues.append(
                     f"{test_id}: no Step 2 test suite records this migrated test"
                 )
-    source_module_paths = strings(
-        inventory.get("modules"),
-        "Step 2 modules",
-    )
     source_updates = inventory.get("source_updates")
     if (
         not isinstance(source_updates, dict)
-        or set(source_updates) != set(source_module_paths)
+        or set(source_updates) != {module["path"] for module in modules}
     ):
         issues.append(
             "Step 2 inventory lacks the pre-migration due-date source snapshot; run init before conversion"
         )
         source_updates = {}
-    source_updates_by_source = {}
-    for source_module in source_module_paths:
-        hits = source_updates.get(source_module)
+    source_update_locations = {}
+    for module in modules:
+        path = module["path"]
+        hits = source_updates.get(path)
         if not isinstance(hits, dict) or any(
             not isinstance(operation, str)
             or operation not in {"setjobduedate", "/duedate", "duedate"}
             for operation in hits.values()
         ):
-            issues.append(
-                f"{source_module}: invalid pre-migration due-date source snapshot"
-            )
+            issues.append(f"{path}: invalid pre-migration due-date source snapshot")
             hits = {}
-        source_updates_by_source[source_module] = hits
-    source_modules_by_target = {}
-    for source_module, targets in step2_module_targets(
-        inventory,
-        source_module_paths,
-    ).items():
-        source_hits = source_updates_by_source[source_module]
-        source_targets = {source_module} if source_hits else targets
-        for target in source_targets:
-            source_modules_by_target.setdefault(target, []).append(source_module)
-    source_update_locations = {}
-    source_updates_by_target = {}
-    for module in modules:
-        path = module["path"]
-        hits = {}
-        for source_module in source_modules_by_target.get(path, []):
-            for location, operation in source_updates_by_source[source_module].items():
-                if location in hits and hits[location] != operation:
-                    issues.append(
-                        f"{path}: conflicting pre-migration due-date source location {location}"
-                    )
-                hits[location] = operation
-        source_updates_by_target[path] = hits
         try:
             source_update_locations[path] = strings(
                 list(hits), f"{path} pre-migration due-date locations"
@@ -5930,24 +2910,8 @@ def requirements(root, evidence):
             names.append(name)
             suite_key = (path, name)
             module_suite_keys.add(suite_key)
-            cpt_suites[suite_key] = {
-                **suite,
-                "test_source_roots": test_directory_roots(
-                    root,
-                    path,
-                    module_paths,
-                    suite.get("test_source_roots", []),
-                    f"{path} {name} test_source_roots",
-                ),
-                "test_resource_roots": test_directory_roots(
-                    root,
-                    path,
-                    module_paths,
-                    suite.get("test_resource_roots", []),
-                    f"{path} {name} test_resource_roots",
-                ),
-            }
-            step2_suite = tests["migrated_suites"].get(suite_key)
+            cpt_suites[suite_key] = suite
+            step2_suite = tests["suites"].get(suite_key)
             if test_enabled and (
                 step2_suite and suite_has_cpt_tests(step2_suite, mapping)
                 or suite_has_added_cpt_tests(path, name, mapping)
@@ -5972,35 +2936,21 @@ def requirements(root, evidence):
             issues.append(f"{path}: invalid runtime mode")
     if any(docker_suites.values()) and test_run_mode != "migrate_only":
         need("project", ".", "docker_info")
-    for suite_key, suite in tests["suites"].items():
-        module, name = suite_key
-        cpt_suite_key = suite["cpt_suite_key"]
-        cpt_module, cpt_name = cpt_suite_key
-        suite_missing = cpt_suite_key not in module_suite_keys
-        if suite_missing:
-            if cpt_suite_key == suite_key:
-                issues.append(
-                    f"{module} {name}: Step 2 test suite is missing from "
-                    "validation-evidence.json"
-                )
-            else:
-                issues.append(
-                    f"{module} {name}: mapped CPT suite {cpt_module} {cpt_name} "
-                    "is missing from validation-evidence.json"
-                )
-        if not test_enabled:
-            continue
-        has_cpt_tests = suite_has_cpt_tests(suite, mapping)
-        needs_c7_baseline = suite_requires_c7_baseline(suite, tests, mapping)
-        if not has_cpt_tests and not needs_c7_baseline:
-            continue
-        if suite_missing and has_cpt_tests:
-            repeat_key = ("module", cpt_module, "test_repeat", cpt_name)
-            if repeat_key not in required:
-                need("module", cpt_module, "test_repeat", cpt_name)
-        if needs_c7_baseline:
-            need("module", module, "c7_baseline", name)
     if test_enabled:
+        for suite_key, suite in tests["suites"].items():
+            has_cpt_tests = suite_has_cpt_tests(suite, mapping)
+            needs_c7_baseline = suite_requires_c7_baseline(suite, tests, mapping)
+            if not has_cpt_tests and not needs_c7_baseline:
+                continue
+            module, name = suite_key
+            if suite_key not in module_suite_keys:
+                issues.append(
+                    f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
+                )
+                if has_cpt_tests:
+                    need("module", module, "test_repeat", name)
+            if needs_c7_baseline:
+                need("module", module, "c7_baseline", name)
         if expected_cpt_test_ids(mapping):
             need("project", ".", "test_freeze", method="snapshot")
         need("project", ".", "test_parity", method="computed")
@@ -6310,7 +3260,7 @@ def requirements(root, evidence):
                         for current_location, operation in current_updates[module].items()
                         if location.rsplit(":", 2)[0]
                         == current_location.rsplit(":", 2)[0]
-                        and operation == source_updates_by_target[module][location]
+                        and operation == source_updates[module][location]
                     }
                     if retained:
                         issues.append(
@@ -6435,16 +3385,13 @@ def requirements(root, evidence):
             raise EvidenceError(f"Cannot scan symlinked build configuration: {file}")
         if file.is_file():
             hashes[name] = file_digest(file)
-    plan_test_contract = test_contract_snapshot(tests, include_modules=False)
-    if plan_test_contract is not None:
-        plan_test_contract["mode"] = None
     snapshot = {
         "modules": modules,
         "models": models,
         "deployment_sets": declared_sets,
         "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
-        "test_contract": plan_test_contract,
+        "test_contract": test_contract_snapshot(tests, include_modules=False),
         "files": hashes,
     }
     source_digest = hashlib.sha256(
@@ -6494,18 +3441,13 @@ def ensure_test_mapping(root, inventory):
     return mapping
 
 
-def verify_unchanged_source(root, inventory, source_root=None):
+def verify_unchanged_source(root, inventory):
     expected = inventory.get("source_files")
     if not isinstance(expected, dict):
         raise EvidenceError("Step 2 inventory lacks the C7 source file snapshot")
-    if source_root is not None and source_root.is_symlink():
-        raise EvidenceError(f"Refusing symlinked C7 baseline source root: {source_root}")
-    source_root = root if source_root is None else source_root.resolve(strict=True)
-    if not source_root.is_dir():
-        raise EvidenceError(f"C7 baseline source root is not a directory: {source_root}")
     current_test_contract = validate_source_snapshot_test_contract(root, inventory)
     current = collect_source_files(
-        source_root,
+        root,
         strings(inventory.get("modules"), "Step 2 modules"),
         strings(inventory.get("models"), "Step 2 models"),
         current_test_contract,
@@ -6528,115 +3470,6 @@ def verify_unchanged_source(root, inventory, source_root=None):
     )
     if digest != inventory.get("source_snapshot_sha256"):
         raise EvidenceError("Step 2 C7 source snapshot digest is invalid")
-
-
-def resolve_c7_baseline_root(root, inventory, value):
-    if value is None:
-        baseline_root = root
-    else:
-        if not str(value).strip():
-            raise EvidenceError("C7 baseline root cannot be empty")
-        requested = Path(value)
-        requested = requested if requested.is_absolute() else root / requested
-        if requested.is_symlink():
-            raise EvidenceError(f"Refusing symlinked C7 baseline root: {requested}")
-        try:
-            baseline_root = requested.resolve(strict=True)
-        except (OSError, RuntimeError) as exc:
-            raise EvidenceError(f"C7 baseline root is missing: {requested}") from exc
-    if not baseline_root.is_dir():
-        raise EvidenceError(f"C7 baseline root is not a directory: {baseline_root}")
-    verify_unchanged_source(root, inventory, source_root=baseline_root)
-    commit = inventory.get("source_snapshot_commit")
-    if commit:
-        try:
-            completed = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=baseline_root,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=10,
-                check=False,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise EvidenceError(f"Cannot verify the C7 baseline commit: {exc}") from exc
-        if completed.returncode != 0 or completed.stdout.strip() != commit:
-            raise EvidenceError(
-                f"C7 baseline root must match the recorded commit {commit}"
-            )
-    return baseline_root
-
-
-def reject_deferred_c7_baseline_project_paths(root, baseline_root, command):
-    root = root.resolve(strict=True)
-    baseline_root = baseline_root.resolve(strict=True)
-    if root == baseline_root:
-        return
-
-    path_options = {
-        "-b",
-        "--build-file",
-        "-f",
-        "--file",
-        "-p",
-        "--project-dir",
-        "-pl",
-        "--projects",
-    }
-    absolute_path = re.compile(r"""(?<![\w:])(?:[A-Za-z]:[\\/]|/)[^\s"'`;|&<>]+""")
-    arguments = []
-    for argument in command:
-        arguments.append(argument)
-        try:
-            arguments.extend(shlex.split(argument))
-        except ValueError:
-            continue
-
-    candidates = []
-    for index, argument in enumerate(arguments):
-        expanded_argument = os.path.expandvars(argument)
-        if expanded_argument != argument:
-            candidates.append(expanded_argument)
-        if argument in path_options and index + 1 < len(arguments):
-            candidates.append(arguments[index + 1])
-        if "=" in argument:
-            candidates.append(argument.partition("=")[2])
-        if (
-            Path(argument).is_absolute()
-            or "/" in argument
-            or "\\" in argument
-            or argument.startswith((".", "~"))
-        ):
-            candidates.append(argument)
-        candidates.extend(
-            match.group(0).rstrip(")]}.,")
-            for match in absolute_path.finditer(argument)
-        )
-
-    for candidate in candidates:
-        if not candidate:
-            continue
-        path = Path(os.path.expandvars(candidate)).expanduser()
-        if not path.is_absolute():
-            if (
-                "/" not in candidate
-                and "\\" not in candidate
-                and not candidate.startswith(".")
-            ):
-                continue
-            path = baseline_root / path
-        try:
-            resolved = path.resolve(strict=False)
-        except (OSError, RuntimeError, ValueError) as exc:
-            raise EvidenceError(
-                f"Cannot resolve deferred C7 baseline command path: {candidate}"
-            ) from exc
-        if resolved.is_relative_to(root):
-            raise EvidenceError(
-                "Deferred C7 baseline command references the migrated project: "
-                f"{candidate}"
-            )
 
 
 def aggregate_baseline_results(contract, baseline_suites):
@@ -6736,8 +3569,8 @@ def record_c7_baseline(root, args):
         raise EvidenceError("C7 baseline accepts only run or block")
     inventory = read_json(root / INVENTORY)
     contract = test_contract(root, inventory)
-    if contract["mode"] == "migrate_only":
-        raise EvidenceError("C7 baseline checks are not available in migrate_only mode")
+    if contract["mode"] != "run":
+        raise EvidenceError("C7 baseline checks require test_run_mode run")
     key = (args.type, args.target, args.kind, args.scenario)
     suite_key = (args.target, args.scenario)
     suite = contract["suites"].get(suite_key)
@@ -6751,7 +3584,6 @@ def record_c7_baseline(root, args):
             f"{key}: the suite has no Test Inventory tests marked Migrate or Report only"
         )
     mapping = ensure_test_mapping(root, inventory)
-    baseline_root = root
     command = list(getattr(args, "command", []) or [])
     if command and command[0] == "--":
         command = command[1:]
@@ -6762,14 +3594,7 @@ def record_c7_baseline(root, args):
             )
         if args.timeout is not None and args.timeout <= 0:
             raise EvidenceError("Command timeout must be positive")
-        baseline_root = resolve_c7_baseline_root(
-            root, inventory, getattr(args, "baseline_root", None)
-        )
-        reject_deferred_c7_baseline_project_paths(
-            root,
-            baseline_root,
-            command,
-        )
+        verify_unchanged_source(root, inventory)
 
     suite_digest = module_suite_digest(args.target, args.scenario)
     suite_root = VALIDATION / "baseline" / suite_digest
@@ -6777,17 +3602,10 @@ def record_c7_baseline(root, args):
     previous_coverage = {}
     if args.action == "run":
         previous_junit = report_signatures(
-            discover_reports(
-                baseline_root, args.target, suite["reports"], "JUnit report"
-            )
+            discover_reports(root, args.target, suite["reports"], "JUnit report")
         )
         previous_coverage = report_signatures(
-            discover_reports(
-                baseline_root,
-                args.target,
-                suite["coverage_reports"],
-                "C7 coverage report",
-            )
+            discover_reports(root, args.target, suite["coverage_reports"], "C7 coverage report")
         )
     output = ""
     exit_code = None
@@ -6808,7 +3626,7 @@ def record_c7_baseline(root, args):
         try:
             completed = subprocess.run(
                 command,
-                cwd=baseline_root,
+                cwd=root,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -6831,16 +3649,12 @@ def record_c7_baseline(root, args):
         if reason is None:
             try:
                 junit_paths = fresh_reports(
-                    baseline_root, args.target, suite["reports"], previous_junit, "JUnit report"
+                    root, args.target, suite["reports"], previous_junit, "JUnit report"
                 )
                 if not junit_paths:
                     raise EvidenceError("The baseline command produced no fresh JUnit XML reports")
                 junit_copies = copy_reports(
-                    root,
-                    args.target,
-                    junit_paths,
-                    suite_root / "junit",
-                    source_root=baseline_root,
+                    root, args.target, junit_paths, suite_root / "junit"
                 )
                 inventory_test_ids = {
                     test["id"]
@@ -6856,25 +3670,19 @@ def record_c7_baseline(root, args):
                         "JUnit reports omit Test Inventory IDs: " + ", ".join(missing)
                     )
                 coverage_paths = fresh_reports(
-                    baseline_root,
+                    root,
                     args.target,
                     suite["coverage_reports"],
                     previous_coverage,
                     "C7 coverage report",
                 )
                 coverage_copies = copy_reports(
-                    root,
-                    args.target,
-                    coverage_paths,
-                    suite_root / "coverage",
-                    source_root=baseline_root,
+                    root, args.target, coverage_paths, suite_root / "coverage"
                 )
                 for path in coverage_paths:
                     for process_id, elements in parse_c7_coverage_report(path).items():
                         coverage.setdefault(process_id, set()).update(elements)
-                verify_unchanged_source(
-                    root, inventory, source_root=baseline_root
-                )
+                verify_unchanged_source(root, inventory)
                 result = "passed"
             except EvidenceError as exc:
                 result = "failed"
@@ -7348,10 +4156,7 @@ def load_checks(root, evidence, plan, issues):
     inventory = read_json(root / INVENTORY)
     run_id = inventory["run_id"]
     mapping = None
-    if (
-        plan.test_contract["mode"] != "migrate_only"
-        and plan.test_contract.get("tests")
-    ):
+    if plan.test_contract["mode"] == "run":
         try:
             mapping = read_test_mapping(root)
         except EvidenceError as exc:
@@ -7422,9 +4227,6 @@ def load_checks(root, evidence, plan, issues):
             command = check.get("command")
             exit_code = check.get("exit_code")
             reason = check.get("reason")
-            output = check.get("output")
-            if not isinstance(output, str):
-                raise EvidenceError(f"{key}: evidence output must be text")
             if method == "command":
                 if (
                     not isinstance(command, list) or not command
@@ -7432,71 +4234,6 @@ def load_checks(root, evidence, plan, issues):
                     or any(not isinstance(part, str) for part in command)
                 ):
                     raise EvidenceError(f"{key}: missing command")
-                if result == "passed" and runtime_check_uses_packaging_command(key, command):
-                    check["result"] = "not_run"
-                    check["reason"] = (
-                        "Packaging does not prove runtime startup; "
-                        "record a bounded launch command"
-                    )
-                    result = "not_run"
-                    reason = check["reason"]
-                if (
-                    is_runtime_check(key)
-                    and result != "not_run"
-                    and (
-                        "startup_marker" not in check
-                        or "startup_timed_out" not in check
-                        or (
-                            result == "passed"
-                            and not runtime_startup_marker_observed(key, check)
-                        )
-                    )
-                ):
-                    check["result"] = "not_run"
-                    check["reason"] = (
-                        "Runtime evidence lacks a valid startup signal; "
-                        "rerun the launch check"
-                    )
-                    result = "not_run"
-                    reason = check["reason"]
-                runtime_startup_timed_out = False
-                startup_marker_observed = False
-                if is_runtime_check(key) and result != "not_run":
-                    marker = check.get("startup_marker")
-                    runtime_startup_timed_out = check.get("startup_timed_out")
-                    if not isinstance(marker, str) or not marker.strip():
-                        raise EvidenceError(f"{key}: runtime evidence lacks a startup marker")
-                    if type(runtime_startup_timed_out) is not bool:
-                        raise EvidenceError(
-                            f"{key}: runtime evidence lacks its startup timeout outcome"
-                        )
-                    startup_marker_observed = runtime_startup_marker_observed(key, check)
-                    if runtime_startup_timed_out and exit_code is not None:
-                        raise EvidenceError(
-                            f"{key}: timed-out runtime evidence has an exit code"
-                        )
-                    if runtime_startup_timed_out and result not in ("passed", "blocked"):
-                        raise EvidenceError(
-                            f"{key}: invalid result after the runtime startup timeout"
-                        )
-                    if result == "passed" and not startup_marker_observed:
-                        raise EvidenceError(
-                            f"{key}: passed without the application startup marker"
-                        )
-                    if (
-                        result == "blocked"
-                        and runtime_startup_timed_out
-                        and startup_marker_observed
-                    ):
-                        raise EvidenceError(
-                            f"{key}: runtime startup marker was observed before timeout"
-                        )
-                elif not is_runtime_check(key) and (
-                    "startup_marker" in check or "startup_timed_out" in check
-                ):
-                    raise EvidenceError(
-                        f"{key}: startup marker evidence is only valid for module runtime checks"
-                    )
                 c7_baseline_captured = (
                     key[2] == "c7_baseline"
                     and isinstance(check.get("reports"), list)
@@ -7504,19 +4241,11 @@ def load_checks(root, evidence, plan, issues):
                     and isinstance(check.get("test_results"), dict)
                     and bool(check["test_results"])
                 )
-                if result == "passed":
-                    if is_runtime_check(key):
-                        if runtime_startup_timed_out:
-                            if exit_code is not None:
-                                raise EvidenceError(
-                                    f"{key}: runtime startup pass has an exit code after timeout"
-                                )
-                        elif type(exit_code) is not int or exit_code != 0:
-                            raise EvidenceError(f"{key}: passed without exit code 0")
-                    elif type(exit_code) is not int or (
-                        exit_code != 0 and not c7_baseline_captured
-                    ):
-                        raise EvidenceError(f"{key}: passed without exit code 0")
+                if result == "passed" and (
+                    type(exit_code) is not int
+                    or exit_code != 0 and not c7_baseline_captured
+                ):
+                    raise EvidenceError(f"{key}: passed without exit code 0")
                 if result == "failed" and (
                     type(exit_code) is not int
                     or exit_code == 0
@@ -7526,11 +4255,6 @@ def load_checks(root, evidence, plan, issues):
                         key[2] == "test_repeat"
                         and isinstance(check.get("test_runs"), list)
                         and len(check["test_runs"]) == 2
-                    )
-                    and not (
-                        is_runtime_check(key)
-                        and runtime_startup_timed_out is False
-                        and not startup_marker_observed
                     )
                 ):
                     raise EvidenceError(f"{key}: failed without a nonzero exit code or invalid timer evidence")
@@ -7556,6 +4280,8 @@ def load_checks(root, evidence, plan, issues):
                 raise EvidenceError(f"{key}: unsupported evidence method")
             if result not in ("passed", "failed", "blocked", "unknown", "not_run"):
                 raise EvidenceError(f"{key}: unsupported result")
+            if not isinstance(check.get("output"), str):
+                raise EvidenceError(f"{key}: evidence output must be text")
             if key[2] == "test_repeat":
                 test_runs = check.get("test_runs")
                 if not isinstance(test_runs, list) or len(test_runs) != 2:
@@ -7643,19 +4369,12 @@ def obsolete_test_check_key(key, plan, mapping):
         return not expected_cpt_test_ids(mapping)
     if (
         key[0] == "module"
-        and key[2] == "tests"
-        and key[3] is not None
-    ):
-        return ("module", key[1], "test_repeat", key[3]) in plan.required
-    if (
-        key[0] == "module"
         and key[2] == "test_repeat"
         and key[3] is not None
-        and (key[1], key[3]) in plan.test_contract.get("migrated_suites", {})
+        and (key[1], key[3]) in plan.test_contract["suites"]
     ):
         return not suite_has_cpt_tests(
-            plan.test_contract["migrated_suites"][(key[1], key[3])],
-            mapping,
+            plan.test_contract["suites"][(key[1], key[3])], mapping
         )
     if key[0] != "test" or key[3] is not None:
         return False
@@ -7975,10 +4694,7 @@ def report(root):
             for key, check in checks.items()
         ):
             issues.append("A non-Docker test was classified as Docker unavailable")
-        if (
-            plan.test_contract["mode"] != "migrate_only"
-            and plan.test_contract.get("tests")
-        ):
+        if plan.test_contract["mode"] == "run":
             try:
                 mapping = read_test_mapping(root)
                 test_validation = test_validation_enabled(
@@ -8053,8 +4769,6 @@ def report(root):
 
 def record(root, args):
     if args.kind == "c7_baseline":
-        if getattr(args, "startup_marker", None) is not None:
-            raise EvidenceError("--startup-marker is only valid for module runtime checks")
         return record_c7_baseline(root, args)
     evidence = read_json(root / EVIDENCE)
     plan = requirements(root, evidence)
@@ -8063,36 +4777,7 @@ def record(root, args):
     key = (args.type, args.target, args.kind, args.scenario)
     if key not in plan.allowed:
         raise EvidenceError(f"Check is not in the migration scope: {key}")
-    runtime_check = is_runtime_check(key)
-    startup_marker = getattr(args, "startup_marker", None)
-    if args.action == "run":
-        if runtime_check:
-            if not isinstance(startup_marker, str) or not startup_marker.strip():
-                raise EvidenceError(
-                    f"{key}: runtime checks require a non-empty startup marker via "
-                    "--startup-marker"
-                )
-            startup_marker = startup_marker.strip()
-            if key[2] in SPRING_BOOT_RUNTIME_CHECKS and (
-                spring_boot_startup_application(startup_marker) is None
-            ):
-                raise EvidenceError(
-                    f"{key}: Spring Boot runtime checks require a startup marker "
-                    "in the form 'Started <ApplicationClass>'"
-                )
-        elif startup_marker is not None:
-            raise EvidenceError("--startup-marker is only valid for module runtime checks")
-    submitted_command = list(args.command or []) if args.action == "run" else []
-    if submitted_command and submitted_command[0] == "--":
-        submitted_command = submitted_command[1:]
     test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
-    if runtime_check_uses_packaging_command(key, submitted_command) and not (
-        test_run_mode == "migrate_only" and key[2] == "spring_boot_run"
-    ):
-        raise EvidenceError(
-            f"{key}: packaging does not prove runtime startup. "
-            "Run packaging outside the evidence recorder and record a bounded launch command."
-        )
     if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
         if args.action != "block":
             raise EvidenceError(f"{key}: Question 8 selected Migrate tests only; record a blocker")
@@ -8139,16 +4824,9 @@ def record(root, args):
     reason = None
     result = "passed"
     extra = {}
-    if args.action == "run" and runtime_check:
-        extra["startup_marker"] = startup_marker
-        extra["startup_timed_out"] = False
     check_method = "command" if args.action == "run" else "review"
     mapping = None
-    if (
-        plan.test_contract["mode"] != "migrate_only"
-        and plan.test_contract.get("tests")
-        and key[2] in TEST_LEDGER_CHECK_KINDS
-    ):
+    if plan.test_contract["mode"] == "run" and key[2] in TEST_LEDGER_CHECK_KINDS:
         mapping = read_test_mapping(root, required=True)
     if args.action == "run" and method == "snapshot":
         command = list(args.command or [])
@@ -8204,55 +4882,28 @@ def record(root, args):
             raise EvidenceError("Executable path cannot be empty")
         if key == ("project", ".", "docker_info", None) and command != ["docker", "info"]:
             raise EvidenceError("The Docker probe must execute docker info directly")
-        if args.baseline_root is not None:
-            raise EvidenceError("--baseline-root is only valid for c7_baseline checks")
-        if test_run_mode == "migrate_only":
-            validate_migrate_only_command(root, key, command, args.timeout)
-        elif runtime_check:
-            validate_runtime_launch_command(root, key, command, args.timeout)
+        if (test_run_mode == "migrate_only" and key[0] == "module" and key[2] == "compile"
+                and not compiles_test_sources(command)):
+            raise EvidenceError(
+                f"{key}: Question 8 Migrate tests only requires test-source compilation, "
+                "such as mvn test-compile or the Gradle testClasses task"
+            )
         try:
-            if runtime_check:
-                completed = run_runtime_command(command, root, args.timeout)
-            else:
-                completed = subprocess.run(
-                    command, cwd=root, stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT, text=True, errors="replace",
-                    timeout=args.timeout, check=False,
-                )
+            completed = subprocess.run(
+                command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, errors="replace", timeout=args.timeout, check=False,
+            )
             exit_code = completed.returncode
             output = completed.stdout
             if exit_code != 0:
                 result = "failed"
                 reason = f"Command exited with code {exit_code}"
-            elif runtime_check and not runtime_startup_marker_observed(
-                key,
-                {"startup_marker": startup_marker, "output": output},
-            ):
-                result = "failed"
-                reason = (
-                    "Command exited successfully without the required application "
-                    "startup marker"
-                )
         except subprocess.TimeoutExpired as exc:
+            result = "blocked"
+            reason = str(exc)
             output = (exc.stdout or b"").decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout or ""
             output += (exc.stderr or b"").decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr or ""
-            timeout_reason = str(exc)
-            if runtime_check:
-                extra["startup_timed_out"] = True
-                if runtime_startup_marker_observed(
-                    key,
-                    {"startup_marker": startup_marker, "output": output},
-                ):
-                    result = "passed"
-                    output += f"\nStartup marker observed before command timeout: {timeout_reason}"
-                else:
-                    result = "blocked"
-                    reason = timeout_reason
-                    output += f"\n{reason}"
-            else:
-                result = "blocked"
-                reason = timeout_reason
-                output += f"\n{reason}"
+            output += f"\n{reason}"
         except OSError as exc:
             result = "blocked"
             reason = str(exc)
@@ -8398,15 +5049,6 @@ def main():
         action.add_argument("--non-timer-evidence-json")
         if name == "run":
             action.add_argument("--timeout", type=int, default=300)
-            action.add_argument(
-                "--startup-marker",
-                help="Exact application output required to pass a module runtime check",
-            )
-            action.add_argument(
-                "--baseline-root",
-                type=Path,
-                help="Run a deferred C7 baseline from its preserved project root",
-            )
             action.add_argument("command", nargs=argparse.REMAINDER)
         elif name == "review":
             action.add_argument("--note", required=True)
