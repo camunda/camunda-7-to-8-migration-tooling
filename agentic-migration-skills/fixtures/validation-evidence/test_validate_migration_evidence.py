@@ -2185,6 +2185,123 @@ class ValidationEvidenceTest(unittest.TestCase):
         time.sleep(1.2)
         self.assertFalse(survived.exists())
 
+    def test_windows_timeout_terminates_job_when_root_process_exited(self):
+        events = []
+
+        class ExitedProcess:
+            pid = 123
+            returncode = 0
+            stdout = None
+
+            def communicate(self, timeout=None):
+                events.append("communicate")
+                if timeout is not None:
+                    raise subprocess.TimeoutExpired(["runtime"], timeout)
+                return "", None
+
+            def wait(self):
+                events.append("wait")
+                return 0
+
+        class ProcessJob:
+            CREATE_SUSPENDED = 0x4
+
+            def assign(self, process):
+                events.append("assign")
+
+            def resume(self, process):
+                events.append("resume")
+
+            def terminate(self):
+                events.append("terminate")
+
+            def close(self):
+                events.append("close")
+
+        process = ExitedProcess()
+        job = ProcessJob()
+        process_group_flag = 0x200
+        suspended_flag = 0x4
+        with patch.object(gate.os, "name", "nt"), patch.object(
+            gate,
+            "_WindowsProcessJob",
+            return_value=job,
+        ), patch.object(
+            gate.subprocess,
+            "Popen",
+            return_value=process,
+        ) as popen, patch.object(
+            gate.subprocess,
+            "CREATE_NEW_PROCESS_GROUP",
+            process_group_flag,
+            create=True,
+        ):
+            with self.assertRaises(subprocess.TimeoutExpired):
+                gate.run_runtime_command(["runtime"], None, 1)
+        self.assertEqual(
+            [
+                "assign",
+                "resume",
+                "communicate",
+                "terminate",
+                "wait",
+                "communicate",
+                "close",
+            ],
+            events,
+        )
+        self.assertEqual(
+            process_group_flag | suspended_flag,
+            popen.call_args.kwargs["creationflags"],
+        )
+
+    def test_runtime_timeout_terminates_forked_process_when_parent_exits(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        started = self.root / "child-started"
+        parent_exited = self.root / "parent-exited"
+        survived = self.root / "child-survived"
+        child_code = (
+            "import pathlib, time; "
+            f"pathlib.Path({str(started)!r}).write_text('started'); "
+            "time.sleep(1.5); "
+            f"pathlib.Path({str(survived)!r}).write_text('survived')"
+        )
+        parent_code = (
+            "import pathlib, subprocess, sys, time\n"
+            "time.sleep(0.2)\n"
+            "subprocess.Popen([sys.executable, '-c', sys.argv[1]])\n"
+            f"started = pathlib.Path({str(started)!r})\n"
+            "deadline = time.monotonic() + 3\n"
+            "while not started.exists() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            f"pathlib.Path({str(parent_exited)!r}).write_text('exited')\n"
+            f"print({RUNTIME_STARTUP_LINE!r}, flush=True)\n"
+        )
+        command = [sys.executable, "-c", parent_code, child_code]
+        with patch.object(gate, "validate_migrate_only_command"):
+            result = self.submit(
+                ("module", "app", "spring_boot_run", None),
+                command=command,
+                environment="local",
+                startup_marker=RUNTIME_STARTUP_MARKER,
+                timeout=1,
+            )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual(0, result, f"{issues}: {checks}")
+        self.assertTrue(started.exists())
+        self.assertTrue(parent_exited.exists())
+        time.sleep(1.2)
+        self.assertFalse(survived.exists())
+
     def test_report_rejects_runtime_pass_without_startup_evidence(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope()

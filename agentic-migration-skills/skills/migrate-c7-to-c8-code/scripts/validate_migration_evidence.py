@@ -1321,31 +1321,179 @@ def kill_process(process):
     process.wait()
 
 
-def terminate_runtime_process_tree(process):
-    if os.name == "nt":
+class _WindowsProcessJob:
+    PROCESS_SET_QUOTA = 0x0100
+    PROCESS_TERMINATE = 0x0001
+    THREAD_SUSPEND_RESUME = 0x0002
+    TH32CS_SNAPTHREAD = 0x00000004
+    CREATE_SUSPENDED = 0x00000004
+    ERROR_NO_MORE_FILES = 18
+
+    def __init__(self):
+        import ctypes
+        from ctypes import wintypes
+
+        self._ctypes = ctypes
+        self._wintypes = wintypes
+        self._kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._handle = None
+        self._invalid_handle = ctypes.c_void_p(-1).value
+        self._kernel32.CreateJobObjectW.argtypes = (
+            wintypes.LPVOID,
+            wintypes.LPCWSTR,
+        )
+        self._kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        self._kernel32.OpenProcess.argtypes = (
+            wintypes.DWORD,
+            wintypes.BOOL,
+            wintypes.DWORD,
+        )
+        self._kernel32.OpenProcess.restype = wintypes.HANDLE
+        self._kernel32.AssignProcessToJobObject.argtypes = (
+            wintypes.HANDLE,
+            wintypes.HANDLE,
+        )
+        self._kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        self._kernel32.TerminateJobObject.argtypes = (
+            wintypes.HANDLE,
+            wintypes.UINT,
+        )
+        self._kernel32.TerminateJobObject.restype = wintypes.BOOL
+        self._kernel32.CreateToolhelp32Snapshot.argtypes = (
+            wintypes.DWORD,
+            wintypes.DWORD,
+        )
+        self._kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        self._kernel32.Thread32First.argtypes = (
+            wintypes.HANDLE,
+            wintypes.LPVOID,
+        )
+        self._kernel32.Thread32First.restype = wintypes.BOOL
+        self._kernel32.Thread32Next.argtypes = (
+            wintypes.HANDLE,
+            wintypes.LPVOID,
+        )
+        self._kernel32.Thread32Next.restype = wintypes.BOOL
+        self._kernel32.OpenThread.argtypes = (
+            wintypes.DWORD,
+            wintypes.BOOL,
+            wintypes.DWORD,
+        )
+        self._kernel32.OpenThread.restype = wintypes.HANDLE
+        self._kernel32.ResumeThread.argtypes = (wintypes.HANDLE,)
+        self._kernel32.ResumeThread.restype = wintypes.DWORD
+        self._kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        self._kernel32.CloseHandle.restype = wintypes.BOOL
+
+        self._handle = self._kernel32.CreateJobObjectW(None, None)
+        if not self._handle:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+    def _close_handle(self, handle):
+        if not self._kernel32.CloseHandle(handle):
+            raise self._ctypes.WinError(self._ctypes.get_last_error())
+
+    def assign(self, process):
+        process_handle = self._kernel32.OpenProcess(
+            self.PROCESS_SET_QUOTA | self.PROCESS_TERMINATE,
+            False,
+            process.pid,
+        )
+        if not process_handle:
+            raise self._ctypes.WinError(self._ctypes.get_last_error())
         try:
-            completed = subprocess.run(
-                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                errors="replace",
-                timeout=10,
-                check=False,
+            if not self._kernel32.AssignProcessToJobObject(
+                self._handle,
+                process_handle,
+            ):
+                raise self._ctypes.WinError(self._ctypes.get_last_error())
+        finally:
+            self._close_handle(process_handle)
+
+    def resume(self, process):
+        class ThreadEntry32(self._ctypes.Structure):
+            _fields_ = (
+                ("dwSize", self._wintypes.DWORD),
+                ("cntUsage", self._wintypes.DWORD),
+                ("th32ThreadID", self._wintypes.DWORD),
+                ("th32OwnerProcessID", self._wintypes.DWORD),
+                ("tpBasePri", self._wintypes.LONG),
+                ("tpDeltaPri", self._wintypes.LONG),
+                ("dwFlags", self._wintypes.DWORD),
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            kill_process(process)
-            raise OSError(
-                f"Could not terminate the runtime process tree: {exc}"
-            ) from exc
-        if completed.returncode != 0:
-            kill_process(process)
-            detail = completed.stderr.strip() or completed.stdout.strip()
-            if not detail:
-                detail = f"taskkill exited with code {completed.returncode}"
-            raise OSError(
-                f"Could not terminate the runtime process tree: {detail}"
+
+        # Popen closes the initial thread handle, so find the suspended thread by PID.
+        snapshot = self._kernel32.CreateToolhelp32Snapshot(
+            self.TH32CS_SNAPTHREAD,
+            0,
+        )
+        if not snapshot or snapshot == self._invalid_handle:
+            raise self._ctypes.WinError(self._ctypes.get_last_error())
+        thread_handle = None
+        try:
+            entry = ThreadEntry32()
+            entry.dwSize = self._ctypes.sizeof(entry)
+            found = self._kernel32.Thread32First(
+                snapshot,
+                self._ctypes.byref(entry),
             )
+            while found:
+                if entry.th32OwnerProcessID == process.pid:
+                    thread_handle = self._kernel32.OpenThread(
+                        self.THREAD_SUSPEND_RESUME,
+                        False,
+                        entry.th32ThreadID,
+                    )
+                    if not thread_handle:
+                        raise self._ctypes.WinError(
+                            self._ctypes.get_last_error()
+                        )
+                    break
+                entry.dwSize = self._ctypes.sizeof(entry)
+                found = self._kernel32.Thread32Next(
+                    snapshot,
+                    self._ctypes.byref(entry),
+                )
+            if thread_handle is None:
+                error = self._ctypes.get_last_error()
+                if error != self.ERROR_NO_MORE_FILES:
+                    raise self._ctypes.WinError(error)
+                raise OSError(
+                    "Could not find the runtime process thread to resume"
+                )
+            while True:
+                suspend_count = self._kernel32.ResumeThread(thread_handle)
+                if suspend_count == 0xFFFFFFFF:
+                    raise self._ctypes.WinError(self._ctypes.get_last_error())
+                if suspend_count <= 1:
+                    break
+        finally:
+            if thread_handle is not None:
+                self._close_handle(thread_handle)
+            self._close_handle(snapshot)
+
+    def terminate(self):
+        if self._handle is None:
+            raise OSError("The Windows runtime process job is closed")
+        if not self._kernel32.TerminateJobObject(self._handle, 1):
+            raise self._ctypes.WinError(self._ctypes.get_last_error())
+
+    def close(self):
+        if self._handle is None:
+            return
+        handle = self._handle
+        self._handle = None
+        self._close_handle(handle)
+
+
+def terminate_runtime_process_tree(process, job=None):
+    if os.name == "nt":
+        if job is None:
+            raise OSError(
+                "Could not terminate the Windows runtime process tree "
+                "without its Job Object"
+            )
+        job.terminate()
     else:
         try:
             os.killpg(process.pid, signal.SIGKILL)
@@ -1365,23 +1513,52 @@ def run_runtime_command(command, cwd, timeout):
         "text": True,
         "errors": "replace",
     }
+    job = None
     if os.name == "nt":
-        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        job = _WindowsProcessJob()
+        options["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | job.CREATE_SUSPENDED
+        )
     else:
         options["start_new_session"] = True
-    process = subprocess.Popen(command, **options)
     try:
-        output, _ = process.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
+        process = subprocess.Popen(command, **options)
+        if job is not None:
+            assigned = False
+            resumed = False
+            try:
+                # Assign before resume so spawned descendants inherit the job.
+                job.assign(process)
+                assigned = True
+                job.resume(process)
+                resumed = True
+            except OSError as exc:
+                raise OSError(
+                    f"Could not start the runtime process in a Windows Job "
+                    f"Object: {exc}"
+                ) from exc
+            finally:
+                if not resumed:
+                    if assigned:
+                        job.terminate()
+                        process.wait()
+                    else:
+                        kill_process(process)
         try:
-            terminate_runtime_process_tree(process)
-        except OSError:
-            if process.stdout is not None:
-                process.stdout.close()
-            raise
-        output, _ = process.communicate()
-        raise subprocess.TimeoutExpired(command, timeout, output=output) from exc
-    return subprocess.CompletedProcess(command, process.returncode, output)
+            output, _ = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            try:
+                terminate_runtime_process_tree(process, job)
+            except OSError:
+                if process.stdout is not None:
+                    process.stdout.close()
+                raise
+            output, _ = process.communicate()
+            raise subprocess.TimeoutExpired(command, timeout, output=output) from exc
+        return subprocess.CompletedProcess(command, process.returncode, output)
+    finally:
+        if job is not None:
+            job.close()
 
 
 def is_spring_boot_run_task(task, tool):
