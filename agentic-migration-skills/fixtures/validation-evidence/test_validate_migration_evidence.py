@@ -1323,6 +1323,8 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_packaging_runtime_evidence_is_invalidated_after_mode_transition(self):
         packaging_commands = (
             ["mvn", "-pl", "app", "verify", "-DskipTests"],
+            ["mvn", "-pl", "app", "pre-integration-test", "-DskipTests"],
+            ["mvn", "-pl", "app", "deploy", "-DskipTests"],
             ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
             [
                 "mvn",
@@ -1397,6 +1399,8 @@ class ValidationEvidenceTest(unittest.TestCase):
     def test_run_mode_rejects_packaging_as_runtime_evidence(self):
         packaging_commands = (
             ["mvn", "-pl", "app", "verify", "-DskipTests"],
+            ["mvn", "-pl", "app", "pre-integration-test", "-DskipTests"],
+            ["mvn", "-pl", "app", "deploy", "-DskipTests"],
             ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
             [
                 "mvn",
@@ -2501,6 +2505,11 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "sh",
                 "-c",
                 'mvn -f "$MIGRATION_PROJECT_ROOT/app/pom.xml" test',
+            ],
+            lambda baseline_root: [
+                "sh",
+                "-c",
+                'cd "$MIGRATION_PROJECT_ROOT" && mvn -f app/pom.xml test',
             ],
         )
 

@@ -5088,6 +5088,9 @@ def reject_deferred_c7_baseline_project_paths(root, baseline_root, command):
 
     candidates = []
     for index, argument in enumerate(arguments):
+        expanded_argument = os.path.expandvars(argument)
+        if expanded_argument != argument:
+            candidates.append(expanded_argument)
         if argument in path_options and index + 1 < len(arguments):
             candidates.append(arguments[index + 1])
         if "=" in argument:
