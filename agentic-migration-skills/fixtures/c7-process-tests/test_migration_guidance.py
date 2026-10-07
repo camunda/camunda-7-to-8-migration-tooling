@@ -1147,6 +1147,21 @@ class MigrationGuidanceTest(unittest.TestCase):
             r"\*\*Migrate to CPT\*\*, or\s*\*\*Migrate \(lower priority\)\*\*",
         )
 
+    def test_report_only_reclassification_refreshes_step_two_summary(self):
+        guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
+        self.assertIn(
+            normalized(
+                "When the user approves `Report only`, the skill recomputes the CPT-eligibility total from the updated Test Inventory."
+            ),
+            guidance,
+        )
+        self.assertIn(
+            normalized(
+                "When the skill finalizes the Step 2 Summary, it recomputes the `Report only` list from that inventory."
+            ),
+            guidance,
+        )
+
     def test_migrate_only_guidance_and_walkthrough_report(self):
         guidance = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         execution_order = normalized(

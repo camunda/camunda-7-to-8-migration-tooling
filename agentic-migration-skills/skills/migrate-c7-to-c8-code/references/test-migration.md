@@ -329,6 +329,9 @@ provide or confirm the exact command or approve `Report only` with a reason.
 The skill records a user-confirmed command in the suite's `command` field.
 Where the user approves `Report only`, the skill updates the Test Inventory and records the user's
 reason in `Notes`.
+When the user approves `Report only`, the skill recomputes the CPT-eligibility total from the updated
+Test Inventory.
+When the skill finalizes the Step 2 Summary, it recomputes the `Report only` list from that inventory.
 If the user confirms neither option, then the skill leaves `test_run_mode` unset and pauses before
 Step 3.
 

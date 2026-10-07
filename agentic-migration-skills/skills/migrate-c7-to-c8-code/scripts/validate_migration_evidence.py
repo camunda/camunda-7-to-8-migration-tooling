@@ -1592,6 +1592,8 @@ def run_runtime_command(command, cwd, timeout):
         )
     else:
         options["start_new_session"] = True
+    process = None
+    process_tree_terminated = False
     try:
         process = subprocess.Popen(command, **options)
         if job is not None:
@@ -1615,11 +1617,13 @@ def run_runtime_command(command, cwd, timeout):
                         process.wait()
                     else:
                         kill_process(process)
+                    process_tree_terminated = True
         try:
             output, _ = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired as exc:
             try:
                 terminate_runtime_process_tree(process, job)
+                process_tree_terminated = True
             except OSError:
                 if process.stdout is not None:
                     process.stdout.close()
@@ -1628,8 +1632,12 @@ def run_runtime_command(command, cwd, timeout):
             raise subprocess.TimeoutExpired(command, timeout, output=output) from exc
         return subprocess.CompletedProcess(command, process.returncode, output)
     finally:
-        if job is not None:
-            job.close()
+        try:
+            if process is not None and not process_tree_terminated:
+                terminate_runtime_process_tree(process, job)
+        finally:
+            if job is not None:
+                job.close()
 
 
 def is_spring_boot_run_task(task, tool):
