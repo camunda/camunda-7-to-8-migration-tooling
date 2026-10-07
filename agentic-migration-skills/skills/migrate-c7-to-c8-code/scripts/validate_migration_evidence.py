@@ -9,6 +9,7 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -1309,6 +1310,78 @@ def runtime_startup_marker_observed(key, check):
         and isinstance(output, str)
         and marker in output
     )
+
+
+def kill_process(process):
+    try:
+        process.kill()
+    except OSError:
+        if process.poll() is None:
+            raise
+    process.wait()
+
+
+def terminate_runtime_process_tree(process):
+    if os.name == "nt":
+        try:
+            completed = subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            kill_process(process)
+            raise OSError(
+                f"Could not terminate the runtime process tree: {exc}"
+            ) from exc
+        if completed.returncode != 0:
+            kill_process(process)
+            detail = completed.stderr.strip() or completed.stdout.strip()
+            if not detail:
+                detail = f"taskkill exited with code {completed.returncode}"
+            raise OSError(
+                f"Could not terminate the runtime process tree: {detail}"
+            )
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        except OSError:
+            kill_process(process)
+            raise
+    process.wait()
+
+
+def run_runtime_command(command, cwd, timeout):
+    options = {
+        "cwd": cwd,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "text": True,
+        "errors": "replace",
+    }
+    if os.name == "nt":
+        options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        options["start_new_session"] = True
+    process = subprocess.Popen(command, **options)
+    try:
+        output, _ = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        try:
+            terminate_runtime_process_tree(process)
+        except OSError:
+            if process.stdout is not None:
+                process.stdout.close()
+            raise
+        output, _ = process.communicate()
+        raise subprocess.TimeoutExpired(command, timeout, output=output) from exc
+    return subprocess.CompletedProcess(command, process.returncode, output)
 
 
 def is_spring_boot_run_task(task, tool):
@@ -6871,10 +6944,14 @@ def record(root, args):
         elif runtime_check:
             validate_runtime_launch_command(root, key, command, args.timeout)
         try:
-            completed = subprocess.run(
-                command, cwd=root, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, errors="replace", timeout=args.timeout, check=False,
-            )
+            if runtime_check:
+                completed = run_runtime_command(command, root, args.timeout)
+            else:
+                completed = subprocess.run(
+                    command, cwd=root, stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT, text=True, errors="replace",
+                    timeout=args.timeout, check=False,
+                )
             exit_code = completed.returncode
             output = completed.stdout
             if exit_code != 0:

@@ -274,9 +274,10 @@ checks with `--startup-marker`.
 The validator records a runtime command as passed only when its startup signal appears. A command
 that exits normally must exit with code 0. If the command exits with code 0 without the signal, the
 validator records a failed check. A nonzero exit code remains a failed check.
-If the command times out after the signal appears, the validator stops the command and records a
-passed startup check. If the command times out before the signal appears, the validator records a
-blocked check.
+The validator starts runtime commands in a new process group.
+When a runtime command times out, the validator terminates the process group.
+If the startup signal appears before timeout, the validator records a passed startup check.
+If the startup signal does not appear before timeout, the validator records a blocked check.
 
 An exit code of 0 alone does not prove application startup. The validator rejects arbitrary commands
 such as `mvn validate`, `python3 -c pass`, and `true` before execution.

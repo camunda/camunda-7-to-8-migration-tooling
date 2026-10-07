@@ -7,11 +7,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import uuid
 import zipfile
 from argparse import Namespace
-from contextlib import nullcontext, redirect_stderr, redirect_stdout
+from contextlib import ExitStack, nullcontext, redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest.mock import call, patch
@@ -757,9 +758,9 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "spring-boot:run",
                     ]
                     command_patch = patch.object(
-                        gate.subprocess,
-                        "run",
-                        return_value=gate.subprocess.CompletedProcess(
+                        gate,
+                        "run_runtime_command",
+                        return_value=subprocess.CompletedProcess(
                             options["command"], 0, RUNTIME_STARTUP_LINE
                         ),
                     )
@@ -781,10 +782,22 @@ class ValidationEvidenceTest(unittest.TestCase):
                         f"<artifactId>{artifact_id}</artifactId>"
                         "<version>1.0</version><packaging>jar</packaging></project>"
                     )
-                    command_patch = patch.object(
-                        gate.subprocess,
-                        "run",
-                        side_effect=self.maven_effective_pom_runner(effective_pom),
+                    command_patch = ExitStack()
+                    command_patch.enter_context(
+                        patch.object(
+                            gate.subprocess,
+                            "run",
+                            side_effect=self.maven_effective_pom_runner(effective_pom),
+                        )
+                    )
+                    command_patch.enter_context(
+                        patch.object(
+                            gate,
+                            "run_runtime_command",
+                            return_value=subprocess.CompletedProcess(
+                                options["command"], 0, RUNTIME_STARTUP_LINE
+                            ),
+                        )
                     )
             elif key[2] == "test_repeat":
                 options["command"] = self.cpt_command(
@@ -1639,7 +1652,19 @@ class ValidationEvidenceTest(unittest.TestCase):
                     runner = lambda command, **kwargs: subprocess.CompletedProcess(
                         command, 0, RUNTIME_STARTUP_LINE
                     )
-                with patch.object(gate.subprocess, "run", side_effect=runner):
+                with ExitStack() as patches:
+                    patches.enter_context(
+                        patch.object(gate.subprocess, "run", side_effect=runner)
+                    )
+                    patches.enter_context(
+                        patch.object(
+                            gate,
+                            "run_runtime_command",
+                            return_value=subprocess.CompletedProcess(
+                                command_args, 0, RUNTIME_STARTUP_LINE
+                            ),
+                        )
+                    )
                     self.assertEqual(
                         0,
                         self.submit(key, command=command_args, environment="local"),
@@ -1896,27 +1921,25 @@ class ValidationEvidenceTest(unittest.TestCase):
                     if kind == "spring_boot_run"
                     else ["java", "-jar", "app/target/app-1.0.jar"]
                 )
-                runner = (
-                    patch.object(
-                        gate.subprocess,
-                        "run",
-                        return_value=subprocess.CompletedProcess(
-                            command,
-                            0,
-                            "Build finished without starting the application",
-                        ),
-                    )
+                validation_runner = (
+                    patch.object(gate.subprocess, "run")
                     if kind == "spring_boot_run"
                     else patch.object(
                         gate.subprocess,
                         "run",
-                        side_effect=self.maven_effective_pom_runner(
-                            effective_pom,
-                            runtime_output="Build finished without starting the application",
-                        ),
+                        side_effect=self.maven_effective_pom_runner(effective_pom),
                     )
                 )
-                with runner:
+                runtime_runner = patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        command,
+                        0,
+                        "Build finished without starting the application",
+                    ),
+                )
+                with validation_runner, runtime_runner:
                     self.assertEqual(
                         1,
                         self.submit(
@@ -1948,13 +1971,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         key = ("module", "app", "spring_boot_run", None)
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
-            gate.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(
-                command,
-                0,
-                RUNTIME_STARTUP_LINE,
-            ),
+            gate,
+            "run_runtime_command",
         ) as invoked:
             with self.assertRaisesRegex(gate.EvidenceError, "startup marker"):
                 self.submit(
@@ -1972,8 +1990,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         key = ("module", "app", "spring_boot_run", None)
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
-            gate.subprocess,
-            "run",
+            gate,
+            "run_runtime_command",
             side_effect=subprocess.TimeoutExpired(
                 command,
                 5,
@@ -1996,8 +2014,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         key = ("module", "app", "spring_boot_run", None)
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
-            gate.subprocess,
-            "run",
+            gate,
+            "run_runtime_command",
             side_effect=subprocess.TimeoutExpired(
                 command,
                 5,
@@ -2048,7 +2066,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             "5",
         ]
         with patch.object(sys, "argv", [*base_arguments, "--", *command]):
-            with patch.object(gate.subprocess, "run") as invoked:
+            with patch.object(gate, "run_runtime_command") as invoked:
                 with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                     self.assertEqual(1, gate.main())
                 invoked.assert_not_called()
@@ -2061,8 +2079,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         ]
         with patch.object(sys, "argv", arguments):
             with patch.object(
-                gate.subprocess,
-                "run",
+                gate,
+                "run_runtime_command",
                 return_value=subprocess.CompletedProcess(
                     command,
                     0,
@@ -2092,8 +2110,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         key = ("module", "app", "spring_boot_run", None)
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
-            gate.subprocess,
-            "run",
+            gate,
+            "run_runtime_command",
             side_effect=subprocess.TimeoutExpired(
                 command,
                 5,
@@ -2122,6 +2140,50 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual("passed", check["result"])
         self.assertIsNone(check["exit_code"])
         self.assertTrue(check["startup_timed_out"])
+
+    def test_runtime_timeout_terminates_forked_application_processes(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        started = self.root / "child-started"
+        survived = self.root / "child-survived"
+        child_code = (
+            "import pathlib, time; "
+            f"pathlib.Path({str(started)!r}).write_text('started'); "
+            "time.sleep(2); "
+            f"pathlib.Path({str(survived)!r}).write_text('survived')"
+        )
+        parent_code = (
+            "import pathlib, subprocess, sys, time\n"
+            "subprocess.Popen([sys.executable, '-c', sys.argv[1]])\n"
+            f"started = pathlib.Path({str(started)!r})\n"
+            "deadline = time.monotonic() + 3\n"
+            "while not started.exists() and time.monotonic() < deadline:\n"
+            "    time.sleep(0.01)\n"
+            f"print({RUNTIME_STARTUP_LINE!r}, flush=True)\n"
+            "time.sleep(10)\n"
+        )
+        command = [sys.executable, "-c", parent_code, child_code]
+        with patch.object(gate, "validate_migrate_only_command"):
+            result = self.submit(
+                ("module", "app", "spring_boot_run", None),
+                command=command,
+                environment="local",
+                startup_marker=RUNTIME_STARTUP_MARKER,
+                timeout=1,
+            )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual(0, result, f"{issues}: {checks}")
+        self.assertTrue(started.exists())
+        time.sleep(1.2)
+        self.assertFalse(survived.exists())
 
     def test_report_rejects_runtime_pass_without_startup_evidence(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -2179,8 +2241,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertIn("valid startup signal", recorded["reason"].casefold())
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
-            gate.subprocess,
-            "run",
+            gate,
+            "run_runtime_command",
             return_value=subprocess.CompletedProcess(
                 command,
                 0,
@@ -2226,11 +2288,23 @@ class ValidationEvidenceTest(unittest.TestCase):
             "app/target/app-1.0.jar",
             "--version",
         ]
-        with patch.object(
-            gate.subprocess,
-            "run",
-            side_effect=self.maven_effective_pom_runner(effective_pom),
-        ):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                )
+            )
+            patches.enter_context(
+                patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        command_args, 0, RUNTIME_STARTUP_LINE
+                    ),
+                )
+            )
             self.assertEqual(
                 0,
                 self.submit(
@@ -2262,11 +2336,25 @@ class ValidationEvidenceTest(unittest.TestCase):
         </project>
         """
 
-        with patch.object(
-            gate.subprocess,
-            "run",
-            side_effect=self.maven_effective_pom_runner(effective_pom),
-        ):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                )
+            )
+            patches.enter_context(
+                patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        ["java", "-jar", "app/target/contest-service.jar"],
+                        0,
+                        RUNTIME_STARTUP_LINE,
+                    ),
+                )
+            )
             self.assertEqual(
                 0,
                 self.submit(
@@ -2517,11 +2605,23 @@ class ValidationEvidenceTest(unittest.TestCase):
         </project>
         """
         command_args = ["java", "-jar", "app/target/app-1.0.jar"]
-        with patch.object(
-            gate.subprocess,
-            "run",
-            side_effect=self.maven_effective_pom_runner(effective_pom),
-        ):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(
+                    gate.subprocess,
+                    "run",
+                    side_effect=self.maven_effective_pom_runner(effective_pom),
+                )
+            )
+            patches.enter_context(
+                patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        command_args, 0, RUNTIME_STARTUP_MARKER
+                    ),
+                )
+            )
             self.assertEqual(
                 0,
                 self.submit(
@@ -2603,7 +2703,19 @@ class ValidationEvidenceTest(unittest.TestCase):
             ((":tasks", "other"),),
             ((":bootJar", artifact),),
         )
-        with patch.object(gate.subprocess, "run", side_effect=runner):
+        with ExitStack() as patches:
+            patches.enter_context(
+                patch.object(gate.subprocess, "run", side_effect=runner)
+            )
+            patches.enter_context(
+                patch.object(
+                    gate,
+                    "run_runtime_command",
+                    return_value=subprocess.CompletedProcess(
+                        command_args, 0, RUNTIME_STARTUP_LINE
+                    ),
+                )
+            )
             self.assertEqual(
                 0,
                 self.submit(
