@@ -635,7 +635,7 @@ def maven_test_compilation_disabled(root, parsed):
     if property_is_true(parsed, "maven.test.skip"):
         return True
     option_sources = []
-    for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"):
+    for name in ("MAVEN_OPTS", *JAVA_OPTION_ENVIRONMENTS):
         value = os.environ.get(name, "")
         if not value.strip():
             continue
@@ -1278,11 +1278,31 @@ def is_runtime_check(key):
     return key[0] == "module" and key[2] in RUNTIME_CHECKS
 
 
+SPRING_BOOT_RUNTIME_CHECKS = {"spring_boot_run", "executable_jar"}
+
+
+def spring_boot_startup_application(marker):
+    if not isinstance(marker, str):
+        return None
+    match = re.fullmatch(r"Started ([A-Za-z_$][A-Za-z0-9_$]*)", marker.strip())
+    return match.group(1) if match else None
+
+
 def runtime_startup_marker_observed(key, check):
     if not is_runtime_check(key):
         return False
     marker = check.get("startup_marker")
     output = check.get("output")
+    if key[2] in SPRING_BOOT_RUNTIME_CHECKS:
+        application = spring_boot_startup_application(marker)
+        if application is None or not isinstance(output, str):
+            return False
+        startup_line = re.compile(
+            r"\bStarted\s+"
+            + re.escape(application)
+            + r"\s+in\s+\d+(?:\.\d+)?\s+seconds\b"
+        )
+        return any(startup_line.search(line) for line in output.splitlines())
     return (
         isinstance(marker, str)
         and bool(marker.strip())
@@ -4624,21 +4644,24 @@ def requirements(root, evidence):
             issues.append(f"{path}: invalid runtime mode")
     if any(docker_suites.values()) and test_run_mode != "migrate_only":
         need("project", ".", "docker_info")
+    for suite_key, suite in tests["suites"].items():
+        module, name = suite_key
+        suite_missing = suite_key not in module_suite_keys
+        if suite_missing:
+            issues.append(
+                f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
+            )
+        if not test_enabled:
+            continue
+        has_cpt_tests = suite_has_cpt_tests(suite, mapping)
+        needs_c7_baseline = suite_requires_c7_baseline(suite, tests, mapping)
+        if not has_cpt_tests and not needs_c7_baseline:
+            continue
+        if suite_missing and has_cpt_tests:
+            need("module", module, "test_repeat", name)
+        if needs_c7_baseline:
+            need("module", module, "c7_baseline", name)
     if test_enabled:
-        for suite_key, suite in tests["suites"].items():
-            has_cpt_tests = suite_has_cpt_tests(suite, mapping)
-            needs_c7_baseline = suite_requires_c7_baseline(suite, tests, mapping)
-            if not has_cpt_tests and not needs_c7_baseline:
-                continue
-            module, name = suite_key
-            if suite_key not in module_suite_keys:
-                issues.append(
-                    f"{module} {name}: Step 2 test suite is missing from validation-evidence.json"
-                )
-                if has_cpt_tests:
-                    need("module", module, "test_repeat", name)
-            if needs_c7_baseline:
-                need("module", module, "c7_baseline", name)
         if expected_cpt_test_ids(mapping):
             need("project", ".", "test_freeze", method="snapshot")
         need("project", ".", "test_parity", method="computed")
@@ -6084,11 +6107,15 @@ def load_checks(root, evidence, plan, issues):
                     and (
                         "startup_marker" not in check
                         or "startup_timed_out" not in check
+                        or (
+                            result == "passed"
+                            and not runtime_startup_marker_observed(key, check)
+                        )
                     )
                 ):
                     check["result"] = "not_run"
                     check["reason"] = (
-                        "Legacy runtime evidence lacks a startup marker; "
+                        "Runtime evidence lacks a valid startup signal; "
                         "rerun the launch check"
                     )
                     result = "not_run"
@@ -6706,6 +6733,13 @@ def record(root, args):
                     "--startup-marker"
                 )
             startup_marker = startup_marker.strip()
+            if key[2] in SPRING_BOOT_RUNTIME_CHECKS and (
+                spring_boot_startup_application(startup_marker) is None
+            ):
+                raise EvidenceError(
+                    f"{key}: Spring Boot runtime checks require a startup marker "
+                    "in the form 'Started <ApplicationClass>'"
+                )
         elif startup_marker is not None:
             raise EvidenceError("--startup-marker is only valid for module runtime checks")
     submitted_command = list(args.command or []) if args.action == "run" else []
@@ -6846,7 +6880,10 @@ def record(root, args):
             if exit_code != 0:
                 result = "failed"
                 reason = f"Command exited with code {exit_code}"
-            elif runtime_check and startup_marker not in output:
+            elif runtime_check and not runtime_startup_marker_observed(
+                key,
+                {"startup_marker": startup_marker, "output": output},
+            ):
                 result = "failed"
                 reason = (
                     "Command exited successfully without the required application "
@@ -6858,7 +6895,10 @@ def record(root, args):
             timeout_reason = str(exc)
             if runtime_check:
                 extra["startup_timed_out"] = True
-                if startup_marker in output:
+                if runtime_startup_marker_observed(
+                    key,
+                    {"startup_marker": startup_marker, "output": output},
+                ):
                     result = "passed"
                     output += f"\nStartup marker observed before command timeout: {timeout_reason}"
                 else:

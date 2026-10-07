@@ -19,7 +19,10 @@ from unittest.mock import call, patch
 
 FIXTURE = Path(__file__).resolve().parent
 SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
-RUNTIME_STARTUP_MARKER = "Application ready"
+RUNTIME_STARTUP_MARKER = "Started Application"
+RUNTIME_STARTUP_LINE = (
+    "Started Application in 1.234 seconds (process running for 1.567)"
+)
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
 import run_live_timer_fixture as runner  # noqa: E402
@@ -552,7 +555,7 @@ class ValidationEvidenceTest(unittest.TestCase):
     def maven_effective_pom_runner(
         self,
         effective_pom,
-        runtime_output=RUNTIME_STARTUP_MARKER,
+        runtime_output=RUNTIME_STARTUP_LINE,
     ):
         def run(command, **kwargs):
             if "help:effective-pom" in command:
@@ -621,7 +624,7 @@ class ValidationEvidenceTest(unittest.TestCase):
         graph = "\n".join(output)
 
         def run(command, **kwargs):
-            result = graph if "--dry-run" in command else RUNTIME_STARTUP_MARKER
+            result = graph if "--dry-run" in command else RUNTIME_STARTUP_LINE
             return subprocess.CompletedProcess(command, 0, result)
 
         return run
@@ -757,7 +760,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                         gate.subprocess,
                         "run",
                         return_value=gate.subprocess.CompletedProcess(
-                            options["command"], 0, RUNTIME_STARTUP_MARKER
+                            options["command"], 0, RUNTIME_STARTUP_LINE
                         ),
                     )
                 else:
@@ -1112,11 +1115,21 @@ class ValidationEvidenceTest(unittest.TestCase):
             self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
         jvm_config.unlink()
 
-        for name in ("MAVEN_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"):
+        for name in ("MAVEN_OPTS", *gate.JAVA_OPTION_ENVIRONMENTS):
             with self.subTest(environment=name):
                 with patch.dict(gate.os.environ, {name: "-Dmaven.test.skip=true"}):
-                    with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
-                        self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
+                    with patch.object(
+                        gate.subprocess,
+                        "run",
+                        side_effect=self.maven_effective_pom_runner(
+                            "<project><build><plugins /></build></project>"
+                        ),
+                    ):
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "test-source compilation",
+                        ):
+                            self.submit(key, command=["mvn", "-pl", "app", "test-compile"])
 
         with patch.dict(gate.os.environ, {"MAVEN_ARGS": "test"}):
             with self.assertRaisesRegex(gate.EvidenceError, "test-source compilation"):
@@ -1624,7 +1637,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                     )
                 else:
                     runner = lambda command, **kwargs: subprocess.CompletedProcess(
-                        command, 0, RUNTIME_STARTUP_MARKER
+                        command, 0, RUNTIME_STARTUP_LINE
                     )
                 with patch.object(gate.subprocess, "run", side_effect=runner):
                     self.assertEqual(
@@ -1940,7 +1953,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             return_value=subprocess.CompletedProcess(
                 command,
                 0,
-                RUNTIME_STARTUP_MARKER,
+                RUNTIME_STARTUP_LINE,
             ),
         ) as invoked:
             with self.assertRaisesRegex(gate.EvidenceError, "startup marker"):
@@ -1951,6 +1964,67 @@ class ValidationEvidenceTest(unittest.TestCase):
                     startup_marker=None,
                 )
             invoked.assert_not_called()
+
+    def test_runtime_checks_reject_generic_maven_output_as_startup_evidence(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        key = ("module", "app", "spring_boot_run", None)
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(
+                command,
+                5,
+                output="[INFO] Scanning for projects...\n",
+            ),
+        ) as invoked:
+            with self.assertRaisesRegex(gate.EvidenceError, "startup marker"):
+                self.submit(
+                    key,
+                    command=command,
+                    environment="local",
+                    startup_marker="[INFO]",
+                )
+            invoked.assert_not_called()
+
+    def test_runtime_timeout_requires_complete_spring_boot_startup_line(self):
+        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
+        self.write_scope(test_run_mode="migrate_only")
+        (self.root / "app/pom.xml").write_text("<project />\n", encoding="utf-8")
+        key = ("module", "app", "spring_boot_run", None)
+        command = ["mvn", "-pl", "app", "spring-boot:run"]
+        with patch.object(
+            gate.subprocess,
+            "run",
+            side_effect=subprocess.TimeoutExpired(
+                command,
+                5,
+                output=f"[INFO] {RUNTIME_STARTUP_MARKER}\n",
+            ),
+        ):
+            self.assertEqual(
+                1,
+                self.submit(
+                    key,
+                    command=command,
+                    environment="local",
+                    startup_marker=RUNTIME_STARTUP_MARKER,
+                ),
+            )
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        issues = []
+        checks = gate.load_checks(
+            self.root,
+            evidence,
+            gate.requirements(self.root, self.plan),
+            issues,
+        )
+        self.assertEqual([], issues)
+        check = checks[key][1]
+        self.assertEqual("blocked", check["result"])
+        self.assertTrue(check["startup_timed_out"])
 
     def test_cli_requires_and_records_runtime_startup_marker(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -1992,7 +2066,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 return_value=subprocess.CompletedProcess(
                     command,
                     0,
-                    RUNTIME_STARTUP_MARKER,
+                    RUNTIME_STARTUP_LINE,
                 ),
             ):
                 with redirect_stdout(StringIO()):
@@ -2023,7 +2097,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             side_effect=subprocess.TimeoutExpired(
                 command,
                 5,
-                output=f"{RUNTIME_STARTUP_MARKER}\n",
+                output=f"{RUNTIME_STARTUP_LINE}\n",
             ),
         ):
             self.assertEqual(
@@ -2076,7 +2150,33 @@ class ValidationEvidenceTest(unittest.TestCase):
             if item["target"] == "app" and item["kind"] == "spring_boot_run"
         )
         self.assertEqual("not_run", recorded["result"])
-        self.assertIn("startup marker", recorded["reason"].casefold())
+        self.assertIn("startup signal", recorded["reason"].casefold())
+        check["startup_marker"] = "Application ready"
+        check["startup_timed_out"] = False
+        check["exit_code"] = 0
+        check["output"] = "Application ready"
+        write_json(path, check)
+        self.assertEqual(1, self.audit())
+        recorded = next(
+            item
+            for item in self.summary()["checks"]
+            if item["target"] == "app" and item["kind"] == "spring_boot_run"
+        )
+        self.assertEqual("not_run", recorded["result"])
+        self.assertIn("valid startup signal", recorded["reason"].casefold())
+        check["startup_marker"] = RUNTIME_STARTUP_MARKER
+        check["startup_timed_out"] = False
+        check["exit_code"] = 0
+        check["output"] = RUNTIME_STARTUP_MARKER
+        write_json(path, check)
+        self.assertEqual(1, self.audit())
+        recorded = next(
+            item
+            for item in self.summary()["checks"]
+            if item["target"] == "app" and item["kind"] == "spring_boot_run"
+        )
+        self.assertEqual("not_run", recorded["result"])
+        self.assertIn("valid startup signal", recorded["reason"].casefold())
         command = ["mvn", "-pl", "app", "spring-boot:run"]
         with patch.object(
             gate.subprocess,
@@ -2084,7 +2184,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             return_value=subprocess.CompletedProcess(
                 command,
                 0,
-                RUNTIME_STARTUP_MARKER,
+                RUNTIME_STARTUP_LINE,
             ),
         ):
             self.assertEqual(
@@ -2558,6 +2658,23 @@ class ValidationEvidenceTest(unittest.TestCase):
                         "no Step 2 test suite records this migrated test",
                     ):
                         gate.test_contract(self.root, inventory)
+
+    def test_every_step2_suite_must_be_in_validation_evidence_in_both_modes(self):
+        junit = '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'
+        for mode in ("run", "migrate_only"):
+            with self.subTest(mode=mode):
+                self.configure_test_run(junit, test_run_mode=mode)
+                self.plan["modules"][0]["test_suites"] = [
+                    {"name": "other", "requires_docker": False}
+                ]
+                write_json(self.root / gate.EVIDENCE, self.plan)
+
+                requirements = gate.requirements(self.root, self.plan)
+
+                self.assertIn(
+                    "app unit: Step 2 test suite is missing from validation-evidence.json",
+                    requirements.issues,
+                )
 
     def test_test_inventory_rejects_unsupported_handling_prefixes(self):
         junit = '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>'

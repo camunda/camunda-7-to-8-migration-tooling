@@ -230,8 +230,9 @@ In `migrate_only` mode, the validation script applies these rules:
 - The gate rejects a passed or differently blocked `tests` or `process_path` check.
 - It accepts module `compile` evidence only for a module-specific Maven `test-compile` or Gradle
   `testClasses` command that selects the recorded module. The command must not enable
-  `maven.test.skip` in the module or an ancestor POM, command-line, or JVM options, including
-  `.mvn/jvm.config`.
+  `maven.test.skip` in the module or an ancestor POM, on the command line, or in JVM options.
+  The validator checks `MAVEN_OPTS`, `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, `_JAVA_OPTIONS`,
+  and `.mvn/jvm.config`.
 - Before Maven test compilation, the validator inspects the effective POM with the command's
   module, POM, profile, and property options. It refuses unclassified lifecycle goals through
   `test-compile`, including goals without a known default phase, and Maven build extensions. It
@@ -263,16 +264,18 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 The validator checks each module runtime command before execution in both `run` and `migrate_only`
 modes. The validator requires a positive timeout and a startup marker for every runtime command.
 The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.
-The user supplies a literal marker that the application emits only after it is ready. The validator
-stores the marker with the check and requires the exact text in captured output.
-The validator treats old runtime records without marker metadata as not run. Rerun those checks
-with `--startup-marker`.
+For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.
+The validator accepts these markers only with Spring Boot's standard startup line for that class.
+For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.
+The validator stores the marker with the check and validates the matching startup signal in captured output.
+The validator treats runtime records without complete startup evidence as not run. Rerun those
+checks with `--startup-marker`.
 
-The validator records a runtime command as passed only when the marker appears. A command that exits
-normally must exit with code 0. If the command exits with code 0 without the marker, the validator
-records a failed check. A nonzero exit code remains a failed check.
-If the command times out after the marker appears, the validator stops the command and records a
-passed startup check. If the command times out before the marker appears, the validator records a
+The validator records a runtime command as passed only when its startup signal appears. A command
+that exits normally must exit with code 0. If the command exits with code 0 without the signal, the
+validator records a failed check. A nonzero exit code remains a failed check.
+If the command times out after the signal appears, the validator stops the command and records a
+passed startup check. If the command times out before the signal appears, the validator records a
 blocked check.
 
 An exit code of 0 alone does not prove application startup. The validator rejects arbitrary commands
@@ -281,10 +284,11 @@ The validator rejects shell-wrapped commands, test runners, test-compilation com
 Gradle test-execution goals or tasks as runtime evidence.
 The validator rejects unrecognized Maven goals and Gradle tasks.
 
-| Check kind | Accepted application launch |
-|---|---|
-| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. |
-| `executable_jar` or `external_launcher` | Direct `java -jar` for the module's configured application artifact. |
+| Check kind | Accepted application launch | Startup signal |
+|---|---|---|
+| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |
+| `executable_jar` | Direct `java -jar` for the module's configured application artifact. | Spring Boot `Started <ApplicationClass> in <duration> seconds` line matching the marker. |
+| `external_launcher` | Direct `java -jar` for the module's configured application artifact. | User-supplied marker emitted after application readiness. |
 
 For example, record a Spring Boot launch with a marker that the application emits after readiness:
 
