@@ -87,6 +87,26 @@ JAVA_TEST_RUNNER_MAIN_CLASSES = {
     "org.apache.maven.surefire.booter.forkedbooter",
     "io.cucumber.core.cli.main",
 }
+JAVA_LAUNCHER_EARLY_EXIT_OPTIONS = frozenset(
+    {
+        "-?",
+        "-h",
+        "-help",
+        "--help",
+        "--help-extra",
+        "-X",
+        "-version",
+        "--version",
+        "-fullversion",
+        "-Xinternalversion",
+        "--dry-run",
+        "--list-modules",
+        "-d",
+        "--describe-module",
+        "--validate-modules",
+    }
+)
+JAVA_OPTION_ENVIRONMENTS = ("JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
 MAVEN_EXECUTABLES = {"mvn", "mvnw"}
@@ -1338,6 +1358,25 @@ def java_manifest_entry_points(manifest):
     }
 
 
+def java_launcher_options_can_skip_application(options):
+    return any(
+        option.startswith("@")
+        or option.partition("=")[0] in JAVA_LAUNCHER_EARLY_EXIT_OPTIONS
+        for option in options
+    )
+
+
+def java_environment_options_can_skip_application():
+    for name in JAVA_OPTION_ENVIRONMENTS:
+        try:
+            options = shlex.split(os.environ.get(name, ""))
+        except ValueError as exc:
+            raise EvidenceError(f"Cannot parse {name}: {exc}") from exc
+        if java_launcher_options_can_skip_application(options):
+            return True
+    return False
+
+
 def maven_module_effective_pom(root, module, timeout):
     module_path = project_relative_path(root, module)
     if module_path is None:
@@ -1472,6 +1511,13 @@ def java_application_jar(root, key, command, timeout=None):
     jar_index = arguments.index("-jar")
     if jar_index + 1 >= len(arguments):
         return False
+    if (
+        java_launcher_options_can_skip_application(arguments[:jar_index])
+        or java_environment_options_can_skip_application()
+    ):
+        raise EvidenceError(
+            f"{key}: Java launcher options can prevent application startup"
+        )
     jar_path = Path(arguments[jar_index + 1])
     if jar_path.suffix.casefold() != ".jar":
         return False

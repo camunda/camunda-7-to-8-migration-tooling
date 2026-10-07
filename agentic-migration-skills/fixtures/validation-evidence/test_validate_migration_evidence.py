@@ -1717,6 +1717,115 @@ class ValidationEvidenceTest(unittest.TestCase):
                     self.assertEqual(1, invoked.call_count)
                     self.assertIn("--dry-run", invoked.call_args.args[0])
 
+    def test_runtime_checks_reject_java_launcher_options_that_skip_application(self):
+        exit_options = (
+            ("-version",),
+            ("--version",),
+            ("-help",),
+            ("--help",),
+            ("-?",),
+            ("-h",),
+            ("-X",),
+            ("--help-extra",),
+            ("-fullversion",),
+            ("-Xinternalversion",),
+            ("--dry-run",),
+            ("--list-modules",),
+            ("-d", "java.base"),
+            ("--describe-module", "java.base"),
+            ("--validate-modules",),
+        )
+        scenarios = (
+            (None, "spring-boot", "executable_jar"),
+            (None, "external-launcher", "external_launcher"),
+            ("migrate_only", "spring-boot", "executable_jar"),
+            ("migrate_only", "external-launcher", "external_launcher"),
+        )
+        for test_run_mode, runtime_mode, kind in scenarios:
+            with self.subTest(test_run_mode=test_run_mode, kind=kind):
+                self.plan["modules"][0]["runtime_mode"] = runtime_mode
+                self.write_scope(test_run_mode=test_run_mode)
+                if test_run_mode == "migrate_only":
+                    (self.root / "app/pom.xml").write_text(
+                        "<project />\n",
+                        encoding="utf-8",
+                    )
+                    artifact = self.root / "app/target/app-1.0.jar"
+                    artifact.parent.mkdir(parents=True, exist_ok=True)
+                    with zipfile.ZipFile(artifact, "w") as archive:
+                        archive.writestr(
+                            "META-INF/MANIFEST.MF",
+                            "Manifest-Version: 1.0\n"
+                            "Main-Class: com.example.Application\n\n",
+                        )
+                else:
+                    self.complete_required_checks()
+                effective_pom = f"""
+                <project>
+                  <artifactId>app</artifactId>
+                  <version>1.0</version>
+                  <build>
+                    <directory>{self.root / "app" / "target"}</directory>
+                    <finalName>app-1.0</finalName>
+                  </build>
+                </project>
+                """
+                artifact_path = "app/target/app-1.0.jar"
+                cases = [
+                    (
+                        ["java", *options, "-jar", artifact_path],
+                        None,
+                    )
+                    for options in exit_options
+                ]
+                launcher_options = self.root / "launcher.options"
+                launcher_options.write_text("--dry-run\n", encoding="utf-8")
+                cases.extend(
+                    [
+                        (
+                            ["java", f"@{launcher_options.name}", "-jar", artifact_path],
+                            None,
+                        ),
+                        (
+                            ["java", "-jar", artifact_path],
+                            {"JDK_JAVA_OPTIONS": "--dry-run"},
+                        ),
+                        (
+                            ["java", "-jar", artifact_path],
+                            {"JAVA_TOOL_OPTIONS": "-Xinternalversion"},
+                        ),
+                        (
+                            ["java", "-jar", artifact_path],
+                            {"_JAVA_OPTIONS": "-Xinternalversion"},
+                        ),
+                    ]
+                )
+                runner = self.maven_effective_pom_runner(effective_pom)
+                key = ("module", "app", kind, None)
+                for command_args, environment in cases:
+                    with self.subTest(command=command_args, environment=environment):
+                        environment_patch = (
+                            patch.dict(gate.os.environ, environment)
+                            if environment
+                            else nullcontext()
+                        )
+                        with environment_patch:
+                            with patch.object(
+                                gate.subprocess,
+                                "run",
+                                side_effect=runner,
+                            ) as invoked:
+                                with self.assertRaisesRegex(
+                                    gate.EvidenceError,
+                                    "Java launcher options",
+                                ):
+                                    self.submit(
+                                        key,
+                                        command=command_args,
+                                        environment="local",
+                                    )
+                                invoked.assert_not_called()
+
     def test_migrate_only_allows_module_executable_jar_with_main_class(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
         self.write_scope(test_run_mode="migrate_only")
@@ -1738,7 +1847,13 @@ class ValidationEvidenceTest(unittest.TestCase):
           </build>
         </project>
         """
-        command_args = ["java", "-jar", "app/target/app-1.0.jar"]
+        command_args = [
+            "java",
+            "-showversion",
+            "-jar",
+            "app/target/app-1.0.jar",
+            "--version",
+        ]
         with patch.object(
             gate.subprocess,
             "run",

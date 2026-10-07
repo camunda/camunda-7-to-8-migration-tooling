@@ -1226,6 +1226,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             "| `spring_boot_run` | Module-selected Maven `spring-boot:run` or Gradle `bootRun`. |",
             "The validator inspects the Gradle `bootRun` task graph and rejects every unexcluded `Test` task.",
             "When the validator checks `executable_jar` or `external_launcher` evidence, it accepts a direct `java -jar` command for a configured module artifact with a `Main-Class` manifest entry.",
+            "The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.",
+            "The validator rejects Java argument files before `-jar` and early-exit options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
             "The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
             "The validator matches the JAR path to the module's configured Maven or Gradle archive output.",
             "The validator rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime startup.",
