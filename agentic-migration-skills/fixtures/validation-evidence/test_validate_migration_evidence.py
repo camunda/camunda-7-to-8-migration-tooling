@@ -22,7 +22,9 @@ FIXTURE = Path(__file__).resolve().parent
 SCRIPT_DIR = FIXTURE.parents[1] / "skills" / "migrate-c7-to-c8-code" / "scripts"
 RUNTIME_STARTUP_MARKER = "Started Application"
 RUNTIME_STARTUP_LINE = (
-    "Started Application in 1.234 seconds (process running for 1.567)"
+    "2026-10-07T09:44:38.681+02:00  INFO 12345 --- [migration-app] "
+    "[           main] com.example.Application : Started Application in "
+    "1.234 seconds (process running for 1.567)"
 )
 sys.path.insert(0, str(SCRIPT_DIR))
 import validate_migration_evidence as gate  # noqa: E402
@@ -1839,6 +1841,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             "-javaagent:agent.jar",
             "-agentlib:instrument",
             "-agentpath:/tmp/libinstrument.so",
+            "-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=localhost:5005",
         )
         scenarios = (
             (None, "spring-boot", "executable_jar"),
@@ -2231,7 +2234,7 @@ class ValidationEvidenceTest(unittest.TestCase):
             side_effect=subprocess.TimeoutExpired(
                 command,
                 5,
-                output=f"[INFO] {RUNTIME_STARTUP_MARKER}\n",
+                output=f"ERROR expected {RUNTIME_STARTUP_MARKER} in 1.234 seconds\n",
             ),
         ):
             self.assertEqual(
@@ -2255,6 +2258,46 @@ class ValidationEvidenceTest(unittest.TestCase):
         check = checks[key][1]
         self.assertEqual("blocked", check["result"])
         self.assertTrue(check["startup_timed_out"])
+
+    def test_spring_boot_startup_requires_a_complete_standard_info_log_line(self):
+        key = ("module", "app", "spring_boot_run", None)
+        observations = (
+            (
+                RUNTIME_STARTUP_LINE,
+                True,
+            ),
+            (
+                "2024-10-07 09:44:38.681  INFO 12345 --- [           main] "
+                "com.example.Application : Started Application in 1.234 seconds "
+                "(JVM running for 1.567)",
+                True,
+            ),
+            ("ERROR expected Started Application in 1.234 seconds", False),
+            (
+                "2026-10-07T09:44:38.681+02:00 ERROR 12345 --- "
+                "[migration-app] [           main] com.example.Application : "
+                "Started Application in 1.234 seconds "
+                "(process running for 1.567)",
+                False,
+            ),
+            (
+                "2026-10-07T09:44:38.681+02:00  INFO 12345 --- "
+                "[migration-app] [           main] com.example.Application : "
+                "expected Started Application in 1.234 seconds",
+                False,
+            ),
+            (f"{RUNTIME_STARTUP_LINE} error", False),
+            (f"prefix {RUNTIME_STARTUP_LINE}", False),
+        )
+        for output, expected in observations:
+            with self.subTest(output=output):
+                self.assertEqual(
+                    expected,
+                    gate.runtime_startup_marker_observed(
+                        key,
+                        {"startup_marker": RUNTIME_STARTUP_MARKER, "output": output},
+                    ),
+                )
 
     def test_external_launcher_startup_marker_requires_an_exact_output_line(self):
         key = ("module", "app", "external_launcher", None)

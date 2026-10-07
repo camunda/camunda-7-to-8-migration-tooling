@@ -287,7 +287,8 @@ State how many tests are eligible for CPT migration.
 List every test with handling `Report only` by Test ID and give its reason.
 Record the reason for each `Report only` test in `Notes`.
 When no test is eligible for CPT migration, state that the count is zero.
-Do not ask an additional question about test migration during Step 2.
+Do not ask a question about test migration before Question 8, except to resolve a missing C7 command
+as described in Test Execution Choice.
 Do not migrate tests during Step 2.
 
 ## Handling overrides
@@ -312,14 +313,24 @@ When the target version is Camunda 8.8, the skill detects every test.
 
 Ask Question 8 from `references/interview-questions.md` after the Step 2 Test Inventory is complete.
 The conditions for asking it are in that file.
+Ask Question 8 only after the missing-command path below is complete.
 
 When the user selects Assessment only and the inventory includes a test with handling **Migrate**,
 **Migrate to CPT**, or **Migrate (lower priority)**, explain both Question 8 options in
 `MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
 
 The skill runs `docker info` before the options and states whether it succeeds.
-If no test command was found for a module, then the skill does not invent one.
 If `docker info` fails, then the skill still offers both options.
+
+When the skill asks Question 8, it verifies that every test that remains migratable belongs to a
+`test_suites` entry with an exact C7 command.
+When a migratable test has no discovered C7 command for its module, the skill asks the user to
+provide or confirm the exact command or approve `Report only` with a reason.
+The skill records a user-confirmed command in the suite's `command` field.
+Where the user approves `Report only`, the skill updates the Test Inventory and records the user's
+reason in `Notes`.
+If the user confirms neither option, then the skill leaves `test_run_mode` unset and pauses before
+Step 3.
 
 | User choice | Baseline step | Step 3 and Step 4 | Test verification |
 |---|---|---|---|

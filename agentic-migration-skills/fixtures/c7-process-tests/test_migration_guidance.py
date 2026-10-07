@@ -1202,7 +1202,11 @@ class MigrationGuidanceTest(unittest.TestCase):
             "Where mapped CPT tests use another module or suite, the skill sets `cpt_module` and `cpt_suite`.",
             "The validator uses the C7 module and suite name for `c7_baseline`.",
             "The validator uses the CPT module and suite name for `test_repeat`.",
+            "When the skill asks Question 8, it verifies that every test that remains migratable belongs to a `test_suites` entry with an exact C7 command.",
             "Use wrapper, script, POM, and project-directory paths that resolve from the preserved root. The validator rejects command paths that resolve inside the migrated project.",
+            "When a migratable test has no discovered C7 command for its module, the skill asks the user to provide or confirm the exact command or approve `Report only` with a reason.",
+            "If the user confirms neither option, then the skill leaves `test_run_mode` unset and pauses before Step 3.",
+            "Do not ask a question about test migration before Question 8, except to resolve a missing C7 command as described in Test Execution Choice.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
@@ -1211,6 +1215,18 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "When no required check failed and no required runtime dependency is unavailable, the project-readiness verdict is `needs review`, not `blocked`."
             ),
             guidance,
+        )
+        interview_questions = normalized(
+            (
+                REPO_ROOT
+                / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            normalized(
+                "Ask Question 8 only after every migratable test has an exact C7 command in `test_suites`."
+            ),
+            interview_questions,
         )
 
         validation_evidence_path = (
@@ -1242,7 +1258,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The validator requires a positive timeout and a startup marker for every runtime command.",
             "The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.",
             "For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.",
-            "The validator accepts these markers only with Spring Boot's standard startup line for that class.",
+            "The validator accepts these markers only on a complete Spring Boot INFO log line with a timestamp, PID, logger, startup duration, and optional standard runtime-duration suffix.",
             "For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.",
             "For `external_launcher`, the validator requires a complete output line that exactly matches the user-supplied marker.",
             "The validator stores the marker with the check and validates the matching startup signal in captured output.",
@@ -1266,7 +1282,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "The validator rejects Java launcher options before `-jar` that exit or skip the main method, such as `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.",
             "The validator rejects class, module, and source-file launch modes before `-jar`.",
             "The validator rejects a separate main-class token before `-jar`, including one after a class-path option.",
-            "The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, and `-agentpath`.",
+            "The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, `-agentpath`, and the legacy `-Xrun` option.",
             "The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`, `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.",
             "The validator rejects Gradle init scripts, alternate build or settings files, alternate Gradle user homes, and included builds before task-graph inspection.",
             "The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.",
@@ -1317,22 +1333,6 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("**Gate:** `NOT READY`", report)
         self.assertIn("## Verify the test migration", report)
         self.assertIn("Baseline filesystem snapshot: `../c7-source-baseline/`", report)
-        test_kind_count_headers = ["Test kind", "Count"]
-        test_kind_counts = markdown_table(EXPECTED_ASSESSMENT, test_kind_count_headers)
-        self.assertEqual(
-            test_kind_counts,
-            markdown_table(EXPECTED_TESTS_ONLY, test_kind_count_headers),
-        )
-        step_2_summary = report.split("## Step 2 Summary", 1)[1].split(
-            "## Test Inventory", 1
-        )[0]
-        for count in test_kind_counts:
-            with self.subTest(test_kind=count["Test kind"]):
-                self.assertIn(
-                    f"{count['Test kind']}: {count['Count']}",
-                    step_2_summary,
-                )
-        self.assertIn("30 tests are eligible for CPT migration.", step_2_summary)
         inventory_headers = [
             "Test ID",
             "File",
@@ -1343,6 +1343,48 @@ class MigrationGuidanceTest(unittest.TestCase):
             "Notes",
         ]
         inventory = markdown_table(EXPECTED_TESTS_ONLY, inventory_headers)
+        test_kind_count_headers = ["Test kind", "Count"]
+        test_kind_counts = markdown_table(EXPECTED_ASSESSMENT, test_kind_count_headers)
+        self.assertEqual(
+            test_kind_counts,
+            markdown_table(EXPECTED_TESTS_ONLY, test_kind_count_headers),
+        )
+        inventory_test_kind_counts = {
+            kind: sum(row["Test kind"] == kind for row in inventory)
+            for kind in (
+                {row["Test kind"] for row in inventory}
+                | {"out of scope (Camunda 8)"}
+            )
+        }
+        reported_test_kind_counts = {
+            row["Test kind"]: int(row["Count"])
+            for row in test_kind_counts
+        }
+        self.assertEqual(inventory_test_kind_counts, reported_test_kind_counts)
+        eligible_count = sum(
+            row["Handling"]
+            in {"Migrate", "Migrate to CPT", "Migrate (lower priority)"}
+            for row in inventory
+        )
+        self.assertEqual(29, eligible_count)
+        step_2_summary = report.split("## Step 2 Summary", 1)[1].split(
+            "## Test Inventory", 1
+        )[0]
+        step_2_summary_bullets = {
+            line[2:].strip()
+            for line in step_2_summary.splitlines()
+            if line.startswith("- ")
+        }
+        for count in test_kind_counts:
+            with self.subTest(test_kind=count["Test kind"]):
+                self.assertIn(
+                    f"{count['Test kind']}: {int(count['Count'])}",
+                    step_2_summary_bullets,
+                )
+        self.assertIn(
+            f"{eligible_count} tests are eligible for CPT migration.",
+            step_2_summary_bullets,
+        )
         self.assert_unique_rows(inventory, "Test ID", EXPECTED_TESTS_ONLY)
         self.assertEqual(
             markdown_table(EXPECTED_ASSESSMENT, inventory_headers),

@@ -18,7 +18,7 @@
 - manual redesign: 1
 - out of scope: 12
 - out of scope (Camunda 8): 0
-- 30 tests are eligible for CPT migration.
+- 29 tests are eligible for CPT migration.
 
 ## Test Inventory — target 8.9
 

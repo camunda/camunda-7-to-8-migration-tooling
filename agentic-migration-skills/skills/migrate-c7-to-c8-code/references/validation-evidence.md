@@ -280,7 +280,8 @@ The validator checks each module runtime command before execution in both `run` 
 modes. The validator requires a positive timeout and a startup marker for every runtime command.
 The default timeout is 300 seconds. Use `--timeout` to set another positive startup bound.
 For `spring_boot_run` and `executable_jar`, the user supplies `Started <ApplicationClass>` as the marker.
-The validator accepts these markers only with Spring Boot's standard startup line for that class.
+The validator accepts these markers only on a complete Spring Boot INFO log line with a timestamp,
+PID, logger, startup duration, and optional standard runtime-duration suffix.
 For `external_launcher`, the user supplies a literal marker that the application emits only after it is ready.
 For `external_launcher`, the validator requires a complete output line that exactly matches the
 user-supplied marker.
@@ -324,7 +325,8 @@ The validator rejects Java launcher options before `-jar` that exit or skip the 
 `-version`, `--version`, `-fullversion`, `-Xinternalversion`, `--dry-run`, `--list-modules`, and `--help`.
 The validator rejects class, module, and source-file launch modes before `-jar`.
 The validator rejects a separate main-class token before `-jar`, including one after a class-path option.
-The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, and `-agentpath`.
+The validator rejects Java agent-loading options such as `-javaagent`, `-agentlib`, `-agentpath`,
+and the legacy `-Xrun` option.
 The validator rejects Java argument files and unsafe launcher options in `JDK_JAVA_OPTIONS`,
 `JAVA_TOOL_OPTIONS`, and `_JAVA_OPTIONS`.
 The validator rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries.

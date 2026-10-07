@@ -125,7 +125,12 @@ JAVA_LAUNCHER_OPTIONS_WITH_VALUE = frozenset(
         "-p",
     }
 )
-JAVA_LAUNCHER_CODE_LOADING_OPTIONS = ("-javaagent:", "-agentlib:", "-agentpath:")
+JAVA_LAUNCHER_CODE_LOADING_OPTIONS = (
+    "-javaagent:",
+    "-agentlib:",
+    "-agentpath:",
+    "-Xrun",
+)
 JAVA_OPTION_ENVIRONMENTS = ("JDK_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS")
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
@@ -1360,11 +1365,16 @@ def runtime_startup_marker_observed(key, check):
         if application is None or not isinstance(output, str):
             return False
         startup_line = re.compile(
-            r"\bStarted\s+"
+            r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}"
+            r"(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?\s+"
+            r"INFO\s+\d+\s+---\s+"
+            r"(?:\[[^\]\r\n]+\]\s+){1,2}"
+            r"[^:\r\n]+\s+:\s+Started\s+"
             + re.escape(application)
-            + r"\s+in\s+\d+(?:\.\d+)?\s+seconds\b"
+            + r"\s+in\s+\d+(?:\.\d+)?\s+seconds"
+            + r"(?:\s+\((?:JVM|process) running for \d+(?:\.\d+)?\))?"
         )
-        return any(startup_line.search(line) for line in output.splitlines())
+        return any(startup_line.fullmatch(line) for line in output.splitlines())
     return (
         isinstance(marker, str)
         and bool(marker.strip())
