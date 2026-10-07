@@ -94,6 +94,28 @@ MAVEN_TEST_EXECUTION_GOALS = {
     "test",
     "verify",
 }
+MAVEN_PACKAGING_GOALS = {
+    "assemble",
+    "assembly",
+    "build",
+    "build-image",
+    "bundle",
+    "ear",
+    "ejb",
+    "exploded",
+    "jar",
+    "jar-no-fork",
+    "jlink",
+    "jpackage",
+    "nar",
+    "native-image",
+    "rar",
+    "repackage",
+    "shade",
+    "single",
+    "test-jar",
+    "war",
+}
 GRADLE_PACKAGE_TASKS = {"assemble", "bootjar", "build", "jar", "war"}
 GRADLE_TEST_SOURCE_COMPILE_TASKS = {
     "compiletestgroovy",
@@ -162,6 +184,11 @@ MAVEN_DEFAULT_LIFECYCLE_PHASES = (
     "verify",
     "install",
     "deploy",
+)
+MAVEN_PACKAGING_PHASES = frozenset(
+    MAVEN_DEFAULT_LIFECYCLE_PHASES[
+        MAVEN_DEFAULT_LIFECYCLE_PHASES.index("package"):
+    ]
 )
 MAVEN_CLEAN_LIFECYCLE_PHASES = ("pre-clean", "clean", "post-clean")
 GRADLE_TEST_COMPILE_TASKS = {"testclasses", "testcompile", "testresources"}
@@ -1200,7 +1227,7 @@ def verify_gradle_task_graph_avoids_test_execution(task_records, parsed, operati
 def runtime_check_uses_packaging_command(key, command):
     if (
         key[0] != "module"
-        or key[2] not in {"executable_jar", "external_launcher"}
+        or key[2] not in RUNTIME_CHECKS
         or not command
     ):
         return False
@@ -1208,7 +1235,11 @@ def runtime_check_uses_packaging_command(key, command):
     if tool is None:
         return False
     parsed = parse_build_command(command, tool)
-    packaging_tasks = {"package"} if tool == "maven" else GRADLE_PACKAGE_TASKS
+    packaging_tasks = (
+        MAVEN_PACKAGING_PHASES | MAVEN_PACKAGING_GOALS
+        if tool == "maven"
+        else GRADLE_PACKAGE_TASKS
+    )
     return any(task_leaf(task) in packaging_tasks for task in parsed["tasks"])
 
 
@@ -5030,6 +5061,74 @@ def resolve_c7_baseline_root(root, inventory, value):
     return baseline_root
 
 
+def reject_deferred_c7_baseline_project_paths(root, baseline_root, command):
+    root = root.resolve(strict=True)
+    baseline_root = baseline_root.resolve(strict=True)
+    if root == baseline_root:
+        return
+
+    path_options = {
+        "-b",
+        "--build-file",
+        "-f",
+        "--file",
+        "-p",
+        "--project-dir",
+        "-pl",
+        "--projects",
+    }
+    absolute_path = re.compile(r"""(?<![\w:])(?:[A-Za-z]:[\\/]|/)[^\s"'`;|&<>]+""")
+    arguments = []
+    for argument in command:
+        arguments.append(argument)
+        try:
+            arguments.extend(shlex.split(argument))
+        except ValueError:
+            continue
+
+    candidates = []
+    for index, argument in enumerate(arguments):
+        if argument in path_options and index + 1 < len(arguments):
+            candidates.append(arguments[index + 1])
+        if "=" in argument:
+            candidates.append(argument.partition("=")[2])
+        if (
+            Path(argument).is_absolute()
+            or "/" in argument
+            or "\\" in argument
+            or argument.startswith((".", "~"))
+        ):
+            candidates.append(argument)
+        candidates.extend(
+            match.group(0).rstrip(")]}.,")
+            for match in absolute_path.finditer(argument)
+        )
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = Path(os.path.expandvars(candidate)).expanduser()
+        if not path.is_absolute():
+            if (
+                "/" not in candidate
+                and "\\" not in candidate
+                and not candidate.startswith(".")
+            ):
+                continue
+            path = baseline_root / path
+        try:
+            resolved = path.resolve(strict=False)
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise EvidenceError(
+                f"Cannot resolve deferred C7 baseline command path: {candidate}"
+            ) from exc
+        if resolved.is_relative_to(root):
+            raise EvidenceError(
+                "Deferred C7 baseline command references the migrated project: "
+                f"{candidate}"
+            )
+
+
 def aggregate_baseline_results(contract, baseline_suites):
     suite_results = {
         (suite.get("module"), suite.get("suite")): suite
@@ -5155,6 +5254,11 @@ def record_c7_baseline(root, args):
             raise EvidenceError("Command timeout must be positive")
         baseline_root = resolve_c7_baseline_root(
             root, inventory, getattr(args, "baseline_root", None)
+        )
+        reject_deferred_c7_baseline_project_paths(
+            root,
+            baseline_root,
+            command,
         )
 
     suite_digest = module_suite_digest(args.target, args.scenario)
@@ -5960,6 +6064,12 @@ def obsolete_test_check_key(key, plan, mapping):
         return not expected_cpt_test_ids(mapping)
     if (
         key[0] == "module"
+        and key[2] == "tests"
+        and key[3] is not None
+    ):
+        return ("module", key[1], "test_repeat", key[3]) in plan.required
+    if (
+        key[0] == "module"
         and key[2] == "test_repeat"
         and key[3] is not None
         and (key[1], key[3]) in plan.test_contract["suites"]
@@ -6374,12 +6484,14 @@ def record(root, args):
     submitted_command = list(args.command or []) if args.action == "run" else []
     if submitted_command and submitted_command[0] == "--":
         submitted_command = submitted_command[1:]
-    if runtime_check_uses_packaging_command(key, submitted_command):
+    test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
+    if runtime_check_uses_packaging_command(key, submitted_command) and not (
+        test_run_mode == "migrate_only" and key[2] == "spring_boot_run"
+    ):
         raise EvidenceError(
             f"{key}: packaging does not prove runtime startup. "
             "Run packaging outside the evidence recorder and record a bounded launch command."
         )
-    test_run_mode = read_test_run_mode(read_json(root / INVENTORY))
     if test_run_mode == "migrate_only" and key[2] in TEST_EXECUTION_KINDS:
         if args.action != "block":
             raise EvidenceError(f"{key}: Question 8 selected Migrate tests only; record a blocker")

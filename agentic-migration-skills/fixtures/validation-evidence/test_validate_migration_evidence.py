@@ -1321,59 +1321,124 @@ class ValidationEvidenceTest(unittest.TestCase):
                         )
 
     def test_packaging_runtime_evidence_is_invalidated_after_mode_transition(self):
-        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
-        self.write_scope(test_run_mode="migrate_only")
-        inventory_path = self.root / gate.INVENTORY
-        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-        evidence_path = self.root / gate.EVIDENCE
-        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-        plan = gate.requirements(self.root, evidence)
-        key = ("module", "app", "executable_jar", None)
-        legacy_check = {
-            "run_id": inventory["run_id"],
-            "type": key[0],
-            "target": key[1],
-            "kind": key[2],
-            "scenario": key[3],
-            "method": "command",
-            "command": ["mvn", "-pl", "app", "package", "-DskipTests"],
-            "exit_code": 0,
-            "result": "passed",
-            "reason": None,
-            "environment": "local",
-            "source_digest": plan.source_digest,
-            "output": "BUILD SUCCESS",
-        }
-        evidence["checks"] = [gate.write_check_log(self.root, key, legacy_check)]
-        write_json(evidence_path, evidence)
+        packaging_commands = (
+            ["mvn", "-pl", "app", "verify", "-DskipTests"],
+            ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
+            [
+                "mvn",
+                "-pl",
+                "app",
+                "org.apache.maven.plugins:maven-jar-plugin:3.4.2:jar",
+            ],
+            ["mvn", "-pl", "app", "maven-source-plugin:jar-no-fork"],
+            ["mvn", "-pl", "app", "maven-bundle-plugin:bundle"],
+            ["mvn", "-pl", "app", "maven-appassembler-plugin:assemble"],
+            ["mvn", "-pl", "app", "maven-assembly-plugin:single"],
+            ["mvn", "-pl", "app", "package", "-DskipTests"],
+        )
+        runtime_modes = (
+            ("spring_boot_run", "spring-boot"),
+            ("executable_jar", "spring-boot"),
+            ("external_launcher", "external-launcher"),
+        )
+        for kind, runtime_mode in runtime_modes:
+            with self.subTest(kind=kind):
+                self.plan["modules"][0]["runtime_mode"] = runtime_mode
+                self.write_scope(test_run_mode="migrate_only")
+                inventory_path = self.root / gate.INVENTORY
+                inventory = json.loads(
+                    inventory_path.read_text(encoding="utf-8")
+                )
+                evidence_path = self.root / gate.EVIDENCE
+                evidence = json.loads(
+                    evidence_path.read_text(encoding="utf-8")
+                )
+                plan = gate.requirements(self.root, evidence)
+                key = ("module", "app", kind, None)
+                for command_args in packaging_commands:
+                    with self.subTest(command=command_args):
+                        legacy_check = {
+                            "run_id": inventory["run_id"],
+                            "type": key[0],
+                            "target": key[1],
+                            "kind": key[2],
+                            "scenario": key[3],
+                            "method": "command",
+                            "command": command_args,
+                            "exit_code": 0,
+                            "result": "passed",
+                            "reason": None,
+                            "environment": "local",
+                            "source_digest": plan.source_digest,
+                            "output": "BUILD SUCCESS",
+                        }
+                        evidence["checks"] = [
+                            gate.write_check_log(self.root, key, legacy_check)
+                        ]
+                        write_json(evidence_path, evidence)
 
-        inventory["test_run_mode"] = "run"
-        write_json(inventory_path, inventory)
-        plan = gate.requirements(self.root, evidence)
-        issues = []
-        checks = gate.load_checks(self.root, evidence, plan, issues)
+                        inventory["test_run_mode"] = "run"
+                        write_json(inventory_path, inventory)
+                        plan = gate.requirements(self.root, evidence)
+                        issues = []
+                        checks = gate.load_checks(
+                            self.root, evidence, plan, issues
+                        )
 
-        self.assertEqual([], issues)
-        self.assertEqual("not_run", checks[key][1]["result"])
-        self.assertIn("runtime startup", checks[key][1]["reason"])
+                        self.assertEqual([], issues)
+                        self.assertEqual("not_run", checks[key][1]["result"])
+                        self.assertIn(
+                            "runtime startup",
+                            checks[key][1]["reason"],
+                        )
+                        inventory["test_run_mode"] = "migrate_only"
+                        write_json(inventory_path, inventory)
 
     def test_run_mode_rejects_packaging_as_runtime_evidence(self):
-        self.plan["modules"][0]["runtime_mode"] = "spring-boot"
-        self.write_scope()
-        self.complete_required_checks()
-        command_args = ["mvn", "-pl", "app", "package", "-DskipTests"]
-        with patch.object(
-            gate.subprocess,
-            "run",
-            return_value=subprocess.CompletedProcess(command_args, 0, "BUILD SUCCESS"),
-        ) as invoked:
-            with self.assertRaisesRegex(gate.EvidenceError, "runtime startup"):
-                self.submit(
-                    ("module", "app", "executable_jar", None),
-                    command=command_args,
-                    environment="local",
-                )
-            invoked.assert_not_called()
+        packaging_commands = (
+            ["mvn", "-pl", "app", "verify", "-DskipTests"],
+            ["mvn", "-pl", "app", "maven-jar-plugin:jar"],
+            [
+                "mvn",
+                "-pl",
+                "app",
+                "org.apache.maven.plugins:maven-jar-plugin:3.4.2:jar",
+            ],
+            ["mvn", "-pl", "app", "maven-source-plugin:jar-no-fork"],
+            ["mvn", "-pl", "app", "maven-bundle-plugin:bundle"],
+            ["mvn", "-pl", "app", "maven-appassembler-plugin:assemble"],
+            ["mvn", "-pl", "app", "maven-assembly-plugin:single"],
+            ["mvn", "-pl", "app", "package", "-DskipTests"],
+        )
+        runtime_modes = (
+            ("spring_boot_run", "spring-boot"),
+            ("executable_jar", "spring-boot"),
+            ("external_launcher", "external-launcher"),
+        )
+        for kind, runtime_mode in runtime_modes:
+            self.plan["modules"][0]["runtime_mode"] = runtime_mode
+            self.write_scope()
+            self.complete_required_checks()
+            key = ("module", "app", kind, None)
+            for command_args in packaging_commands:
+                with self.subTest(kind=kind, command=command_args):
+                    with patch.object(
+                        gate.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess(
+                            command_args, 0, "BUILD SUCCESS"
+                        ),
+                    ) as invoked:
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "runtime startup",
+                        ):
+                            self.submit(
+                                key,
+                                command=command_args,
+                                environment="local",
+                            )
+                        invoked.assert_not_called()
 
     def test_migrate_only_allows_verified_runtime_commands(self):
         self.plan["modules"][0]["runtime_mode"] = "spring-boot"
@@ -2397,6 +2462,98 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         mapping = gate.read_test_mapping(self.root, required=True)
         self.assertEqual("passed", mapping["baseline"]["suites"][0]["result"])
+
+    def test_deferred_c7_baseline_rejects_paths_into_the_migrated_project(self):
+        junit = (
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        command_variants = (
+            lambda baseline_root: [str(self.root / "mvnw"), "-pl", "app", "test"],
+            lambda baseline_root: [
+                "python3",
+                str(self.root / "scripts" / "run-tests.py"),
+            ],
+            lambda baseline_root: [
+                "mvn",
+                "-f",
+                str(self.root / "app" / "pom.xml"),
+                "test",
+            ],
+            lambda baseline_root: [
+                "gradle",
+                "--project-dir",
+                str(self.root),
+                "test",
+            ],
+            lambda baseline_root: [
+                "mvn",
+                "-f",
+                os.path.relpath(self.root / "app" / "pom.xml", baseline_root),
+                "test",
+            ],
+            lambda baseline_root: [
+                "sh",
+                "-c",
+                f"mvn -f '{self.root / 'app' / 'pom.xml'}' test",
+            ],
+            lambda baseline_root: [
+                "sh",
+                "-c",
+                'mvn -f "$MIGRATION_PROJECT_ROOT/app/pom.xml" test',
+            ],
+        )
+
+        for index, make_command in enumerate(command_variants):
+            with self.subTest(command=index):
+                self.configure_test_run(junit, test_run_mode="migrate_only")
+                baseline_root = self.root.parent / (
+                    f"{self.root.name}-c7-baseline-{index}"
+                )
+                command_args = make_command(baseline_root)
+                inventory_path = self.root / gate.INVENTORY
+                inventory = json.loads(
+                    inventory_path.read_text(encoding="utf-8")
+                )
+                inventory["test_suites"][0]["command"] = command_args
+                write_json(inventory_path, inventory)
+                with redirect_stdout(StringIO()):
+                    self.assertEqual(
+                        0,
+                        gate.initialize(self.root, reset_source_snapshot=True),
+                    )
+
+                shutil.copytree(self.root, baseline_root)
+                self.addCleanup(shutil.rmtree, baseline_root)
+                inventory = json.loads(
+                    inventory_path.read_text(encoding="utf-8")
+                )
+                inventory["test_run_mode"] = "run"
+                write_json(inventory_path, inventory)
+
+                environment = (
+                    {"MIGRATION_PROJECT_ROOT": str(self.root)}
+                    if "$MIGRATION_PROJECT_ROOT" in " ".join(command_args)
+                    else {}
+                )
+                with patch.dict(gate.os.environ, environment):
+                    with patch.object(
+                        gate.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess(
+                            command_args, 0, "no baseline reports"
+                        ),
+                    ) as invoked:
+                        with self.assertRaisesRegex(
+                            gate.EvidenceError,
+                            "Deferred C7 baseline command",
+                        ):
+                            self.submit(
+                                ("module", "app", "c7_baseline", "unit"),
+                                command=command_args,
+                                baseline_root=baseline_root,
+                            )
+                        invoked.assert_not_called()
 
     def test_c7_baseline_snapshot_tracks_inventory_tests_under_build_directories(self):
         junit = (
@@ -4321,6 +4478,37 @@ class ValidationEvidenceTest(unittest.TestCase):
                 mapping,
             )
         )
+
+    def test_deferred_tests_check_is_obsolete_when_cpt_repeat_is_required(self):
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" name="testOrder" /></testsuite>',
+            test_run_mode="migrate_only",
+        )
+        tests_key = ("module", "app", "tests", "unit")
+        self.assertEqual(
+            1,
+            self.submit(
+                tests_key,
+                action="block",
+                reason=gate.QUESTION_8_DECLINE_REASON,
+            ),
+        )
+        inventory_path = self.root / gate.INVENTORY
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "run"
+        write_json(inventory_path, inventory)
+        self.assertEqual(0, self.record_c7_baseline())
+        self.map_test_to_cpt()
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        plan = gate.requirements(self.root, evidence)
+        repeat_key = ("module", "app", "test_repeat", "unit")
+        self.assertIn(repeat_key, plan.required)
+        issues = []
+        checks = gate.load_checks(self.root, evidence, plan, issues)
+
+        self.assertEqual([], issues)
+        self.assertNotIn(tests_key, checks)
 
     def test_retiring_migrated_test_replaces_stale_test_evidence(self):
         self.configure_test_run(

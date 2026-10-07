@@ -1191,6 +1191,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "A **Migrate tests only** inventory also declares `test_suites` in Step 2. The skill records every suite that contains a migratable test for deferred verification.",
             "The skill assigns every migratable test to at least one suite in either mode.",
             "The skill uses a distinct `name` for each suite in a module.",
+            "Use wrapper, script, POM, and project-directory paths that resolve from the preserved root. The validator rejects command paths that resolve inside the migrated project.",
         ):
             with self.subTest(text=text):
                 self.assertIn(normalized(text), guidance)
@@ -1214,9 +1215,10 @@ class MigrationGuidanceTest(unittest.TestCase):
             "It also rejects shell-wrapped commands, unrecognized executables, and unrecognized Maven goals or Gradle tasks.",
             "It accepts Maven `spring-boot:run` and Gradle `bootRun` only for the recorded module's `spring_boot_run` check. Before accepting Gradle `bootRun`, it inspects the task graph and rejects every unexcluded `Test` task.",
             "It accepts `java -jar` only for `executable_jar` checks when the JAR is a module build artifact with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle archive output.",
-            "It rejects Maven `package` and Gradle packaging tasks as `executable_jar` or `external_launcher` evidence because packaging does not prove runtime startup.",
+            "It rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`, `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime startup.",
             "When a runtime check needs a packaged artifact, the user runs packaging outside the evidence recorder.",
             "The user records a bounded launch command as `executable_jar` or `external_launcher` evidence.",
+            "When `--baseline-root` differs from the project root, the validator rejects command paths that resolve inside the migrated project. Use wrapper, script, POM, and project-directory paths that resolve from the preserved root.",
             "Where the Test Inventory has no migratable test, the skill omits `test_run_mode`.",
             "If the inventory has no migratable test and it supplies `test_run_mode`, then the validator rejects the field.",
             "When the user selects `Run tests` or `Migrate tests only`, the skill checks the Test Inventory.",

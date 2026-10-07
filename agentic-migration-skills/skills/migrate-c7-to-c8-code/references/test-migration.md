@@ -752,6 +752,8 @@ the Test Inventory, project documentation, and CI inventory:
 3. Record `docker_info` before the first Docker-dependent baseline or migrated suite.
 4. Record each C7 baseline with the validator `c7_baseline` check. Set `--baseline-root` to the
    preserved worktree or snapshot directory. The validator runs the exact Step 2 suite command.
+   Use wrapper, script, POM, and project-directory paths that resolve from the preserved root.
+   The validator rejects command paths that resolve inside the migrated project.
 5. Confirm that `test-mapping.json`, approved `test_changes`, and approved `mock_changes` are
    complete before recording the remaining checks.
 6. Record `test_freeze` after the migrated test sources and resources are final.

@@ -64,7 +64,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 When the user verifies a deferred migration, add `--baseline-root <path>` to the `c7_baseline`
 command. Set `<path>` to the preserved Git worktree or filesystem snapshot.
 The validator checks its source files against the Step 2 snapshot. It also checks the Git commit
-when the project has one.
+when the project has one. When `--baseline-root` differs from the project root, the validator
+rejects command paths that resolve inside the migrated project. Use wrapper, script, POM, and
+project-directory paths that resolve from the preserved root.
 The validator runs the exact Step 2 suite command from that root and copies its reports into the
 current project:
 
@@ -250,8 +252,10 @@ In `migrate_only` mode, the validation script applies these rules:
   with a `Main-Class` manifest entry. It rejects known test-runner classes in `Main-Class` and
   Spring Boot `Start-Class` entries. The JAR path must match the module's configured Maven or Gradle
   archive output.
-- It rejects Maven `package` and Gradle packaging tasks as `executable_jar` or `external_launcher`
-  evidence because packaging does not prove runtime startup.
+- It rejects Maven default-lifecycle phases at or after `package`, recognized artifact-packaging
+  goals such as `maven-jar-plugin:jar`, and Gradle packaging tasks as `spring_boot_run`,
+  `executable_jar`, or `external_launcher` evidence because packaging does not prove runtime
+  startup.
 - When a runtime check needs a packaged artifact, the user runs packaging outside the evidence
   recorder.
 - The user records a bounded launch command as `executable_jar` or `external_launcher`
