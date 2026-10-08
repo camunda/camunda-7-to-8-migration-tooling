@@ -2926,6 +2926,29 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("Do not assert exact counts or their sum", mapping)
         self.assertIn("counts must sum to `n`", notes)
 
+    def test_scenario_conditional_mapping_qualifies_the_context(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        wait_rows = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"]
+            == 'waitsAtUserTask("A").thenReturn(task -> task.complete(vars))'
+        ]
+
+        self.assertEqual(1, len(wait_rows))
+        self.assertTrue(
+            wait_rows[0]["Camunda Process Test 8.9 or later"].startswith(
+                "processTestContext.when("
+            )
+        )
+
     def test_scenario_user_task_wait_and_completion_share_instance_key(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(

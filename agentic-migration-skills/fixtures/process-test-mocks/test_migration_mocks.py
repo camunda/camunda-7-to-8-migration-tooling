@@ -115,6 +115,28 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('when(invoiceService.isValid("I-1")).thenReturn(true);', c8_method)
         self.assertIn('verify(invoiceService).isValid("I-1");', c8_method)
 
+    def test_catalog_preserves_expression_and_worker_collaborator_boundaries(self):
+        mapping_rows = [
+            line
+            for line in MOCK_PATTERNS.read_text(encoding="utf-8").splitlines()
+            if line.startswith('| `Mocks.register("service", mock)`')
+        ]
+        self.assertEqual(2, len(mapping_rows))
+
+        expression_row = next(
+            row for row in mapping_rows if "`camunda:expression` target" in row
+        )
+        collaborator_row = next(
+            row
+            for row in mapping_rows
+            if "collaborator called by a real delegate or worker" in row
+        )
+
+        self.assertIn("matching service used by the real worker", expression_row)
+        self.assertIn("real worker's collaborator", collaborator_row)
+        for row in mapping_rows:
+            self.assertIn("keep the real worker enabled", row.lower())
+
     def test_repeated_delegate_outputs_map_to_per_activation_cpt_results(self):
         c7_test = (
             FIXTURE

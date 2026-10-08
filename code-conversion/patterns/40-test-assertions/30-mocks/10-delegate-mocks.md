@@ -42,7 +42,8 @@ class InvoiceProcessTest {
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `Mocks.register("service", mock)` for a collaborator or `camunda:expression` target | Keep a Mockito mock of the collaborator and inject it into the expression service. | Run the real migrated worker. Use `@MockitoBean` in Spring or pass the mock to the worker. |
+| `Mocks.register("service", mock)` for a `camunda:expression` target | Keep a Mockito mock of the expression target. Inject it into the matching service used by the real worker. | Keep the real worker enabled. Use `@MockitoBean` in Spring or pass the mock to the worker. |
+| `Mocks.register("service", mock)` for a collaborator called by a real delegate or worker | Keep a Mockito mock of the collaborator and inject it into the real worker's collaborator. | Keep the real worker enabled. Use `@MockitoBean` in Spring or pass the mock to the worker. |
 | `Mocks.register("delegate", mock)` for a whole delegate expression | `mockJobWorker(type)` | The real delegate did not run in Camunda 7, so mock the converted task's job type. |
 | `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary mapping. | Classify the registered object. Do not infer its boundary from the helper name. |
 | `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read input variables from the activated job. Keep the invocation verification. |

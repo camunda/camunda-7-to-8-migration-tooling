@@ -83,6 +83,19 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
         self.assertIn("question 8 runtime notice for decision tests", questions)
         self.assertIn("the cpt test needs a camunda 8 runtime", questions)
 
+    def test_catalog_qualifies_cpt_decision_assertion_calls(self):
+        catalog_rows = [
+            line
+            for line in DECISION_PATTERN.read_text(encoding="utf-8").splitlines()
+            if line.startswith("|") and "assertThatDecision(" in line
+        ]
+
+        self.assertGreater(len(catalog_rows), 0)
+        for row in catalog_rows:
+            with self.subTest(row=row):
+                self.assertIn("CamundaAssert.assertThatDecision(", row)
+                self.assertIsNone(re.search(r"(?<![.\w])assertThatDecision\(", row))
+
     def test_nullable_input_uses_a_map_that_accepts_null(self):
         source = (
             C7
