@@ -2466,25 +2466,40 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(source_directory=source_directory):
                 self.assertIn("`{}`".format(source_directory), reference)
 
-    def test_step_4_gate_covers_selected_remote_engine_tests(self):
+    def test_step_4_gate_covers_all_migratable_inventory_rows(self):
         tests_gate = normalized(
             MIGRATION_SKILL.read_text(encoding="utf-8")
             .split("9. **Tests** —", 1)[1]
             .split("\n10.", 1)[0]
         )
         self.assertIn(
-            "when the target is camunda 8.9 or later, verify that every process test "
-            "with handling `migrate to cpt` and every remote-engine test with handling "
-            "`migrate (lower priority)` were migrated by following "
+            "when the target is camunda 8.9 or later, verify that every test inventory row "
+            "with handling `migrate`, `migrate to cpt`, or `migrate (lower priority)` was "
+            "migrated by following "
             "`references/test-migration.md`.",
             tests_gate,
         )
         self.assertIn(
-            "when the target is camunda 8.8, verify that each such process test and "
-            "remote-engine test keeps `report only` handling with the reason "
+            "when the target is camunda 8.8, verify that each such row keeps `report only` "
+            "handling with the reason "
             "`test migration needs camunda 8.9 or later`.",
             tests_gate,
         )
+
+    def test_step_4_gate_covers_every_migratable_handling(self):
+        tests_gate = normalized(
+            MIGRATION_SKILL.read_text(encoding="utf-8")
+            .split("9. **Tests** —", 1)[1]
+            .split("\n10.", 1)[0]
+        )
+        for handling in (
+            "`migrate`,",
+            "`migrate to cpt`",
+            "`migrate (lower priority)`",
+        ):
+            with self.subTest(handling=handling):
+                self.assertIn(handling, tests_gate)
+
     def test_worker_bootstrap_handling_is_scoped_to_non_boot_spring(self):
         reference = normalized(TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"))
         handling_rule = (

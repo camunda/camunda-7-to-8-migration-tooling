@@ -239,14 +239,14 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         skill = " ".join(SKILL_PATH.read_text().split())
 
         self.assertIn(
-            "when the target is Camunda 8.9 or later, verify that every process test with "
-            "handling `Migrate to CPT` and every remote-engine test with handling "
-            "`Migrate (lower priority)` were migrated",
+            "when the target is Camunda 8.9 or later, verify that every Test Inventory row "
+            "with handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)` was "
+            "migrated",
             skill,
         )
         self.assertIn(
-            "When the target is Camunda 8.8, verify that each such process test and "
-            "remote-engine test keeps `Report only` handling with the reason "
+            "When the target is Camunda 8.8, verify that each such row keeps `Report only` "
+            "handling with the reason "
             "`test migration needs Camunda 8.9 or later`.",
             skill,
         )
