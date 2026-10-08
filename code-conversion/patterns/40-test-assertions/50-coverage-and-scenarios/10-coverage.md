@@ -2,6 +2,10 @@
 
 Camunda 7 coverage extensions add a rule or JUnit extension to process tests. CPT generates its own coverage report from Camunda 8.8.
 
+| Camunda 7 coverage support | CPT | Note |
+|---|---|---|
+| `camunda-process-test-coverage` rule or extension | Remove it when no remaining test uses it. | CPT reports process coverage. Do not add a separate coverage dependency. |
+
 ## Camunda 7
 
 ```java

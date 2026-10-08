@@ -48,12 +48,18 @@ Fetch test catalog files only for selected rows.
 | Test Inventory signal | Catalog path |
 |---|---|
 | Any selected row in the module | `40-test-assertions/20-test-setup/10-junit-harness.md`, `40-test-assertions/20-test-setup/20-deployment.md`, `40-test-assertions/20-test-setup/30-spring-boot-test.md`, and `10-general/dependencies.md` |
+| Test kind `process test` | `40-test-assertions/10-assertions/20-process-instance.md` |
+| Business-key handling in a test | `20-client-code/10-process-engine/business-key-and-tags.md` |
 | Assertions in a selected row | `40-test-assertions/10-assertions/80-assertion-mapping.md`. Add the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md`, `40-test-assertions/10-assertions/70-executable-entry-points.md` |
+| User-task search, assignment, or completion | `40-test-assertions/10-assertions/40-user-task.md` |
+| Message correlation or signal delivery | `40-test-assertions/10-assertions/50-message.md` |
+| Job execution, timer, clock, or worker failure | `40-test-assertions/10-assertions/60-job.md` |
 | `time` modifier | `40-test-assertions/10-assertions/60-job.md` |
 | `mocks` modifier | `40-test-assertions/30-mocks/10-delegate-mocks.md` and `40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md` |
 | Test kind `decision test` | `40-test-assertions/40-decisions/10-decision-tests.md` |
 | `coverage` modifier | `40-test-assertions/50-coverage-and-scenarios/10-coverage.md` |
 | Test kind `scenario test` | `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md` |
+| Test kind `remote-engine test` | `40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md` |
 
 ## Model/Diagram Patterns
 

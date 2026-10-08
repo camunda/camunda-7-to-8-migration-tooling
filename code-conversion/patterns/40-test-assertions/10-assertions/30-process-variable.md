@@ -29,6 +29,8 @@ assertThat(processInstance)
 
 [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/) is available from Camunda 8.8 and supports direct assertions on the process instance level:
 
+Camunda 8 serializes map values as JSON. Check the converted value shape instead of assuming a Camunda 7 typed or serialized value keeps the same Java type.
+
 ```java
 @Test
 void testProcessVariable() {

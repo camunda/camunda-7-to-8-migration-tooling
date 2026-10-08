@@ -19,6 +19,17 @@ public class OrderProcessTest {
 
 `ProcessEngineRule`, `@ClassRule`, `ProcessEngineExtension`, `ProcessEngineTestCase`, `AbstractProcessEngineRuleTest`, and `StandaloneInMemoryTestConfiguration` all use the embedded Camunda 7 test engine.
 
+## Harness and lifecycle mappings
+
+| Camunda 7 | Camunda Process Test | Note |
+|---|---|---|
+| `@Rule ProcessEngineRule`, `@ClassRule`, or `ProcessEngineRule("custom.cfg.xml")` | `@CamundaProcessTest` with injected `CamundaClient` and `CamundaProcessTestContext` fields | Configure the CPT runtime in `camunda-container-runtime.properties`. |
+| `@ExtendWith(ProcessEngineExtension.class)` or `@RegisterExtension ProcessEngineExtension` | `@CamundaProcessTest` with the same fields | |
+| `extends ProcessEngineTestCase` | JUnit 5 class with `@CamundaProcessTest` | Add `@Test` to each `testXxx()` method. Map overridden `setUp()` and `tearDown()` to `@BeforeEach` and `@AfterEach`, and remove calls to `super`. |
+| `extends AbstractProcessEngineRuleTest` or `new StandaloneInMemoryTestConfiguration().rule()` | `@CamundaProcessTest` | These helpers start a standalone engine with `MockExpressionManager` and no Spring context. |
+| JUnit 4 `@Before`, `@After`, `@Ignore`, `@Test(expected = ...)`, and `org.junit.Assert` | JUnit 5 `@BeforeEach`, `@AfterEach`, `@Disabled`, `assertThrows`, and JUnit 5 `Assertions` or AssertJ | |
+| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` in a Spring test without Spring Boot | `@ExtendWith(SpringExtension.class)` without `@RunWith` | Keep `@ContextConfiguration` when the test needs Spring-managed beans. |
+
 ## Camunda 8
 
 ```java

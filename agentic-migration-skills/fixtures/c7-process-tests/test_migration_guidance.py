@@ -25,6 +25,10 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+SCENARIO_PATTERNS = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md"
+)
 INTERVIEW_QUESTIONS = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
@@ -1343,7 +1347,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_linear_repeated_external_task_mapping_does_not_register_worker_mock(self):
         mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             [
                 "Camunda Platform Scenario",
                 "Camunda Process Test 8.9 or later",
@@ -1359,7 +1363,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(1, len(linear_actions))
         self.assertIn(
-            "does not register a worker mock",
+            "do not register a worker mock",
             linear_actions[0]["Notes"].lower(),
         )
 
@@ -1855,7 +1859,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_scenario_mapping_removes_shared_setup_only_when_unused(self):
         scenario_mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             ["Camunda Platform Scenario", "Camunda Process Test 8.9 or later", "Notes"],
         )
         mock_mapping = [
@@ -1865,9 +1869,24 @@ class MigrationGuidanceTest(unittest.TestCase):
         ]
         self.assertEqual(1, len(mock_mapping))
         self.assertIn(
-            "when no retained method needs c7 scenario setup, the skill removes the "
-            "mock and scenario runner setup",
-            normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
+            "remove the c7 mock and scenario runner setup only when no retained method needs them",
+            normalized(mock_mapping[0]["Notes"]),
+        )
+        self.assertIn(
+            "map each verification to the matching assertion row below",
+            normalized(mock_mapping[0]["Notes"]),
+        )
+        self.assertIn(
+            "40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md",
+            TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"),
+        )
+        sources = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "Test kind `scenario test` | `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md`",
+            sources,
         )
 
     def test_skill_scope_rules_use_ears_triggers(self):
@@ -2845,12 +2864,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("CPT (`io.camunda.process.test.*`)", reference)
 
     def test_counted_completion_mapping_preserves_exact_count(self):
-        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        scenario_pattern = SCENARIO_PATTERNS.read_text(encoding="utf-8")
         self.assertIn(
             '| `verify(process, times(n)).hasCompleted("E")` | '
             'Assert `hasCompletedElement("E", n)`. | '
-            'The skill preserves the exact completed-element count. |',
-            reference,
+            'Preserve the exact completed-element count. |',
+            scenario_pattern,
         )
         migrated = (
             EXPECTED_C8
@@ -2871,7 +2890,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertNotIn('completeUserTask("Review", variables)', wait_state_behavior)
 
         mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             [
                 "Camunda Platform Scenario",
                 "Camunda Process Test 8.9 or later",
@@ -2881,12 +2900,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         user_task_mappings = [
             row
             for row in mappings
-            if 'waitsAtUserTask("X")' in row["Camunda Platform Scenario"]
+            if 'waitsAtUserTask("A")' in row["Camunda Platform Scenario"]
         ]
         self.assertEqual(1, len(user_task_mappings))
         conversion = user_task_mappings[0]["Camunda Process Test 8.9 or later"]
         self.assertIn("byKey(processInstanceKey)", conversion)
-        self.assertIn('byElementId("X", processInstanceKey)', conversion)
+        self.assertIn('byElementId("A", processInstanceKey)', conversion)
 
     def test_wait_state_targets_explain_instance_scope(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
@@ -3238,6 +3257,12 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "[C7 mock API mapping](#c7-mock-api-mapping)."
             ),
             normalized(section_lines[1]),
+        )
+        mock_mapping = reference.split("## C7 mock API mapping", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("40-test-assertions/30-mocks/10-delegate-mocks.md", mock_mapping)
+        self.assertIn(
+            "40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md",
+            mock_mapping,
         )
         self.assertEqual(1, reference.count("camunda.client.worker.override."))
         self.assertNotIn(

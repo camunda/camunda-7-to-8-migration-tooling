@@ -56,4 +56,11 @@ void testMessageCorrelation() {
 }
 ```
 
+## Message and signal API mappings
+
+| Camunda 7 | Camunda 8 | Note |
+|---|---|---|
+| `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Read the correlation-key expression from the converted model's message subscription. Evaluate it against the test variables. Pass the resulting key, not the business key or expression text. |
+| `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | Use the signal name from the converted model. |
+
 This example assumes that the converted model's message subscription reads the `correlationKey` process variable. Set that variable to the same value passed to `.correlationKey(...)`. Use `newPublishMessageCommand()` when the test needs publication or buffering semantics instead of immediate correlation.

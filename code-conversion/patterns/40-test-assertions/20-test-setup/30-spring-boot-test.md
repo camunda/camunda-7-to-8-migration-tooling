@@ -2,6 +2,16 @@
 
 Camunda 7 Spring Boot tests run an embedded engine in the application context. CPT 8.8 and later use `@CamundaSpringProcessTest` with the application's Spring Boot test.
 
+## Target harness selection
+
+| Target application | CPT dependency in test scope | Test annotation |
+|---|---|---|
+| Spring Boot 4.x with `camunda-spring-boot-starter` | `io.camunda:camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | `io.camunda:camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring without Spring Boot | `io.camunda:camunda-process-test-java` | `@CamundaProcessTest` |
+
+The CPT Spring dependencies include the CPT Java API. Do not add `camunda-process-test-java` with either Spring dependency.
+
 ## Camunda 7
 
 ```java
@@ -44,6 +54,17 @@ class OrderProcessTest {
   }
 }
 ```
+
+## Camunda 7 to CPT mappings
+
+| Camunda 7 Spring test | CPT test | Note |
+|---|---|---|
+| `@RunWith(SpringRunner.class) @SpringBootTest` | `@SpringBootTest @CamundaSpringProcessTest` | Keep the Spring context and match the CPT artifact to the production starter. |
+| `@SpringBootTest` that injects `DecisionService` | `@SpringBootTest @CamundaSpringProcessTest` with injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
+| `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` | |
+| `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | Remove the engine rule and initialization. | |
+| `camunda.bpm.*` test-engine properties | Remove them. | When a migrated test needs `camunda.process-test.*` properties, add them. |
+| A C7 test transaction that reverts engine and application state | Keep `@Transactional` only for application database state. | |
 
 Use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. See [dependencies](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/10-general/dependencies.md) for the Camunda 8.8 artifact names.
 

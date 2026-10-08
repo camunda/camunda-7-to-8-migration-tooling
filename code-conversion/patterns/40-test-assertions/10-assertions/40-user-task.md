@@ -35,6 +35,14 @@ void testUserTaskIsReachedAndCompleted() {
 
 ## Camunda 8
 
+## User-task API mappings
+
+| Camunda 7 | CPT | Note |
+|---|---|---|
+| `task()`, `task("A")`, or `findId("Task name")` | `UserTaskSelectors.byElementId("A")` or `UserTaskSelectors.byTaskName("Task name")` | Use the element ID or task name that the source test selects. Scope selectors to the process-instance key when the test can start multiple instances. |
+| `complete(task(), withVariables(vars))` or `taskService.complete(id, vars)` | `processTestContext.completeUserTask("A", vars)` or `completeUserTask(selector, vars)` | A string argument is the BPMN element ID. |
+| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the assignment step. |
+
 The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:

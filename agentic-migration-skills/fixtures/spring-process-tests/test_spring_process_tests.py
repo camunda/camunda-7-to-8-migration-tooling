@@ -5,10 +5,32 @@ import xml.etree.ElementTree as ET
 
 
 FIXTURE = Path(__file__).resolve().parent
+REPO_ROOT = FIXTURE.parents[2]
 SKILL_ROOT = FIXTURE.parents[1] / "skills/migrate-c7-to-c8-code"
 SKILL = SKILL_ROOT / "SKILL.md"
 REFERENCE = SKILL_ROOT / "references/test-migration.md"
 CODE_CHECKLIST = SKILL_ROOT / "references/code-transform-checklist.md"
+SPRING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/30-spring-boot-test.md"
+)
+JUNIT_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/10-junit-harness.md"
+)
+DEPLOYMENT_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md"
+)
+DEPENDENCIES_PATTERN = REPO_ROOT / "code-conversion/patterns/10-general/dependencies.md"
+ENGINE_REST_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md"
+)
+PATTERN_SOURCES = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 PACKAGE_README = SKILL_ROOT.parents[1] / "README.md"
 EXPECTED_POM = FIXTURE / "expected-c8/pom.xml"
 SOURCE_TEST = (
@@ -135,6 +157,18 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_reference_covers_boot_variants_and_deployment_rules(self):
         reference = " ".join(REFERENCE.read_text().split())
+        pattern_sources = PATTERN_SOURCES.read_text()
+        catalog = " ".join(
+            " ".join(
+                path.read_text()
+                for path in (
+                    SPRING_PATTERN,
+                    JUNIT_PATTERN,
+                    DEPLOYMENT_PATTERN,
+                    DEPENDENCIES_PATTERN,
+                )
+            ).split()
+        )
         package_readme = PACKAGE_README.read_text()
 
         for required in (
@@ -146,12 +180,20 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "@ExtendWith(SpringExtension.class)",
             "@MockitoBean",
             "@TestDeployment",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, catalog, msg=f"Missing {required!r}")
+        for required in (
             "CPT 8.9 or later",
             "camunda.client.worker.override.",
             "manual migration",
         ):
-            with self.subTest(required=required):
-                self.assertIn(required, reference, msg=f"Missing {required!r}")
+            with self.subTest(policy=required):
+                self.assertIn(required, reference)
+        self.assertIn(
+            "40-test-assertions/20-test-setup/30-spring-boot-test.md",
+            pattern_sources,
+        )
         self.assertIn(
             "process-test migration to Camunda Process Test (CPT)", package_readme
         )
@@ -370,25 +412,23 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_non_boot_spring_migration_replaces_junit4_runner_and_annotations(self):
         reference = " ".join(REFERENCE.read_text().split())
+        junit_pattern = JUNIT_PATTERN.read_text()
 
         self.assertIn(
-            "When the skill migrates a non-Boot Spring test that uses JUnit 4, it replaces its runner with `@ExtendWith(SpringExtension.class)`.",
+            "The catalog's `40-test-assertions/20-test-setup/10-junit-harness.md` owns JUnit runner, lifecycle, and assertion mappings for Spring tests.",
             reference,
         )
         self.assertIn(
-            "The skill replaces JUnit 4 test and lifecycle annotations and assertions with JUnit 5 equivalents. It updates their imports.",
-            reference,
-        )
-        self.assertIn(
-            "| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` | `@ExtendWith(SpringExtension.class)` without `@RunWith`. |",
-            reference,
+            "| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` in a Spring test without Spring Boot | `@ExtendWith(SpringExtension.class)` without `@RunWith` |",
+            junit_pattern,
         )
 
     def test_cpt_dependency_cleanup_preserves_remaining_c7_test_consumers(self):
         reference = " ".join(REFERENCE.read_text().split())
+        dependencies = DEPENDENCIES_PATTERN.read_text()
 
         self.assertIn(
-            "The skill removes each C7 test dependency that no remaining test or production code uses after migration.",
+            "The skill removes a C7 test dependency only after it confirms no remaining test or production code uses it.",
             reference,
         )
         for artifact in (
@@ -397,9 +437,9 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "`camunda-bpm-assert`",
         ):
             with self.subTest(artifact=artifact):
-                self.assertIn(artifact, reference)
+                self.assertIn(artifact, dependencies)
         self.assertIn(
-            "When production code or an unmigrated test uses a dependency, the skill keeps it.",
+            "If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.",
             reference,
         )
 
@@ -413,6 +453,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_endpoint_migration_preserves_start_complete_and_correlation_operations(self):
         reference = " ".join(REFERENCE.read_text().split())
+        engine_rest = ENGINE_REST_PATTERN.read_text()
 
         self.assertIn(
             "The skill preserves the endpoint operation that the test exercises.",
@@ -426,13 +467,14 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The endpoint starts the process through `CamundaClient`.",
             reference,
         )
-        for operation in (
-            "| Starts a BPMN process | Starts the same process through `CamundaClient`. |",
-            "| Completes a process-backed task | Completes the same task through `CamundaClient`. |",
-            "| Correlates a message | Correlates the same message through `CamundaClient`. |",
+        for source, target in (
+            ("`POST /process-definition/key/{key}/start`", "newCreateInstanceCommand"),
+            ("`GET /task?processInstanceId=...` then `POST /task/{id}/complete`", "completeUserTask"),
+            ("`POST /message`", "newCorrelateMessageCommand"),
         ):
-            with self.subTest(operation=operation):
-                self.assertIn(operation, reference)
+            with self.subTest(source=source):
+                row = next(line for line in engine_rest.splitlines() if line.startswith("| " + source))
+                self.assertIn(target, row)
 
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())

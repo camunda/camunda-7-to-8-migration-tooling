@@ -6,9 +6,22 @@ import xml.etree.ElementTree as ET
 
 FIXTURE = Path(__file__).resolve().parent
 PACKAGE_ROOT = FIXTURE.parents[1]
+REPO_ROOT = PACKAGE_ROOT.parent
 REFERENCE = (
     PACKAGE_ROOT
     / "skills/migrate-c7-to-c8-code/references/test-migration.md"
+)
+DECISION_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/40-decisions/10-decision-tests.md"
+)
+SPRING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/30-spring-boot-test.md"
+)
+PATTERN_SOURCES = (
+    PACKAGE_ROOT
+    / "skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
 )
 SKILL = PACKAGE_ROOT / "skills/migrate-c7-to-c8-code/SKILL.md"
 QUESTIONS = (
@@ -28,20 +41,13 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
 
     def test_reference_maps_decision_test_semantics(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
+        catalog = " ".join(DECISION_PATTERN.read_text().lower().split())
         questions = " ".join(QUESTIONS.read_text().lower().split())
 
         for phrase in (
             "decision test",
-            "dmnenginerule",
-            "decisionservice",
-            "newevaluatedecisioncommand",
-            "testdeployment",
             "hit policy",
             "collect",
-            "hasnomatchedrules",
-            "getfailuremessage()",
-            "hashmap",
-            "map.of",
             "docker",
             "remote runtime",
             "question 8",
@@ -49,9 +55,30 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, reference)
 
+        for phrase in (
+            "dmnenginerule",
+            "decisionservice",
+            "newevaluatedecisioncommand",
+            "testdeployment",
+            "hasnomatchedrules",
+            "getfailuremessage()",
+            "hashmap",
+            "map.of",
+        ):
+            with self.subTest(catalog_phrase=phrase):
+                self.assertIn(phrase, catalog)
+
         self.assertIn(
             "the skill never uses `hasoutput(list)` for a `collect` decision",
             reference,
+        )
+        self.assertIn(
+            "40-test-assertions/40-decisions/10-decision-tests.md",
+            REFERENCE.read_text(),
+        )
+        self.assertIn(
+            "Test kind `decision test` | `40-test-assertions/40-decisions/10-decision-tests.md`",
+            PATTERN_SOURCES.read_text(),
         )
         self.assertIn("question 8 runtime notice for decision tests", questions)
         self.assertIn("the cpt test needs a camunda 8 runtime", questions)
@@ -92,6 +119,8 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
             / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
         ).read_text()
         reference = REFERENCE.read_text()
+        decision_catalog = DECISION_PATTERN.read_text()
+        spring_catalog = SPRING_PATTERN.read_text()
 
         self.assertIn("new DmnEngineRule()", standalone)
         self.assertIn("parseDecision(", standalone)
@@ -111,8 +140,8 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
             '@TestDeployment(resources = "converted-c8-promotions.dmn")',
             migrated_service,
         )
-        self.assertIn("@CamundaSpringProcessTest", reference)
-        self.assertIn("DecisionSelectors.byResponse(response)", reference)
+        self.assertIn("@CamundaSpringProcessTest", spring_catalog)
+        self.assertIn("DecisionSelectors.byResponse(response)", decision_catalog)
 
     def test_collect_results_are_parsed_and_order_insensitive(self):
         source = (
@@ -259,19 +288,24 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
 
     def test_unsupported_hit_policies_require_manual_redesign(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
+        catalog = DECISION_PATTERN.read_text()
 
         self.assertIn("camunda 8.9 does not support `priority`", reference)
         self.assertIn("camunda 8.9 does not support `output order`", reference)
         self.assertNotIn("with hit policy `rule order` or `output order`", reference)
+        self.assertIn(
+            "| `collectEntries(\"x\")` with hit policy `OUTPUT ORDER` | Manual redesign |",
+            catalog,
+        )
 
     def test_json_input_type_is_checked_against_the_converted_dmn(self):
-        reference = " ".join(REFERENCE.read_text().lower().split())
+        catalog = " ".join(DECISION_PATTERN.read_text().lower().split())
 
-        self.assertIn("where a camunda 7 value is a `date` or typed value", reference)
-        self.assertIn("json representation", reference)
+        self.assertIn("when a camunda 7 value is a `date` or typed value", catalog)
+        self.assertIn("json representation", catalog)
         self.assertIn(
-            "the skill does not assume the java type survives serialization",
-            reference,
+            "do not assume the java type survives serialization",
+            catalog,
         )
 
     def test_decision_service_failure_maps_to_cpt_response_fields(self):
@@ -283,7 +317,7 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
             EXPECTED_C8
             / "src/test/java/org/camunda/fixture/dmn/PromotionsDecisionTest.java"
         ).read_text()
-        reference = " ".join(REFERENCE.read_text().lower().split())
+        catalog = " ".join(DECISION_PATTERN.read_text().lower().split())
 
         self.assertIn("ProcessEngineException.class", source)
         self.assertIn("getFailureMessage()", migrated)
@@ -291,7 +325,7 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
         self.assertNotIn("assertThrows(", migrated)
         self.assertIn(
             "including one wrapped by `decisionservice` in `processengineexception`",
-            reference,
+            catalog,
         )
 
     def test_c7_and_cpt_tests_keep_the_same_cases(self):

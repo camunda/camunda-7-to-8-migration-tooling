@@ -12,6 +12,23 @@ REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+ENGINE_REST_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md"
+)
+JOB_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/60-job.md"
+)
+SPRING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/30-spring-boot-test.md"
+)
+DEPENDENCIES_PATTERN = REPO_ROOT / "code-conversion/patterns/10-general/dependencies.md"
+PATTERN_SOURCES = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 CHECKLIST = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/code-transform-checklist.md"
@@ -401,10 +418,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_reference_maps_engine_rest_and_cpt_behaviors(self):
         reference = REFERENCE.read_text(encoding="utf-8")
         normalized_reference = " ".join(reference.lower().split())
-        mapping = reference.split("## Engine REST mapping", 1)[1].split("\n## ", 1)[0]
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
         mapping_rows = [
             row.lower() for row in mapping.splitlines() if row.startswith("| `")
         ]
+        self.assertIn(
+            "40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md",
+            reference,
+        )
+        self.assertIn(
+            "Test kind `remote-engine test` | "
+            "`40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md`",
+            PATTERN_SOURCES.read_text(encoding="utf-8"),
+        )
         for source, target in (
             ("/deployment/create", "@testdeployment"),
             ("/process-definition/key/{key}/start", "newcreateinstancecommand"),
@@ -430,20 +456,21 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
         reference_text = REFERENCE.read_text(encoding="utf-8")
-        rows = reference_text.splitlines()
+        rest_rows = ENGINE_REST_PATTERN.read_text(encoding="utf-8").splitlines()
+        process_rows = JOB_PATTERN.read_text(encoding="utf-8").splitlines()
         timer_row = next(
             row
-            for row in rows
+            for row in rest_rows
             if row.startswith("| `POST /job/{id}/execute` for a timer job")
         )
         non_timer_row = next(
             row
-            for row in rows
+            for row in rest_rows
             if row.startswith("| `POST /job/{id}/execute` for a non-timer job")
         )
         process_timer_row = next(
             row
-            for row in rows
+            for row in process_rows
             if row.startswith(
                 "| `execute(job())` or `managementService.executeJob(id)` for a timer"
             )
@@ -464,29 +491,31 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                     "does not expose a boundary timer as an active element",
                     normalized_rule,
                 )
-        self.assertIn("The skill does not advance time", non_timer_row)
+        self.assertIn("do not advance time", non_timer_row.lower())
         self.assertIn("job type", non_timer_row)
 
     def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
         reference = REFERENCE.read_text(encoding="utf-8")
+        spring_pattern = SPRING_PATTERN.read_text(encoding="utf-8")
+        dependencies = DEPENDENCIES_PATTERN.read_text(encoding="utf-8")
         self.assertIn(
             "| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | "
             "`io.camunda:camunda-process-test-spring-boot-3` |",
-            reference,
+            spring_pattern,
         )
         self.assertIn(
             "| Spring Boot 4.x with `camunda-spring-boot-starter` | "
             "`io.camunda:camunda-process-test-spring` |",
-            reference,
+            spring_pattern,
         )
         runtime_changes = reference.split("## Runtime and build changes", 1)[1].split(
             "## Worker behavior", 1
         )[0]
-        self.assertIn("[Spring harness table](#harness-and-dependencies)", runtime_changes)
+        self.assertIn("10-general/dependencies.md", runtime_changes)
         runtime_configuration = " ".join(reference.split())
         self.assertIn(
-            "Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.",
-            runtime_configuration,
+            "camunda-process-test-java",
+            dependencies,
         )
         self.assertIn(
             "| No explicit request for remote mode | Spring or plain Java test | Use the default runtime. Never configure remote mode. |",
@@ -582,11 +611,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
     def test_mock_worker_guidance_configures_job_completion(self):
         reference = REFERENCE.read_text(encoding="utf-8")
+        engine_rest = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
         self.assertIn(
             "processTestContext.mockJobWorker(type).thenComplete(variables)",
             reference,
         )
-        self.assertIn("mockJobWorker(type).thenComplete(vars)", reference)
+        self.assertIn("mockJobWorker(type).thenComplete(vars)", engine_rest)
 
     def test_plain_java_workers_are_closed_after_each_test(self):
         worker_guidance = REFERENCE.read_text(encoding="utf-8").split(
@@ -604,7 +634,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_direct_user_task_completion_sends_variables(self):
         row = next(
             line
-            for line in REFERENCE.read_text(encoding="utf-8").splitlines()
+            for line in ENGINE_REST_PATTERN.read_text(encoding="utf-8").splitlines()
             if line.startswith(
                 "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
             )

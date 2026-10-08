@@ -20,6 +20,22 @@ CHECKLIST_PATH = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/code-transform-checklist.md"
 )
+HARNESS_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/10-junit-harness.md"
+)
+ASSERTION_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/80-assertion-mapping.md"
+)
+MESSAGE_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/50-message.md"
+)
+PATTERN_SOURCES_PATH = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 TEST_CLASSES = ("ImplicitDeploymentTest", "OrderProcessTest", "MessageProcessTest")
 EXPECTED_PROCESS_TEST_IDS = {
     "ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess",
@@ -224,16 +240,54 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         skill = SKILL_PATH.read_text()
         checklist = CHECKLIST_PATH.read_text()
         reference = REFERENCE_PATH.read_text()
+        harness = HARNESS_PATTERN.read_text()
+        assertions = ASSERTION_PATTERN.read_text()
+        messages = MESSAGE_PATTERN.read_text()
+        sources = PATTERN_SOURCES_PATH.read_text()
 
         self.assertIn("references/test-migration.md", skill)
         self.assertIn("references/test-migration.md", checklist)
-        self.assertIn("ProcessEngineTestCase", reference)
-        self.assertIn("hasNoActiveElements", reference)
-        self.assertIn("newCorrelateMessageCommand", reference)
-        self.assertIn("`@BeforeEach`", reference)
-        self.assertIn("`@AfterEach`", reference)
+        self.assertIn("ProcessEngineTestCase", harness)
+        self.assertIn("hasNoActiveElements", assertions)
+        self.assertIn("newCorrelateMessageCommand", messages)
+        self.assertIn("`@BeforeEach`", harness)
+        self.assertIn("`@AfterEach`", harness)
+        self.assertIn("40-test-assertions/20-test-setup/10-junit-harness.md", reference)
+        self.assertIn("40-test-assertions/10-assertions/80-assertion-mapping.md", reference)
+        self.assertIn("40-test-assertions/10-assertions/50-message.md", reference)
+        self.assertIn("Test kind `process test`", sources)
+        self.assertIn("Message correlation or signal delivery", sources)
         self.assertIn("accepted forms from the Test Inventory", reference)
         self.assertIn("ProcessEngineTestCase", checklist)
+
+    def test_has_not_passed_has_no_exact_cpt_assertion_mapping(self):
+        catalog = ASSERTION_PATTERN.read_text()
+        row = next(
+            line
+            for line in catalog.splitlines()
+            if line.startswith('| `hasNotPassed("A")` |')
+        )
+        cells = [cell.strip() for cell in row.split("|")[1:-1]]
+
+        self.assertEqual("No exact counterpart", cells[1])
+        self.assertIn("hasNotActivatedElements", cells[2])
+        self.assertIn(
+            "40-test-assertions/10-assertions/80-assertion-mapping.md",
+            REFERENCE_PATH.read_text(),
+        )
+
+    def test_recipe_workarounds_use_fixed_release_thresholds(self):
+        reference = REFERENCE_PATH.read_text()
+        recipe_guidance = reference.split(
+            "### Recipe-assisted migration", maxsplit=1
+        )[1].split("\n### Limitations", maxsplit=1)[0]
+
+        self.assertIn(
+            "When the selected recipe is earlier than `0.2.10` for Camunda 8.8 or `0.3.11` for Camunda 8.9 or 8.10",
+            recipe_guidance,
+        )
+        self.assertNotIn("While #3213 is open", recipe_guidance)
+        self.assertNotIn("While #3214 is open", recipe_guidance)
 
     def test_validation_guidance_is_read_only_and_checks_empty_deployments(self):
         skill = " ".join(SKILL_PATH.read_text().split())
