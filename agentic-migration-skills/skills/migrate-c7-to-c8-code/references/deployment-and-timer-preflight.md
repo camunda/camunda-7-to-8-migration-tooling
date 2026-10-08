@@ -2,9 +2,7 @@
 
 Every instruction is mandatory. "Never" means MUST NOT. Mark a preference with (SHOULD). Mark an option with (MAY).
 
-Run after the Step 2 inventories, after acquiring more models, and before any target deployment or
-readiness claim. Use the selected Camunda 8 version. Record findings, decisions, and tests in
-`MIGRATION_REPORT.md`.
+Use the selected Camunda 8 version. Record findings, decisions, and tests in `MIGRATION_REPORT.md`.
 If a finding lacks an approved decision, required evidence, or required test, then set its report
 item to `blocked`. Keep the migration incomplete until the project resolves the finding.
 For a full migration, record the decisions through `references/validation-evidence.md`.
@@ -53,18 +51,6 @@ version, observed starts, and completed cleanup. Without this test, record `not 
 recurring deployment blocked. The gate requires one matching model-bound observation for each
 retained timer start.
 
-### Disposable Camunda 8.9.21 observation
-
-An empty local target received two module BPMNs with process ID `Sample`. The first had an
-`R/PT5S` start, and the second had no timer. Versions 1 and 3 started timer instances before
-and around deployment of versions 2 and 4, which replaced their schedules.
-By-ID starts selected the latest version.
-Version 3 started instances at `11:36:32.503Z`, `11:36:37.837Z`, and `11:36:42.150Z`.
-Version 4 deployed by `11:36:43.3Z`. No later timer starts appeared in the next 15 seconds.
-The operator stopped the target. The operator checked that its port was closed. The operator
-removed its state. This observation covers deployment behavior on 8.9.21 only. It does not test
-changes to timers on active instances.
-
 ## Active timer updates
 
 Find direct C7 `ManagementService.setJobDuedate` calls and method references, REST
@@ -87,20 +73,10 @@ update does not reschedule a timer that already waits.
 | Project-approved message-rearm model | Map each due-date call to the executable timer process, parent call activity, timer, message, correlation key, and both date variables. Test two updates to an already-active timer on a disposable target. Include one earlier and one later deadline change. For consecutive publications, use a bounded TTL and a unique message ID, or wait for a rearm acknowledgement before publishing the next update. Verify the process remains active no more than five seconds before the final deadline. Assert that obsolete deadlines never fire and the final deadline fires once. Allow late firing, not early firing. |
 | No verified or approved replacement, unknown timer link, or reachable throwing placeholder | Keep the affected flow blocked as manual work. Do not report it ready or substitute a no-op or unverified API. |
 
-The repository fixture uses message-driven BPMN rearming. A parent call activity starts a separate
-timer process. An interrupting message boundary event cancels that call and maps the received date
-to the parent scope. The message branch passes through an exclusive converging gateway and starts a
-new child process instance. The new timer reads the updated date.
-This design requires a process-specific message, correlation key, and model change. A variable
-update alone does not rearm the active timer.
+Message-driven rearming requires a process-specific message, correlation key, and model change. A
+variable update alone does not rearm the active timer. `validation-evidence.md` defines the required
+model shape, the explicit `message_rearm` decision, and the runtime observation at the same target
+version, including target cleanup.
 
-The project must approve the mapping and record its reference. The gate requires the explicit
-`message_rearm` decision and a disposable runtime test at the same target version. The test must
-prove that the timer was active before both updates, both updates correlated, neither old deadline
-fired, and the final deadline fired exactly once. The observation must also prove target cleanup.
-Record the decision and runtime evidence, or the `not run` blocker, in `MIGRATION_REPORT.md`.
-
-The repeatable acceptance fixture combines the two-module `Sample` deployment case and the active
-timer test. Run `python3 agentic-migration-skills/fixtures/validation-evidence/run_live_timer_fixture.py`
-from the repository root. Use Java 21, Maven, and Docker. The fixture uses Camunda 8.9.21 and checks
-that its disposable container is removed.
+The project must approve the mapping and record its reference. Record the decision and runtime
+evidence, or the `not run` blocker, in `MIGRATION_REPORT.md`.

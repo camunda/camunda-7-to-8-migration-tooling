@@ -1,6 +1,8 @@
 # Java Runtime Compatibility
 
 This fixture covers issue #2424. It checks the skill's phase-specific Java requirements.
+Issue #2424 records a successful release 0.3.6 conversion under Java 26, so M1 and E1 set no upper
+Java bound.
 
 ## Run the guidance regression
 

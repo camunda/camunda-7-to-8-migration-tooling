@@ -127,7 +127,8 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("record each affected call site as `blocked`", unknown_compatibility)
         self.assertIn("manual follow-up", unknown_compatibility)
         self.assertIn("do not report those flows as migrated", unknown_compatibility)
-        self.assertIn("record each affected call site as `blocked`", skill)
+        self.assertIn("`references/code-transform-checklist.md` item 1", skill)
+        self.assertIn("record each affected call site as `blocked`", checklist)
         self.assertIn("if target compatibility remains unconfirmed", checklist)
 
     def test_blocked_report_uses_the_skill_status_contract(self):
@@ -140,7 +141,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             skill,
         )
         self.assertIn("set each query follow-up to status `open`", checklist)
-        self.assertIn("a `deferred` or `blocked` item stays open follow-up work", skill)
+        self.assertIn("no item can have `deferred` or `blocked` status", skill)
         self.assertIn("| call site | manual follow-up | status |", report)
         self.assertNotIn("`blocking/manual`", report)
 

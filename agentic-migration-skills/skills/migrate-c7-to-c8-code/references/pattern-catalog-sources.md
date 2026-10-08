@@ -9,17 +9,13 @@ Fetch individual catalog files from
 `https://raw.githubusercontent.com/camunda/camunda-7-to-8-migration-tooling/main/code-conversion/patterns/<catalog-path>`.
 
 The catalog is the source of truth for every API mapping, artifact id, and version-specific
-workaround. CI regenerates `code-conversion/patterns/README.md` and
-`code-conversion/patterns/ALL_IN_ONE.md` during validation, then checks that they
-match the generated catalog. CI does not commit generated changes. The catalog and this skill can
-change together.
-For those catalog-owned domains, the catalog wins over this skill. The dependency pinning policy in
+workaround. For those catalog-owned domains, the catalog wins over this skill. The dependency pinning policy in
 `code-transform-checklist.md` remains in force. Report any disagreement.
 
 **Fetch only the files the code inventory needs.** `ALL_IN_ONE.md` concatenates the whole catalog into
 one 12,000-word file. Fetching it whole costs more context than a migration usually needs.
-`code-transform-checklist.md` names the catalog path for each of its items 1 to 6. Map the Type column
-and detected patterns in the Notes column of the code inventory to those items, then fetch that set.
+Map the Type column and detected patterns in the Notes column of the code inventory to the table
+below, then fetch that set.
 Fetch cross-cutting files when the Notes column identifies the related pattern, regardless of the
 primary Type.
 
@@ -87,9 +83,8 @@ Use `form-migration.md` as the mapping contract. Documentation is not evidence t
 
 ## Loading Rules
 
-- Load the reference before editing. Never guess API/XML mappings.
 - For gaps not covered by pattern catalogs, prefer docs.camunda.io via WebFetch over training knowledge. (SHOULD)
-- Always respect the target version: do not offer 8.9 features (businessId, conditional events, global user task listeners, batch delete) to an 8.8 target, or 8.8 workarounds to 8.9+.
+- Respect the target version in both directions. Do not offer 8.8 workarounds to an 8.9+ target.
 
 ## Properties Reference
 

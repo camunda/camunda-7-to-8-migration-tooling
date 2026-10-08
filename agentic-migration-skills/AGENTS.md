@@ -124,7 +124,15 @@ shorter phrasing would lose precision, keep the longer phrasing and say so in th
 Never promote a hedge to a fact. "The report can be stale" and "the report is stale" are different
 claims, and a length cap is the most common reason a rewrite silently swaps one for the other.
 
-## 8. Before you open the pull request
+## 8. Maintenance
+
+The converter category inventory in `model-migration-approaches.md` step 5d.2 lists the `messageId`
+values of one converter version. When that version changes, re-sync the inventory from
+`diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/message/MessageFactory.java`.
+Include IDs passed through helper methods, such as the `FormKeyType` mapping, not only literal
+arguments to `composeMessage`.
+
+## 9. Before you open the pull request
 
 - [ ] Every rule you touched is still present, one rule per sentence.
 - [ ] Every preference carries `(SHOULD)` and every option carries `(MAY)`. Everything else reads as

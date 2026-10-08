@@ -1049,9 +1049,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         )[0]
 
         self.assertIn(
-            "the skill follows `references/test-migration.md` for tests that drive a running "
-            "camunda 7 engine, camunda 7 decision-test cpt mapping, and spring process-test "
-            "migration.",
+            "the skill follows `references/test-migration.md` for every test inventory row that it migrates.",
             code_migration,
         )
 
@@ -1371,8 +1369,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         step_three_start = skill.index("### step 3: execute migration", step_two_start)
         step_two = skill[step_two_start:step_three_start]
 
-        self.assertIn("scenario test inventory", step_two)
+        self.assertIn("#### test inventory", step_two)
         self.assertIn("references/test-migration.md", step_two)
+        self.assertIn(
+            "| 4 | scenario test |",
+            TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"),
+        )
 
     def test_fulfillment_parity_note_matches_bounded_time_guidance(self):
         parity = markdown_table(
@@ -1590,28 +1592,40 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual([], reference_table_separator_errors(lines))
 
     def test_shared_engine_smoke_has_explicit_scope_exception(self):
+        reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        definition = normalized(reference_text).split("a **shared-engine test**", 1)[1].split(
+            "|", 1
+        )[0]
+        self.assertIn("from any configuration source", definition)
+        self.assertIn("does not start the engine", definition)
+        self.assertIn("neither local nor a test-owned container", definition)
         scope_rows = markdown_table(
             TEST_MIGRATION_REFERENCE,
-            ["Signal", "Confirmation required"],
+            [
+                "Runs a BPMN process or DMN decision on a Camunda 7 engine",
+                "Uses a framework or approach that existed for Camunda 7",
+                "Is a shared-engine test",
+                "Scope decision",
+            ],
         )
-        exception_rows = [
-            row for row in scope_rows if "shared engine url" in normalized(row["Signal"])
+        shared_scope_rows = [
+            row for row in scope_rows if row["Is a shared-engine test"] == "Yes"
         ]
-        self.assertEqual(len(exception_rows), 1)
-        signal = normalized(exception_rows[0]["Signal"])
-        requirement = normalized(exception_rows[0]["Confirmation required"])
-        self.assertIn("from any configuration source", signal)
-        self.assertIn("does not start the engine", signal)
-        self.assertIn("neither local nor a test-owned container", signal)
-        self.assertIn("the test runs no process or decision", signal)
-        self.assertIn("remote-engine test", requirement)
-        self.assertIn("report only", requirement)
+        self.assertEqual(len(shared_scope_rows), 1)
+        self.assertIn(
+            "`remote-engine test` with `report only` handling",
+            normalized(shared_scope_rows[0]["Scope decision"]),
+        )
+        overrides = normalized(
+            reference_text.split("## Handling overrides", 1)[1].split("\n## ", 1)[0]
+        )
+        self.assertIn("| a shared-engine test | report only |", overrides)
         self.assertIn(
             "cpt deletes all runtime data between tests, so the test needs a dedicated "
             "camunda 8 runtime.",
-            requirement,
+            overrides,
         )
-        self.assertNotIn("shared environment", requirement)
+        self.assertNotIn("shared environment", overrides)
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
@@ -1631,7 +1645,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             [
                 "Runs a BPMN process or DMN decision on a Camunda 7 engine",
                 "Uses a framework or approach that existed for Camunda 7",
-                "Matches the shared-engine exception in Scope confirmation",
+                "Is a shared-engine test",
                 "Scope decision",
             ],
         )
@@ -1639,14 +1653,14 @@ class MigrationGuidanceTest(unittest.TestCase):
             row
             for row in inventory_scope_rows
             if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
-            and row["Matches the shared-engine exception in Scope confirmation"]
+            and row["Is a shared-engine test"]
             == "Yes"
         )
         no_process_scope_row = next(
             row
             for row in inventory_scope_rows
             if row["Runs a BPMN process or DMN decision on a Camunda 7 engine"] == "No"
-            and row["Matches the shared-engine exception in Scope confirmation"]
+            and row["Is a shared-engine test"]
             == "No"
         )
         self.assertLess(
@@ -1687,39 +1701,16 @@ class MigrationGuidanceTest(unittest.TestCase):
             out_of_scope_row,
         )
         self.assertIn(
-            "when the shared-engine exception in scope confirmation applies, the skill "
-            "classifies that test as a remote-engine test instead.",
-            out_of_scope_row,
+            "a shared-engine test is a remote-engine test whether or not it runs a "
+            "process or decision.",
+            remote_engine_row,
         )
-        confirmation_rows = markdown_table(
-            TEST_MIGRATION_REFERENCE,
-            ["Signal", "Confirmation required"],
-        )
-        no_process_rule = next(
-            row
-            for row in confirmation_rows
-            if "does not match the shared-engine exception"
-            in normalized(row["Signal"])
-        )
+        self.assertNotIn("shared-engine", out_of_scope_row)
         self.assertIn(
-            "the skill classifies the test as out of scope",
-            normalized(no_process_rule["Confirmation required"]),
-        )
-
-        shared_engine = next(
-            row
-            for row in confirmation_rows
-            if "shared engine url" in normalized(row["Signal"])
-        )
-        self.assertIn(
-            "reads a shared engine url from any configuration source, does not start "
-            "the engine, and the engine is neither local nor a test-owned "
-            "container. the test runs no process or decision",
-            normalized(shared_engine["Signal"]),
-        )
-        self.assertIn(
-            "keep it as `remote-engine test` and use `report only` handling",
-            normalized(shared_engine["Confirmation required"]),
+            "a **shared-engine test** reads a shared camunda 7 engine url from any "
+            "configuration source and calls that engine. the test does not start the "
+            "engine, and the engine is neither local nor a test-owned container.",
+            normalized(reference_text),
         )
 
         overrides = markdown_table(
@@ -1729,7 +1720,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         shared_engine_override = next(
             row
             for row in overrides
-            if "shared engine url" in normalized(row["Condition"])
+            if "shared-engine test" in normalized(row["Condition"])
         )
         self.assertEqual("Report only", shared_engine_override["Handling"])
         self.assertIn(
@@ -1764,14 +1755,7 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         reference = normalized(reference_text)
-        self.assertIn(
-            "clockutil` used to control timers is a supported test utility.",
-            reference,
-        )
-        self.assertIn(
-            "the skill does not assign `manual redesign` based on `clockutil` alone.",
-            reference,
-        )
+        self.assertEqual(1, reference.count("supported test utility"))
 
         manual_redesign_row = next(
             normalized(line)
@@ -1781,20 +1765,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("unsupported engine internals", manual_redesign_row)
         self.assertIn("clockutil", manual_redesign_row)
         self.assertIn("does not trigger this signal by itself", manual_redesign_row)
-
-        confirmation_rows = markdown_table(
-            TEST_MIGRATION_REFERENCE,
-            ["Signal", "Confirmation required"],
-        )
-        clockutil_row = next(
-            row
-            for row in confirmation_rows
-            if "clockutil" in normalized(row["Signal"])
-        )
-        self.assertIn(
-            "supported test utility",
-            normalized(clockutil_row["Confirmation required"]),
-        )
+        self.assertIn("supported test utility", manual_redesign_row)
 
         priority_rows = markdown_table(
             TEST_MIGRATION_REFERENCE,
@@ -1914,8 +1885,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual([], unqualified_scope_rules)
         self.assertIn(
-            "when code migration includes camunda platform scenario tests, follow "
-            "`references/test-migration.md`.",
+            "the skill follows `references/test-migration.md` for every test inventory row that it migrates.",
             normalized_skill,
         )
 
@@ -2412,7 +2382,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             [
                 "Runs a BPMN process or DMN decision on a Camunda 7 engine",
                 "Uses a framework or approach that existed for Camunda 7",
-                "Matches the shared-engine exception in Scope confirmation",
+                "Is a shared-engine test",
                 "Scope decision",
             ],
         )
@@ -2421,7 +2391,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "Yes",
-                    "Matches the shared-engine exception in Scope confirmation": "Any",
+                    "Is a shared-engine test": "Any",
                     "Scope decision": (
                         "When both prerequisites are met, the skill includes the "
                         "test in scope."
@@ -2430,7 +2400,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
                     "Uses a framework or approach that existed for Camunda 7": "Any",
-                    "Matches the shared-engine exception in Scope confirmation": "Yes",
+                    "Is a shared-engine test": "Yes",
                     "Scope decision": (
                         "The skill includes the test in scope as "
                         "`remote-engine test` with `Report only` handling."
@@ -2439,7 +2409,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "No",
                     "Uses a framework or approach that existed for Camunda 7": "Any",
-                    "Matches the shared-engine exception in Scope confirmation": "No",
+                    "Is a shared-engine test": "No",
                     "Scope decision": (
                         "The skill excludes the test from scope."
                     ),
@@ -2447,7 +2417,7 @@ class MigrationGuidanceTest(unittest.TestCase):
                 {
                     "Runs a BPMN process or DMN decision on a Camunda 7 engine": "Yes",
                     "Uses a framework or approach that existed for Camunda 7": "No",
-                    "Matches the shared-engine exception in Scope confirmation": "Any",
+                    "Is a shared-engine test": "Any",
                     "Scope decision": (
                         "If a test does not use a framework or approach that existed "
                         "for Camunda 7, then the skill excludes the test from scope."
@@ -2564,30 +2534,24 @@ class MigrationGuidanceTest(unittest.TestCase):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         reference = normalized(reference_text)
         self.assertIn(
-            "cmmn tests and tests that use unsupported camunda engine internals do not meet this scope rule.",
-            reference,
-        )
-        self.assertIn(
             "the skill inventories cmmn tests and tests that use unsupported engine internals as "
-            "`manual redesign` with "
-            "`report only` handling.",
+            "`manual redesign` with `report only` handling, although they do not meet this "
+            "scope rule.",
             reference,
         )
-        scope_confirmation_row = next(
+        manual_redesign_row = next(
             normalized(line)
             for line in reference_text.splitlines()
-            if line.startswith("| A test uses CMMN")
+            if line.startswith("| 2 | manual redesign |")
         )
-        self.assertIn("unsupported camunda engine internals", scope_confirmation_row)
+        self.assertIn("cmmn apis or models", manual_redesign_row)
+        self.assertIn("unsupported engine internals", manual_redesign_row)
         self.assertIn(
-            "the skill marks the test as `manual redesign` and uses `report only` handling.",
-            scope_confirmation_row,
+            "a cmmn or engine-internals test that runs no bpmn process or dmn decision also "
+            "gets this classification.",
+            manual_redesign_row,
         )
-        self.assertIn(
-            "the skill applies this classification to tests that do not run a bpmn "
-            "process or dmn decision.",
-            scope_confirmation_row,
-        )
+        self.assertIn("| report only |", manual_redesign_row)
 
         headers = ["Test ID", "File", "Test kind", "Signals", "Models", "Handling", "Notes"]
         for inventory_path in (EXPECTED_ASSESSMENT, EXPECTED_ASSESSMENT_88):
@@ -2757,12 +2721,8 @@ class MigrationGuidanceTest(unittest.TestCase):
             ),
         )
         self.assertIn(
-            "where kotlin or groovy tests run an engine-backed bpmn process or dmn "
-            "decision on c7, the skill marks them as `manual migration`.",
-            reference,
-        )
-        self.assertIn(
-            "the engine must be camunda 7.",
+            "the skill records the source language of a kotlin or groovy test in the "
+            "`notes` cell.",
             reference,
         )
         self.assertIn(

@@ -9,7 +9,7 @@ Use the assessment model scan before choosing a path.
 - If local model files exist under the project root, use local mode. Never offer or request C7 engine access.
 - If none exist and the user selected E1, fetch definitions from C7 first.
 
-Before conversion, namespace-parse the exact original BPMN and inventory every C7 form. Route Generated Task Forms (`camunda:formData`/`formField` and direct `camunda:formProperty`) to `form-migration.md`. Route referenced forms (`camunda:formKey`, `camunda:formRef`) and user tasks or process-level none start events with no form at all to `form-reference-migration.md`. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
+Inventory every C7 form from the exact original BPMN before conversion, as `SKILL.md` Step 2 requires. Keep source path, process id, and owner id/type so each definition can be paired with a fresh converted copy. The converter strips generated-form metadata and copies form-key references verbatim, so post-conversion discovery is too late or ambiguous.
 
 ## Call-Activity Variable Scope
 
@@ -17,6 +17,8 @@ Compare each C7 call's `camunda:in`, `camunda:out`, and delegated variable-mappi
 C7 `camunda:variableMappingClass` and `camunda:variableMappingDelegateExpression` attributes define delegated variable mappings.
 These mappings can supply outputs without `camunda:out`.
 When either attribute is present, include its contract in the input/output comparison.
+If the skill cannot establish a delegated contract, then keep the call **needs review** and ask the
+user to decide its scope.
 Assign propagation flags only after the skill confirms a compatible C8 mapping for an established contract or user-approved scope.
 Camunda 8.9 supports [call-activity input/output mappings](https://docs.camunda.io/docs/components/modeler/bpmn/call-activities/#variable-mappings).
 Check the target's support before removing a mapping flagged as unavailable.
@@ -76,32 +78,12 @@ For local approaches (M1, M2, E1), never consume a pre-existing report or conver
 
 ### 1. Java 21+ Prerequisite (fail fast)
 
-Resolve the `java` executable selected from `PATH` to an absolute path.
-Run `-version` on that exact path and capture its exit code and output.
-Record `Java 21+ (no upper bound)`, the executable path, and the actual major in `MIGRATION_REPORT.md`.
-If the probe fails or the output has no major version, ask for another executable.
-Do not guess the Java version.
+Validate the CLI runtime with the Java runtime procedure in `SKILL.md` before the download.
 The Diagram Converter CLI supports Java 21 or later with no upper bound.
-Issue #2424 records a successful release 0.3.6 conversion under Java 26.
-Do not apply OpenRewrite's Java 21-25 limit to this phase.
-Do not run or require a repository build to preflight M1 or E1.
-Invoke the released CLI directly with the validated Java executable.
-If `PATH` has no Java executable or its major version is below 21, ask the user for another Java home.
-Resolve that home to `bin/java` (Windows: `bin/java.exe`).
-Run `-version` on that exact executable and record its actual major version.
-If several compatible JDK homes exist, choose the lowest version.
-Prefer Java 21 for reproducible runs. (SHOULD)
+Record `Java 21+ (no upper bound)`, the executable path, and the actual major in `MIGRATION_REPORT.md`.
 Use the validated absolute executable for every CLI invocation.
 Never replace it with bare `java` or another executable.
-Read the `java.home` property from the selected executable's `-XshowSettings:properties -version` output.
-Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
-Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it reports
-the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
-If the property is missing or its `bin/java` is missing or reports a different major, ask for another JDK.
-Set `JAVA_HOME` to the validated property value.
-Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use `<JAVA_HOME>\bin`.
-Apply both values only to the M1 or E1 process when needed.
-Never edit the user's shell profile or global Java configuration.
+If no Java 21+ runtime is available, then show this message:
 
 > The Diagram Converter CLI requires Java 21 or later. Detected: `<major version or "not found">`.
 > Provide a Java 21+ home, choose M2 (agentic AI), or choose M3 (online converter).
@@ -127,7 +109,6 @@ confirms.
 
 Release 0.3.6 does not support `--json`. Release 0.3.7 introduced this option.
 If the latest release does not list `--json`, stop and report a CLI capability blocker.
-Do not describe an unsupported option as a Java compatibility failure.
 
 ### 3. Run the Converter
 
@@ -142,7 +123,6 @@ On Windows PowerShell, prefix the command with the call operator: `& "<java-exec
 
 Recommended flags:
 - `--json` - always pass this. Step 5 reads this report as JSON.
-  Releases 0.3.7 and later support the flag.
   If the selected JAR rejects it, record the release tag and exact error.
   Classify this as a CLI capability failure, not a Java failure.
 - `--xlsx` - always pass this. The XLSX report is the human-readable report for reviewing and sharing findings with the customer.
@@ -174,12 +154,6 @@ its source model.
 Do not overwrite an existing file in the chosen reports directory. Choose an available ` (n)`-suffixed
 name and use the moved path as the authoritative report path. If relocation fails, stop model
 validation and report the error. Do not claim a complete migration.
-
-Before packaging the project, inspect every resource directory that the build configures for
-packaging, including `src/main/resources` when it exists. No findings report named
-`analysis-results.<ext>` or `analysis-results (n).<ext>` may remain there, where `<ext>` is `.csv`,
-`.json`, `.md`, or `.xlsx` and `n` is a positive integer. Keep findings reports under `.camunda-migration/reports/` only when the build does not package that
-directory. Otherwise, use another explicitly non-packaged directory.
 
 ### 3b. Check the selected artifact
 
@@ -244,16 +218,31 @@ Never second-guess or re-derive other converted structures.
 
 #### Verification gate
 
-Use the shared gate in `SKILL.md` Step 5 before changing a BPMN or DMN category/impact row to **no action**.
-The `--check` mode analyzes its input but does not export converted diagrams.
-A successful `--check` run does not compare an edited converted copy with its source or prove a
-manual remediation.
-When the original input, CLI release, and converter options are available, run
-`local <original-input> --check --csv` as supplementary regression evidence.
-Check the edited converted copies with the gate's XML, namespace, wiring, and FEEL checks.
+Never set a model-finding category/impact row's verdict to **no action** or report it as resolved
+until this gate passes.
+Run the gate after each accepted fix and before a no-change row becomes **no action**.
+Use every `converted-c8-*` BPMN or DMN copy named by the row's pre-fix findings report.
+Record `Before` evidence before editing and `After` evidence after checking in
+`MIGRATION_REPORT.md`.
 
-Group findings by category. Split a category only when its findings have different runtime impact.
-Each category/impact row is a unit of work.
+| Check | Pass condition | Record |
+|---|---|---|
+| XML | Each converted copy parses with a namespace-aware XML parser. | Command, exit code, and paths |
+| Conditional-event IDs | Where the target is Camunda 8.9 or later, each converted `bpmn:conditionalEventDefinition` has a nonempty `id` that does not match another XML ID. Each converted definition remains under the same event ID as its source definition. When the converter reads a nonempty source definition ID that is unique in the source document, the converted definition retains that ID. | Paths, source and converted definition IDs and owning event IDs, and validator result |
+| Camunda 7 constructs | No Camunda 7 namespace element, attribute, or QName remains after cleanup. | Before-and-after counts |
+| Wiring | Matching task definitions, headers, listeners, and DMN or precompute references remain. | Source-to-converted mapping and code coverage when code is in scope |
+| BPMN DI | A source with DI retains its diagram, plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged IDs. A source without DI remains without DI. | Before-and-after counts, reference mapping, and source-DI provenance |
+| FEEL | Every changed FEEL expression parses with a target-compatible parser when one is available. | Parser version, expression location, and result |
+| Converter regression | When the original input, CLI release, and recorded options are available, run `local <original-input> --check --csv`. The `--check` mode exports no converted copy, so the run is supplementary evidence. It does not compare an edited converted copy with its source or prove a manual remediation. | Command and relevant CSV rows |
+| Deployment readiness | After a model or deployment change, repeat the resource and target checks in "Model validation" before reporting model readiness. | Resolved patterns, packaged entries, target version, and per-resource results |
+
+Record one verification row per category/impact row with its check results and `pending`, `passed`, or
+`failed` state.
+Mark verification `passed` only when every applicable check passes.
+If a check fails, re-open the row as **needs fix**.
+If a check cannot run or a user decision remains, keep the row **needs review**.
+In analyze-only mode, keep every model category/impact row **needs review**.
+Never start an automatic remediation loop.
 
 #### Imported reports: verify the target platform version
 
@@ -344,7 +333,7 @@ The current dedicated cross-check categories are:
 | `execution-listener`, `execution-listener-supported` | Match listener implementations during the workaround and listener cross-checks |
 | `execution-listener-on-start-event` | Ask for confirmed relocation to the nearest enclosing process or subprocess, then verify the converted listener |
 
-The form procedures in 5f and 5g are also dedicated handling for their named form categories.
+The form procedures in 5f are also dedicated handling for their named form categories.
 Treat every other category as a fallback category.
 
 #### 5d.1. Classify runtime impact
@@ -442,20 +431,12 @@ timer-expression-not-supported, topic, user-task-priority-collision, user-task-p
 variable-name-filter-not-supported, version-tag
 ```
 
-When the referenced converter version changes, re-sync this inventory from
-`diagram-converter/core/src/main/java/io/camunda/migration/diagram/converter/message/MessageFactory.java`.
-Include IDs passed through helper methods, such as the `FormKeyType` mapping, not only literal
-arguments to `composeMessage`. A maintenance check should mechanically compare the extracted
-`MessageFactory` IDs with this inventory and report any difference.
-
 After grouping and runtime-impact partitioning, assign each category/impact row exactly one verdict.
 Include INFO categories.
 When code is in scope, complete the code cross-checks before assigning the verdict.
 Record the table in `MIGRATION_REPORT.md`.
 Never leave findings as severity counts or a generic "findings need follow-up" note.
 For each M1 **needs fix** or **needs review** row, reference its complete element list.
-For an M1 converter row, name the artifact and its category key.
-For an M1 source-derived row, name its complete source inventory list.
 The grouped summary identifies the category.
 
 Verdicts:
@@ -464,7 +445,7 @@ Verdicts:
 |---|---|---|
 | **no action** | The converter handled the category deterministically or a cross-check shows full coverage. The shared verification gate passed. | Nothing to do. |
 | **needs review** | A human decision or verification is pending. A user decision is required before any fix starts. | Collect the pending user decision before any fix. Run the verification gate directly when it is the only pending action. |
-| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. |
+| **needs fix** | Concrete, known work remains: an uncovered cross-check item (job-type mismatch, uncovered retained header key and original expression pairs, uncovered invoked methods) or a WARNING/TASK category with a clear remediation. | It is a direct work item for the AI follow-up step. Resolve one verdict-table row at a time, using that row's cross-check guidance. |
 
 | Category (messageId or source category) | Runtime impact | Count | Element list | Code artifact | Impact evidence | Link | Verdict |
 |---|---|---|---|---|---|---|---|
@@ -485,20 +466,14 @@ Rules:
 - Impact evidence names the rule, target-support test, or cross-check that set runtime impact.
 - Write `none yet` when no remediation exists.
 - For models-only scope, write `n/a`.
-- For a fallback category, write `no dedicated cross-check`.
 - Use the preceding severity table for a converter finding.
 - Apply the procedure-defined lifecycle to source-derived synthetic categories.
 - Apply it to `c7-*` categories that split a legacy generic `form-key` finding.
 - These categories have no independent converter severity.
-- Copy each finding's `link` into the `Link` column. For a fallback category, present that link as the remediation starting point.
-- Run the verification gate directly for an INFO category. Do not ask the user unless a separate decision is needed.
-- Give every category/impact row, including INFO, a verdict.
-- Keep each `form-data` row **needs fix** until `form-migration.md` completes.
-- A source-only `camunda:formProperty` definition from an older or imported report that lacks the current `form-data` finding uses the synthetic category `generated-form-property-source`. Give it the same verdict lifecycle as `form-data`.
-- Form *reference* categories are never **no action** just because the converter copied the reference. See 5g for their verdict lifecycle.
+- Copy each finding's `link` into the `Link` column.
+- Keep each `form-data` and `generated-form-property-source` row **needs fix** until `form-migration.md` completes.
+- Form *reference* categories are never **no action** just because the converter copied the reference. `form-reference-migration.md` defines their names and verdict lifecycle.
 - Use one or more rows for each category in this run. Keep specific form-key categories separate.
-  Use source-derived `c7-*` rows for a legacy generic `form-key` finding. Add
-  `c7-generic-task-form` only for form-free owners.
 
 #### 5d.3. Relocate unsupported start-event listeners
 
@@ -533,7 +508,6 @@ Present one decision for each affected start event or group with the same target
 Do not edit the original C7 source.
 Do not edit a converted copy before the user accepts the move.
 When the user accepts the move, edit only the fresh converted copy.
-Use a namespace-aware XML parser or XML tooling, never regular expressions.
 Remove any invalid listener on the selected start event before adding its approved replacement.
 Never remove listeners from another start event.
 Create or reuse the target's `bpmn:extensionElements` and `zeebe:executionListeners` elements.
@@ -576,7 +550,7 @@ model readiness **blocked**.
 
 After every finding has a verdict, remove the temporary converter annotations from the fresh `converted-c8-*` copies. The verdict table and `MIGRATION_REPORT.md` are the durable record. Never leave the report embedded in the deployable model.
 
-Use a namespace-aware XML parser or XML tooling, never regular expressions. For each converted BPMN/DMN file:
+For each converted BPMN/DMN file:
 
 - Remove every `conversion:*` element, including `conversion:message`, `conversion:reference`, and `conversion:referencedBy`. Remove `conversion:*` attributes such as `conversion:converterVersion`.
 - Remove the `conversion` namespace declaration after no `conversion` element or attribute remains.
@@ -588,31 +562,16 @@ Reparse every cleaned file. Fail the cleanup if it is not well-formed, or if any
 
 #### 5f. Generate and review Camunda 8 forms
 
-Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory. That procedure uses the original BPMN as source, writes deterministic draft `.form` files, inserts visible warnings for unresolved mappings, asks the user about semantic gaps, and edits the fresh converted BPMN only after explicit acceptance.
+Run `form-migration.md` for every source Generated Task Form from the pre-conversion inventory.
+Never infer a form from a `form-data` message. Never mark the finding resolved merely because the
+converter removed it.
 
-Never infer a form from a `form-data` message. Never mark the finding resolved merely because the converter removed it. Never link a form that still lacks the user's required decisions.
+Then run `form-reference-migration.md` for every referenced form (embedded, external, Camunda Form,
+dynamic) and for every form-free owner.
 
-Then run `form-reference-migration.md` for every referenced form (embedded, external, Camunda Form, dynamic) and for every user task or process-level none start event with no form at all. That procedure inventories each reference, collects one decision per integration group within each category, relinks Camunda Forms, and rebuilds a C8 form only when the user explicitly asks.
-
-#### 5g. Named category: Forms
-
-Every C7 form type reaches this step, and each one is handled differently. Generated Task Forms (`camunda:formData` and source-only `camunda:formProperty`) are the `form-data` / `generated-form-property-source` workflow in 5f above. Everything else is a *referenced* form and runs through `form-reference-migration.md`:
-
-| Report category | Source classification | Converter finding | Handling |
-|---|---|---|---|
-| `c7-embedded-html-form` | `embedded:` form key | `form-key-embedded` (older releases: `form-key`) | Inventory, classify simple/complex, then keep-or-rebuild decision |
-| `c7-camunda-form-reference` | `camunda-forms:` form key | `form-key-camunda-form` (older releases: `form-key`) | Convert the `.form` and relink by `formId` + `bindingType` |
-| `c7-camunda-form-reference` | `camunda:formRef` | no finding for literal values. Expression values may emit an expression-transformation finding | Convert the `.form`, read its own schema id, report any mismatch with a literal `formRef` instead of silently rewriting, and record the binding decision |
-| `c7-external-form-reference` | form key with no known type | `form-key-external` (older releases: `form-key`) | Keep the reference for a custom application, or rebuild as a Camunda Form |
-| `c7-dynamic-form-reference` | form key built from an expression | `form-key-expression` (older releases: `form-key`) | Stays `needs review`. Enumerate the possible values with the user first |
-| `c7-generic-task-form` | no form metadata at all | no finding | Inventory and let the user choose |
-
-Use the specific converter messageId as the verdict-table category when it corroborates the source classification. If only the legacy generic `form-key` finding exists, use the source-derived `c7-*` category to keep the form types separate. Use the synthetic `c7-*` name when no finding exists, the same convention as `generated-form-property-source`.
-
-Never collapse these into one `form-reference` category. Never mark any of them **no action** because the converter copied a reference. A copied reference is not a working C8 form. Classify from the original BPMN source, not from findings alone. A report can be stale, imported, or produced by an older converter release that emitted a single generic `form-key` finding for all four form types.
+#### 5g. Camunda 8 form capabilities
 
 - **One C8 form per C7 form.** For every C7 form the user chooses to migrate, create a C8 `.form` and reference it from its owning user task or start event. Never drop forms or merge several C7 forms into one.
-- **Never rebuild a form unsolicited.** Offer the rebuild, ask one decision per integration group within each category, and generate only after an explicit instruction. Embedded HTML/JavaScript is never translated automatically.
 - **Check what C8 forms do natively before adding a worker.** Many C7 projects carry flattening/computing service tasks that exist only because C7 forms could not bind or compute. C8 forms removed those limitations:
   - Field `key` supports path-as-key binding into nested variables (e.g. `customerInfo.firstName`), so no flattening worker is needed for passthrough fields.
   - `text` components support FEEL templating: `{{ }}` interpolation with full FEEL, including `{{#loop}}`. Counts, joined lists, and other computed display values belong in the form itself, not in a preceding service task. The JSON property is `text`, not `content` (`content` is for `html`-type components only).
@@ -621,41 +580,15 @@ Never collapse these into one `form-reference` category. Never mark any of them 
 
 ## JUEL Method-Invocation Worker Adapters
 
-For every model approach, use a new thin `*Worker` adapter component for a Spring bean method invoked
-by JUEL. Compare the adapter's fully qualified class name with the original Java source baseline,
-recorded as fully qualified class names. Never add `@JobWorker` to an existing domain or service
-class from the C7 source. Keep the domain logic in the existing bean and delegate to it from the
-adapter. The code checklist defines the remediation and validation rules. Use this reference shape:
-
-```java
-@Component
-public class SampleBeanWorker {
-  @Autowired private SampleBean sampleBean;
-
-  @JobWorker(type = "sampleBean")
-  public Map<String, Object> someMethod(@Variable(name = "y") String y) {
-    return Map.of("theAnswer", sampleBean.someMethod(y));
-  }
-}
-```
-
-The baseline comparison is authoritative. A class that existed in the C7 source is not an adapter,
-even when its name ends with `Worker`. Record the baseline match and the replacement adapter in
-`MIGRATION_REPORT.md`.
-
-The class-name and job-type checks do not verify variable binding. The skill also compares each
-adapter input, output, and absent-value behavior with the C7 source. Apply the worker contract checks
-in `code-transform-checklist.md`.
-
-Apply this rule to JUEL method-invocation findings in M1, M2, M3, and E1. E1 uses the M1 local
-conversion flow after it acquires the source models.
+For every model approach, apply the worker-adapter rule in `code-transform-checklist.md` item 7 to a
+Spring bean method invoked by JUEL. E1 uses the M1 local conversion flow after it acquires the source
+models.
 
 ## Approach M2 - Agentic AI (direct XML rewrite)
 
 Use when Java 21 is unavailable, the user wants to review every change, or the CLI cannot handle a case.
 
-Fetch the current diagram-conversion guidance:
-`https://raw.githubusercontent.com/camunda/camunda-docs/main/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter.md`
+Fetch the current diagram-conversion guidance listed in `pattern-catalog-sources.md`.
 
 ### Job type naming
 
@@ -669,7 +602,7 @@ the original Camunda 7 implementation attribute.
 | `camunda:class` | Take the class name after the final dot. Decapitalize its first character. | `com.example.SampleDelegate` becomes `sampleDelegate`. |
 | `camunda:topic` on an external task | Copy the topic value without changing it. | `invoice-processing` remains `invoice-processing`. |
 
-For JUEL method-invocation findings, apply the shared [worker adapter rule](#juel-method-invocation-worker-adapters).
+For JUEL method-invocation findings, apply the [worker adapter rule](#juel-method-invocation-worker-adapters).
 
 Treat a job type that differs from this table as an intentional deviation only when
 `MIGRATION_REPORT.md` records the source file and element, the original implementation, the emitted
@@ -680,10 +613,7 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 
 - `camunda:` namespace/extension elements to `zeebe:` equivalents (task definitions/job types, IO mappings, headers)
 - Where the converted BPMN uses a `zeebe:` element or attribute, reuse an existing `zeebe` declaration on `bpmn:definitions` or declare `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` there before writing the converted copy.
-- For each call activity, convert its C7 `camunda:in` and `camunda:out` contract by using [Call-Activity Variable Scope](#call-activity-variable-scope).
-- Include each call's delegated variable-mapping contract in the same comparison.
-- When the skill confirms a compatible C8 mapping, set `zeebe:calledElement/@propagateAllChildVariables` explicitly.
-- Use the table's `true` or `false` value.
+- Convert each call activity's variable contract, including a delegated variable-mapping contract, with [Call-Activity Variable Scope](#call-activity-variable-scope).
 - Where the target version is 8.5 or later, convert every Camunda 7 `bpmn:userTask` to a Camunda 8 user task. Ensure that the task has a `bpmn:extensionElements` container. Create the container when it is missing, then add exactly one `<zeebe:userTask />` child.
 - Where the target version is 8.5 or later and the user task is form-free, still add `<zeebe:userTask />`. Do not infer a job-worker task from the absence of form metadata.
 - Where the target version is 8.5 or later, preserve compatible assignment, schedule, form, and task-listener metadata in the corresponding Zeebe extensions.
@@ -695,22 +625,12 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - Simple JUEL to FEEL for pure data expressions. Flag bean-invoking expressions for manual work.
 - Never translate complex script or Groovy condition logic into FEEL automatically. Preserve the source for review, and require an explicit worker/service-task or other user-approved redesign.
 - Conditional events are native only on 8.9+. Otherwise flag them.
-- Where the target is Camunda 8.9 or later, the converter assigns each
-  `bpmn:conditionalEventDefinition` a nonempty, document-unique ID.
-- The converter keeps each converted conditional event definition under the same
-  event ID that owns the source definition.
-- When the converter reads a nonempty definition ID that is unique in the source document, it
-  preserves that ID.
-- If the converter finds an empty or nonunique definition ID, then it generates a collision-free ID
-  without changing existing event IDs, sequence-flow IDs, or BPMN DI references.
-- Run the conditional-event ID check in `SKILL.md` Step 5 independently of BPMN lint.
+- Where the target is Camunda 8.9 or later, meet the conditional-event ID condition of the
+  [verification gate](#verification-gate). If a source definition ID is empty or nonunique, then
+  generate a collision-free ID without changing existing event IDs, sequence-flow IDs, or BPMN DI
+  references.
+- Run the conditional-event ID check independently of BPMN lint.
 - Reject the converted copy if the ID check fails, even when lint reports no ID error.
-- Record source and converted definition IDs, their owning event IDs, and the validator result in
-  `MIGRATION_REPORT.md`.
-- Use the fixture's Python verifier only for regression tests. Apply the Step 5 checks to each
-  migration project's source and converted copies.
-- For a conditional-event verdict row, require an execution test that triggers the event before
-  assigning **no action**. See 5d.1 for the target-support test and evidence.
 - DMN: update decision/definition namespaces and expression language as needed
 - Preserve existing BPMN DI instead of reconstructing it from the rewritten semantic tree.
 - Before rewriting, parse the source with a namespace-aware XML parser and record counts for diagrams, planes, shapes, edges, labels, bounds, and waypoints.
@@ -719,17 +639,11 @@ For each in-scope diagram, produce a new `converted-c8-<name>.bpmn`/`.dmn` (neve
 - If a semantic ID has no safe DI mapping, record a blocking or review finding before continuing.
 - When the source has no BPMN DI, leave the converted copy without BPMN DI and record that provenance in `MIGRATION_REPORT.md`. Do not manufacture a layout.
 
-Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below. After the converted copy exists, run `form-migration.md` and `form-reference-migration.md` against the original/converted pair.
+Emit a findings summary mirroring CLI severities (WARNING/TASK/REVIEW/INFO), and ask for human review. Lint every rewritten BPMN file per the linting section below.
 
-Before resolving the model findings, validate every converted `bpmn:userTask`:
-
-| Check | Required result |
-|---|---|
-| Zeebe namespace | `bpmn:definitions` declares `xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"` when any Zeebe extension is present |
-| User-task marker | Exactly one `zeebe:userTask` child exists in the task's `bpmn:extensionElements` |
-| Assignment, schedule, form, and listener metadata | Each supported value is present in its matching Zeebe extension |
-| Unsupported semantics | A finding names the source task and the manual action |
-| Job-worker fallback | No `zeebe:taskDefinition` exists unless the user explicitly selected a job-based replacement and the decision is recorded in `MIGRATION_REPORT.md` |
+Before resolving the model findings, check every converted `bpmn:userTask` against the user-task
+rules above. No `zeebe:taskDefinition` exists on a converted user task unless the user explicitly
+selected a job-based replacement and `MIGRATION_REPORT.md` records the decision.
 
 The user may explicitly request a job-based replacement for a user task. Record the request, the source task id, and the resulting job type before removing the Camunda user-task marker. A bare Camunda 7 user task has no such request and remains a Camunda 8 user task.
 
@@ -741,8 +655,6 @@ Point the user to the hosted converter:
 
 This path does not automate the hosted service. Once the user brings the converted files back, offer the same findings follow-up as M1 step 5. For machine-readable findings, use the hosted converter's 'Download JSON' button. It produces the same `analysis-results.json` the CLI writes. Its CSV/markdown/XLSX downloads are not parsed (see 5a). The imported-report version check in step 5 applies.
 
-Generated-form follow-up also requires the exact original BPMN and an unambiguous pairing to each downloaded converted BPMN. Ask for either missing artifact rather than reconstructing C7 form metadata from the report.
-
 ## Approach E1 - Camunda 7 Engine Source (only when no local models found)
 
 ### 1. Ask for C7 Access
@@ -751,7 +663,7 @@ Ask the user for:
 
 - The C7 engine REST base URL, including the `/engine-rest` context path when applicable.
 - Authentication: no authentication, or Basic authentication username/password.
-- Obtain secrets through the agent's secure credential mechanism. Never write them to MIGRATION_REPORT.md or commit them.
+- Obtain credentials through the host's secure credential mechanism. Never commit them.
 
 Also ask whether to fetch all latest process/decision definitions or only named keys.
 
@@ -787,6 +699,14 @@ Use the confirmed profile or client for both this check and deployment.
 | Every reported version matches the declared target. | Record the non-secret target identifier and all reported versions in `MIGRATION_REPORT.md`. Continue with deployment. |
 | A version is missing or malformed, no brokers exist, or any major or minor version differs. | Block deployment and model readiness. Ask the user to select a matching target. |
 
+When the user authorizes a test target, deploy explicit converted BPMN and DMN paths with accepted
+`.form` paths and their owning BPMN in the same request. Use
+`c8ctl deploy <files...> --profile=<name> --json` or the same authorized deployment client.
+If two resources would share a deployment name, then block deployment until their names differ.
+Record a result for every resource path and each form's owner. If authorization, target-version
+evidence, deployment success, or an approved listener follow-up is missing, then block model
+readiness.
+
 ## Linting Converted BPMN (M1 and M2)
 
 After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version. Missing DI, overlaps, and disconnected flows are cheapest to catch at edit time.
@@ -797,6 +717,108 @@ npx bpmnlint <converted-file>.bpmn
 ```
 
 `.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
+
+## Model validation (Step 4)
+
+Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
+skill edited. After every manual BPMN edit, lint the converted copy again.
+
+1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
+2. Every original file is intact and was never overwritten.
+3. No findings report named `analysis-results.<ext>` or `analysis-results (n).<ext>` remains under
+   a packaged resource directory, as defined in
+   [Pre-flight: Leftover Artifacts](#pre-flight-leftover-artifacts). Every fresh findings report from
+   this run sits in the non-packaged reports directory of step 3a.
+4. Every WARNING, TASK, REVIEW, and INFO finding is fixed or classified in the step 5d verdict table.
+   In an M1 run, every **needs fix** or **needs review** row references its complete Element list.
+   A flat "fixed or recorded" note is not enough.
+5. Every source Generated Task Form is `accepted`, `blocked`, or `declined`, including a
+   form-property-only definition. None is silently omitted. Every accepted form passes the checks in
+   "Deployment and validation" in `form-migration.md`, including a target-compatible schema and
+   form-js check where the tooling exists. No draft, blocked, or declined form is linked or deployed.
+   Every semantic gap and every user decision is recorded.
+6. Every referenced form and every form-free owner has a recorded per-category decision and a final
+   status of `kept`, `relinked`, `accepted`, `declined`, `deferred`, or `blocked`. The in-progress
+   statuses `pending` and `draft` must not remain. A `deferred` or `blocked` item stays open follow-up
+   work. A kept external reference is never reported as a completed migration, and no category is
+   closed as **no action** because the converter copied a reference.
+7. Every relinked or rebuilt form is referenced by `zeebe:formDefinition@formId` with a recorded
+   binding decision, and the copied Camunda 7 `externalReference` or `formKey` is gone from that
+   element. See `form-reference-migration.md`.
+8. Once the verdict table is complete, the converted copies hold no `conversion:*` node, no
+   `conversion:*` attribute, no unused Camunda 7 namespace declaration, and no leftover BPMN
+   definitions-level XPath `expressionLanguage` attribute. See step 5e.
+9. For every converted BPMN with source BPMN DI, the converted copy preserves the source diagram,
+   plane, shape, edge, label, bounds, waypoint, and `bpmnElement` reference data for unchanged
+   semantic IDs.
+10. For every converted BPMN without source BPMN DI, the skill does not create layout data and
+    records the absent source DI as provenance in `MIGRATION_REPORT.md`.
+11. When a semantic rewrite changes an ID referenced by BPMN DI, the skill updates the reference or
+    records a blocking or review finding when it cannot reconcile the reference.
+12. When the model uses M2, inspect every `zeebe:taskDefinition/@type`. Derive the expected type
+    from the original implementation attribute with the [M2 job type naming](#job-type-naming) rules.
+    Treat a mismatch without the decision-log entry that those rules require as a validation failure.
+13. When the model uses M2, the skill runs the expression-prefix validator for every source and
+    converted pair. The skill supplies one `--pair` argument for every in-scope BPMN or DMN model:
+
+    ```sh
+    python3 "<skill-directory>/scripts/validate_model_expressions.py" \
+      --pair "<source.bpmn>" "<converted-c8-source.bpmn>"
+    ```
+
+    The validator parses each pair with a namespace-aware XML parser.
+    The validator applies the first matching row to each `bpmn:conditionExpression` and
+    conditional-event `bpmn:condition`:
+
+    | Language attribute | Source value | Validator action |
+    | --- | --- | --- |
+    | Other than `juel` or `feel` on either copy | Any | Report a blocking redesign finding. Keep the finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
+    | `juel` or `feel` on the source | Any | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Starts with `=`, contains `${` or `#{`, or is another non-empty non-literal value | Require a leading `=` on the converted expression. |
+    | Missing or blank (default JUEL) | Boolean, number, `null`, or quoted string without those markers | Treat the value as a literal. Do not require a leading `=`. |
+    | Missing or blank (default JUEL) | Empty | Do not check the source as a dynamic condition. |
+
+    The validator pairs `bpmn:conditionExpression` with its sequence flow.
+    The validator pairs conditional-event `bpmn:condition` by its owning definition or event ID,
+    not its optional condition ID.
+    The validator pairs C7 input and output expressions with their Zeebe source attributes.
+    The validator fails when the converted copy has no Zeebe mapping with the source parameter's
+    name as its target.
+    The validator treats C7 input and output parameters with nested
+    `camunda:script scriptFormat="feel"` elements as dynamic expressions.
+    The validator requires a leading `=` on each paired dynamic input or output source.
+    The validator pairs dynamic `zeebe:subscription/@correlationKey` values with their source
+    expressions.
+    The validator requires a leading `=` on each converted
+    `zeebe:subscription/@correlationKey`.
+    The validator pairs dynamic `zeebe:calledElement/@processId`, `zeebe:taskDefinition/@type`,
+    `zeebe:assignmentDefinition`, and `zeebe:formDefinition/@formId` values with their source
+    expressions.
+    The validator requires a leading `=` on each paired dynamic value.
+    The validator rejects every `language="feel"` and `language="juel"` attribute in the converted
+    copy.
+    The validator rejects every BPMN `expressionLanguage` attribute.
+    The validator does not check DMN `expressionLanguage` attributes.
+    The skill preserves valid DMN expression languages.
+    The skill records the command, exit code, source and converted paths, and each finding in
+    `MIGRATION_REPORT.md`.
+
+
+    | Validator finding | Skill action |
+    | --- | --- |
+    | Missing prefix or mapping | Fix each finding and rerun the validator before marking the model row passed. |
+    | The converted BPMN copy retains a `language="feel"`, `language="juel"`, or `expressionLanguage` attribute | Remove the leftover attribute and rerun the validator before marking the model row passed. |
+    | Unsupported condition language | Keep the redesign finding blocked until the user approves a replacement. Do not translate the source condition automatically. |
+14. For each call activity, compare the converted scope with its original inputs and outputs, as
+    [Call-Activity Variable Scope](#call-activity-variable-scope) defines. Check every
+    `bpmn:callActivity` in every `converted-c8-*.bpmn` file. For each call with a compatible C8
+    mapping, require its `zeebe:calledElement` to set `propagateAllChildVariables` explicitly to
+    `true` or `false`. Do not pass readiness validation while a call remains **needs review**.
+15. **Selected M1 artifact** — record the CLI tag, JAR path, validated Java executable, and target
+    version. Step 3b passes for every source start listener and converted copy. A worker does not
+    validate listener placement.
+16. **Target deployment** — when the user authorizes a test target, verify and deploy as
+    [Target deployment](#target-deployment-verify-the-target-version) defines.
 
 ## Analyze-Only Mode
 

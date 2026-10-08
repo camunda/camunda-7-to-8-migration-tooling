@@ -9,8 +9,8 @@ Use this procedure for C7 Generated Task Forms in BPMN XML:
 
 Every other C7 form type is *referenced*, not defined on the element: embedded HTML/JavaScript
 forms, external/custom application forms, Camunda Form references, and user tasks with no form at
-all. Use `form-reference-migration.md` for those. It reuses this file's generation machinery, so keep
-both procedures consistent and never route a form through both.
+all. Use `form-reference-migration.md` for those. It reuses this file's generation machinery. Never
+route a form through both procedures.
 
 The Diagram Converter reports `camunda:formData` as the `form-data` TASK finding and removes the
 unsupported C7 metadata. Do not change that behavior. Never reconstruct a form from the converted
@@ -34,8 +34,7 @@ but create no form files and edit no BPMN.
 
 ## Discover the complete source surface
 
-Parse XML with a namespace-aware parser. Never parse BPMN with regular expressions. For every
-`bpmn:userTask` and `bpmn:startEvent`, collect:
+For every `bpmn:userTask` and `bpmn:startEvent`, collect:
 
 - `camunda:formData`, its `businessKey`, and each `camunda:formField` in document order
 - direct `camunda:formProperty` children in document order
@@ -352,8 +351,8 @@ scope is models-only. Locate:
 - `FormFieldValidator` implementations and validator beans/classes named in the BPMN
 - `FormService`, `TaskFormData`, `StartFormData`, `FormField`, and `FormProperty` consumers
 - `submitTaskForm`, `submitStartForm`, `/submit-form`, and `/form-variables` clients
-- code relying on business-key extraction, custom field properties, C7 Java `Date`/full-range `long`
-  values, form-property aliases/expressions, or C7 validation exceptions
+- code relying on field ids, type conversion, business-key extraction, custom field properties, C7
+  Java `Date`/full-range `long` values, form-property aliases/expressions, or C7 validation exceptions
 
 When code migration is out of scope, do not edit these consumers. Record each dependency and ask the
 user how it will be handled. If application code is unavailable, record the consumer check as unknown
