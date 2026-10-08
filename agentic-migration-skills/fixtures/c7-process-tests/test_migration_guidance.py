@@ -2878,6 +2878,54 @@ class MigrationGuidanceTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('.hasCompletedElement("MixedWork", 2)', migrated)
 
+    def test_custom_process_starter_mapping_requires_manual_migration(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        custom_starter_mappings = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"] == "startBy(customProcessStarter)"
+        ]
+        self.assertEqual(1, len(custom_starter_mappings))
+        self.assertIn(
+            "Record `manual` in the parity ledger",
+            custom_starter_mappings[0]["Camunda Process Test 8.9 or later"],
+        )
+        self.assertIn(
+            "CPT has no direct mapping for a custom `ProcessStarter`",
+            custom_starter_mappings[0]["Notes"],
+        )
+
+    def test_unknown_finished_outcome_split_requires_manual_migration(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        finished_mappings = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"]
+            == 'verify(process, times(n)).hasFinished("E")'
+        ]
+        self.assertEqual(1, len(finished_mappings))
+        mapping = finished_mappings[0]["Camunda Process Test 8.9 or later"]
+        notes = finished_mappings[0]["Notes"]
+        self.assertIn("When mixed outcomes have known counts", mapping)
+        self.assertIn("When the completed-versus-terminated split is unknown", mapping)
+        self.assertIn("record `manual` in the parity ledger", mapping)
+        self.assertIn("Do not assert exact counts or their sum", mapping)
+        self.assertIn("counts must sum to `n`", notes)
+
     def test_scenario_user_task_wait_and_completion_share_instance_key(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         wait_state_behavior = reference.split("### Wait-state behavior", 1)[1].split(

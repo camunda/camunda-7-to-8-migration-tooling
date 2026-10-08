@@ -73,6 +73,7 @@ class InvoiceScenarioTest {
 | `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | Preserve the existing mocked-child boundary. |
 | `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Retain the returned `ProcessInstanceEvent`. When the source test sets a business key, apply the confirmed business-key mapping. |
 | `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
+| `startBy(customProcessStarter)` | Record `manual` in the parity ledger. | CPT has no direct mapping for a custom `ProcessStarter`. |
 | `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | |
 | `.fromAfter("A")` with an unambiguous next element | `.startBeforeElement(nextElement)` on the create command | Resolve the next element from the converted copy. |
 | `.fromAfter("A")` with no clear next element | No direct counterpart | Record `manual` in the parity ledger because the next element is ambiguous. |
@@ -81,7 +82,7 @@ class InvoiceScenarioTest {
 | `verify(process).hasCompleted("E")` | `assertThat(pi).hasCompletedElements("E")` | |
 | `verify(process, times(n)).hasCompleted("E")` | Assert `hasCompletedElement("E", n)`. | Preserve the exact completed-element count. |
 | `verify(process).hasFinished("E")` | `hasCompletedElements("E")` or `hasTerminatedElements("E")` | `hasFinished` includes completed and cancelled activities. |
-| `verify(process, times(n)).hasFinished("E")` | When all visits completed, assert `hasCompletedElement("E", n)`. When all visits terminated, assert `hasTerminatedElement("E", n)`. When the outcomes are mixed, assert both with their respective counts. | `hasFinished` includes completed and canceled activities. For mixed outcomes, assert after the scenario's final observation point. The completed and terminated counts must sum to `n`. Each exact-count assertion waits. |
+| `verify(process, times(n)).hasFinished("E")` | When all visits completed, assert `hasCompletedElement("E", n)`. When all visits terminated, assert `hasTerminatedElement("E", n)`. When mixed outcomes have known counts, assert both with their respective counts. When the completed-versus-terminated split is unknown, record `manual` in the parity ledger. Do not assert exact counts or their sum. | `hasFinished` includes completed and canceled activities. For mixed outcomes with known counts, assert after the scenario's final observation point. The completed and terminated counts must sum to `n`. Each exact-count assertion waits. |
 | `verify(process).hasCanceled("E")` | `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion at the intended observation point | This check does not wait. A preceding `hasNoActiveElements("A")` can pass before A is reached. |
