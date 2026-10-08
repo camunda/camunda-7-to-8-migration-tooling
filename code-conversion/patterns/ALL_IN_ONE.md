@@ -618,6 +618,10 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 ```
 
 -   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
+-   do not pass the C7 process-instance `businessKey` directly as the C8 `correlationKey`
+-   when the converted message catch event declares a matching subscription-key expression, initialize its source process variable before the catch event activates, then pass that value as the C8 `correlationKey`
+-   the C8 correlation command applies `.variables(...)` after matching, so those values cannot initialize the subscription key for that correlation
+-   when no matching subscription key exists, mark the operation for manual redesign
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message
@@ -1165,10 +1169,13 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
         return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
+                .allowOverride(false)
                 .send()
                 .join();
     }
 ```
+
+-   set `.allowOverride(false)` so a claim fails when the task already has an assignee
 
 ###### Complete User Task
 
@@ -1525,10 +1532,11 @@ The following patterns focus on various methods to start process instances in Ca
 ###### CamundaClient (Camunda 8)
 
 ```java
-    public CorrelateMessageResponse startProcessByMessage(String messageName, String correlationKey, Map<String, Object> variableMap, String tenantId) {
+    public CorrelateMessageResponse startProcessByMessage(
+            String messageName, Map<String, Object> variableMap, String tenantId) {
         return camundaClient.newCorrelateMessageCommand()
                 .messageName(messageName)
-                .correlationKey(correlationKey)
+                .withoutCorrelationKey()
                 .variables(variableMap)
                 .tenantId(tenantId)
                 .send()
@@ -1539,8 +1547,10 @@ The following patterns focus on various methods to start process instances in Ca
 -   no specific method to start a process instance by message
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
+-   when the C7 `businessKey` is null, use `.withoutCorrelationKey()` to start a new process instance through the matching message start event
+-   when the C7 `businessKey` is non-null, mark this mapping for manual redesign
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
--   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
+-   C8 message correlation cannot set a `businessId`
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   it is also possible to publish a message with a time to live
 

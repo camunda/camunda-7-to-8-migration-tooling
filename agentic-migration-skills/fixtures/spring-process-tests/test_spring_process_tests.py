@@ -524,6 +524,54 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertNotIn("newUserTaskAssignCommand", user_task_mapping)
         self.assertNotIn("newUserTaskCompleteCommand", user_task_mapping)
 
+    def test_message_start_mapping_uses_keyless_correlation(self):
+        mapping = STARTING_PROCESS_PATTERN.read_text(encoding="utf-8")
+        message_mapping = mapping.split(
+            "## By Message (And ProcessDefinitionId)", 1
+        )[1]
+        c8_mapping = message_mapping.split(
+            "- no specific method to start a process instance by message", 1
+        )[0]
+
+        self.assertIn(".withoutCorrelationKey()", c8_mapping)
+        self.assertNotIn(".correlationKey(", c8_mapping)
+        self.assertIn("when the c7 `businesskey` is null", message_mapping.lower())
+        self.assertIn(
+            "when the c7 `businesskey` is non-null, mark this mapping for manual redesign",
+            message_mapping.lower(),
+        )
+        self.assertIn(
+            "c8 message correlation cannot set a `businessid`",
+            message_mapping.lower(),
+        )
+
+    def test_message_correlation_requires_a_preinitialized_subscription_key(self):
+        mapping = MESSAGE_CORRELATION_PATTERN.read_text(encoding="utf-8")
+        normalized_mapping = mapping.lower()
+
+        self.assertIn(
+            "do not pass the c7 process-instance `businesskey` directly as the c8 `correlationkey`",
+            normalized_mapping,
+        )
+        self.assertIn(
+            "initialize its source process variable before the catch event",
+            normalized_mapping,
+        )
+        self.assertIn(
+            "correlation command applies `.variables(...)` after matching",
+            normalized_mapping,
+        )
+        self.assertIn("manual redesign", normalized_mapping)
+
+    def test_task_service_claim_disables_assignment_overrides(self):
+        mapping = USER_TASKS_PATTERN.read_text(encoding="utf-8")
+        claim_mapping = mapping.split("## Claim User Task", 1)[1].split(
+            "## Complete User Task", 1
+        )[0]
+
+        self.assertIn(".allowOverride(false)", claim_mapping)
+        self.assertIn("claim fails when the task already has an assignee", claim_mapping)
+
     def test_junit_harness_inventories_camunda_cfg_xml_settings(self):
         junit_pattern = " ".join(JUNIT_PATTERN.read_text().split())
         build_cleanup = REFERENCE.read_text(encoding="utf-8").split("## Build cleanup", 1)[1].split(

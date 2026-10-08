@@ -48,10 +48,13 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
         return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
+                .allowOverride(false)
                 .send()
                 .join();
     }
 ```
+
+-   set `.allowOverride(false)` so a claim fails when the task already has an assignee
 
 ## Complete User Task
 
