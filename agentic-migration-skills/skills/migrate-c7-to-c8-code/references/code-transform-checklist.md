@@ -397,8 +397,8 @@ access.
 | At least one incoming path places process start, a wait-state completion, or a synchronous predecessor in the same C7 command segment as the delegate. | Record that segment, its activities, exception paths, and the process-state changes it rolls back. Mark those rollback effects as **not preserved** in C8. | Choose C8 job retries and incident handling, a BPMN error or compensation flow, or an explicit manual step. |
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
-If the first row matches, then the skill stops the transformation, and for Approach A OpenRewrite,
-and asks the user to supply evidence or make the listed decision.
+If the first row matches, then the skill stops the transformation and asks the user to supply
+evidence or make the listed decision. In Approach A, the skill also stops OpenRewrite.
 When the user supplies evidence, the skill reruns the gate.
 The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
 decision.

@@ -108,7 +108,8 @@ These rules apply to every later step and every reference.
 - Where the target is a separate location, such as a sibling Camunda 8 project, treat the Camunda 7
   project as read-only and copy the assets across.
 - During Step 2, and throughout an assessment-only or analyze-only run, edit no project file other
-  than `MIGRATION_REPORT.md`.
+  than `MIGRATION_REPORT.md`. A full migration also writes its validation scope under
+  `.camunda-migration/validation/` in Step 2.
 - Parse BPMN, DMN, and other XML with a namespace-aware parser. Never parse XML with regular
   expressions.
 - Never write credentials, tokens, or private endpoint values to `MIGRATION_REPORT.md`,
