@@ -435,7 +435,6 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("/deployment/create", "@testdeployment"),
             ("/process-definition/key/{key}/start", "newcreateinstancecommand"),
             ("/message", "newcorrelatemessagecommand"),
-            ("/signal", "newbroadcastsignalcommand"),
             ("/task/{id}/complete", "completeusertask"),
             ("/task/{id}/claim", "newassignusertaskcommand"),
             ("/external-task/fetchandlock", "completejob"),
@@ -452,6 +451,29 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
             normalized_reference,
         )
+
+    def test_signal_mapping_preserves_request_fields_and_execution_scope(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        signal_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /signal`")
+        ]
+
+        self.assertEqual(2, len(signal_rows))
+        broadcast_row = next(
+            row for row in signal_rows if "without `executionid`" in row
+        )
+        self.assertIn("newbroadcastsignalcommand", broadcast_row)
+        self.assertIn("variables(vars)", broadcast_row)
+        self.assertIn("tenantid(tenantid)", broadcast_row)
+        self.assertIn("withouttenantid", broadcast_row)
+        self.assertIn("no equivalent", broadcast_row)
+        execution_row = next(
+            row for row in signal_rows if "with `executionid`" in row
+        )
+        self.assertIn("manual redesign", execution_row)
+        self.assertIn("all matching subscriptions", execution_row)
 
     def test_activity_history_mapping_preserves_requested_states_and_filters(self):
         mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
