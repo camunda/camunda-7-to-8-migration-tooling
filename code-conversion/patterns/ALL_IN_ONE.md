@@ -3191,7 +3191,7 @@ void testUserTaskIsReachedAndCompleted() {
 |---|---|---|
 | `task()`, `task("A")`, or `findId("Task name")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` or `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the element ID or task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. Use an unscoped selector only when the test proves task uniqueness. |
 | `complete(task(), withVariables(vars))` or `taskService.complete(id, vars)` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` or `completeUserTask(selector, vars)` | Include the process-instance key in the selector. When the test calls `CamundaClient` directly, search within the process instance and complete the selected user-task key. |
-| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the assignment step. |
+| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").allowOverride(false).send().join()` | Set `allowOverride(false)` so an already-assigned task still fails as it does in Camunda 7. Get the task key with a user-task search. Record a reason before dropping the assignment step. |
 
 The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
 
@@ -4156,12 +4156,13 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | Camunda 7 Engine REST call | CPT 8.9 replacement | Notes |
 |---|---|---|
 | `POST /deployment/create` | `@TestDeployment(resources = "converted-c8-<name>.bpmn")` or the application's `@Deployment` | Deploy the converted copy. |
-| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. |
-| `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and key from the converted copy's `zeebe:subscription`. |
+| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. When the request includes `businessKey`, add `.businessId(businessKey)` (Camunda 8.9+). For Camunda 8.8, use tags or a process variable as described in `20-client-code/10-process-engine/business-key-and-tags.md`. |
+| `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and correlation-key expression from the converted copy's `zeebe:subscription`. Choose publish only when the test requires buffered delivery. See [Message request fields](#message-request-fields). |
 | `POST /signal` without `executionId` | `client.newBroadcastSignalCommand().signalName(name).variables(vars).tenantId(tenantId).send().join()` | Broadcast to matching signal subscriptions. Preserve `variables` and `tenantId` when supplied. Camunda 8 has no equivalent `withoutTenantId` field, and its optional `tenantId` does not express every Camunda 7 tenant scope. Confirm the scope or handle it manually. |
 | `POST /signal` with `executionId` | Manual redesign | Camunda 7 targets one execution. The Camunda 8 broadcast command has no execution selector and can signal all matching subscriptions. |
 | `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId(elementId, processInstanceKey), vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Scope the CPT selector to the process instance returned by the C8 start command. When using `CamundaClient` directly, search by `processInstanceKey` and `elementId`, then complete that result's exact `userTaskKey`. |
-| `POST /task/{id}/claim` or `/task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).send().join()` | Preserve the assignee. |
+| `POST /task/{id}/claim` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(false).send().join()` | Set `allowOverride(false)` to preserve the C7 failure when the task already has an assignee. |
+| `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` | Set `allowOverride(true)` to preserve reassignment. C7 accepts `userId: null` to unassign, which has no direct Camunda 8.9 equivalent. Use manual migration when the test unassigns a task. |
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |
 | `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |
 | `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
@@ -4171,5 +4172,21 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
 | `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first. Assert the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
 | `POST /job/{id}/execute` for a non-timer job | No time-advancement mapping | Identify the job type and why the test executes it. Use the matching CPT worker command when the test controls a worker boundary. Assert the process path for an engine-managed continuation. Do not advance time. |
+
+###### Message request fields
+
+Map each supplied C7 `POST /message` field. Do not treat `businessKey` as the C8 correlation key.
+
+| C7 request field | Camunda 8.9 handling |
+|---|---|
+| `messageName` | Set `.messageName(name)` on the selected message command. |
+| `processVariables` | Map to `.variables(vars)`. Pass plain JSON values. |
+| `tenantId` | Map to `.tenantId(tenantId)` when the request supplies an explicit tenant. |
+| `correlationKeys` | Map to `.correlationKey(key)` only when one scalar key matches the converted BPMN subscription's correlation-key expression. Multiple keys or different matching rules need manual migration. |
+| `businessKey` | This is not the C8 `correlationKey` or `businessId`. C8 message correlation cannot select an existing instance by business key or set a business ID on a message-started instance. Use manual migration when the test depends on either behavior. |
+| `localCorrelationKeys`, `processInstanceId`, `withoutTenantId` | C8 message commands do not preserve local-variable matching, exact process-instance targeting, or no-tenant-only matching. Use manual migration when the test depends on these fields. |
+| `processVariablesLocal`, `processVariablesToTriggeredScope` | `.variables(vars)` does not preserve these C7 variable scopes. Use manual migration when the test depends on either scope. |
+| `all` | C8 correlates a message at most once per process and can correlate across different processes. It does not expose C7's `all` option or guarantee the combined multiple-execution and message-start result. Use manual migration when the test depends on that exact result set. |
+| `resultEnabled`, `variablesInResultEnabled` | C8 message commands return a different response shape and do not return the C7 correlation result objects with optional process variables. Use manual migration when the test reads these results. |
 
 ---

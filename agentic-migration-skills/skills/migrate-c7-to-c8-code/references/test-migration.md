@@ -508,8 +508,8 @@ Record any disagreement with the catalog in `MIGRATION_REPORT.md`.
 ### Dependency changes
 
 Use `10-general/dependencies.md` for exact test artifact IDs, replacements, versions, and removal conditions.
-The skill inventories each dependency before removal. It keeps dependencies with remaining
-production or test consumers and aligns AssertJ with the version required by CPT.
+The skill inventories each dependency before removal. The skill keeps dependencies with remaining
+production or test consumers. The skill aligns AssertJ with the version required by CPT.
 
 ### Recipe-assisted migration
 

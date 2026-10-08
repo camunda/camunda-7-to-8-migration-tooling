@@ -3006,6 +3006,11 @@ class MigrationGuidanceTest(unittest.TestCase):
             completion_mapping["CPT"],
         )
 
+        claim_mapping = next(
+            row for row in mappings if "claim(task()" in row["Camunda 7"]
+        )
+        self.assertIn(".allowOverride(false)", claim_mapping["CPT"])
+
     def test_scenario_bpmn_error_mapping_preserves_user_task_condition(self):
         mappings = markdown_table(
             SCENARIO_PATTERNS,

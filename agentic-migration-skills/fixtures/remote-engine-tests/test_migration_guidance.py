@@ -437,6 +437,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("/message", "newcorrelatemessagecommand"),
             ("/task/{id}/complete", "completeusertask"),
             ("/task/{id}/claim", "newassignusertaskcommand"),
+            ("/task/{id}/assignee", "newassignusertaskcommand"),
             ("/external-task/fetchandlock", "completejob"),
             ("/external-task/{id}/bpmnerror", "throwbpmnerrorfromjob"),
             ("/history/process-instance/{id}", "iscompleted"),
@@ -451,6 +452,24 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
             normalized_reference,
         )
+
+    def test_dependency_changes_keep_independent_rules_separate(self):
+        dependency_rules = " ".join(
+            REFERENCE.read_text(encoding="utf-8")
+            .split("### Dependency changes", 1)[1]
+            .split("### Recipe-assisted migration", 1)[0]
+            .split()
+        )
+
+        self.assertIn(
+            "The skill keeps dependencies with remaining production or test consumers.",
+            dependency_rules,
+        )
+        self.assertIn(
+            "The skill aligns AssertJ with the version required by CPT.",
+            dependency_rules,
+        )
+        self.assertNotIn("consumers and aligns AssertJ", dependency_rules)
 
     def test_signal_mapping_preserves_request_fields_and_execution_scope(self):
         mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
@@ -474,6 +493,73 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         self.assertIn("manual redesign", execution_row)
         self.assertIn("all matching subscriptions", execution_row)
+
+    def test_start_mapping_preserves_optional_business_key(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        start_row = next(
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /process-definition/key/{key}/start`")
+        )
+
+        self.assertIn(".businessId(businessKey)", start_row)
+        self.assertIn("when the request includes", start_row.lower())
+        self.assertIn("8.9", start_row)
+
+    def test_message_mapping_preserves_supported_fields_and_marks_gaps(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        message_rows = [
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /message`")
+        ]
+        normalized_mapping = " ".join(mapping.lower().split())
+        message_fields = normalized_mapping.split(
+            "### message request fields", 1
+        )[1]
+
+        self.assertEqual(1, len(message_rows))
+        self.assertIn("message request fields", message_rows[0].lower())
+        for supported_mapping in (
+            "`processvariables` | map to `.variables(vars)`",
+            "`tenantid` | map to `.tenantid(tenantid)`",
+            "`correlationkeys` | map to `.correlationkey(key)`",
+        ):
+            with self.subTest(supported_mapping=supported_mapping):
+                self.assertIn(supported_mapping, message_fields)
+        for unsupported_field in (
+            "`businesskey`",
+            "`localcorrelationkeys`",
+            "`processinstanceid`",
+            "`withouttenantid`",
+            "`processvariableslocal`",
+            "`processvariablestotriggeredscope`",
+            "`all`",
+            "`resultenabled`",
+            "`variablesinresultenabled`",
+        ):
+            with self.subTest(unsupported_field=unsupported_field):
+                self.assertIn(unsupported_field, message_fields)
+        self.assertIn("manual migration", message_fields)
+        self.assertIn("is not the c8 `correlationkey` or `businessid`", message_fields)
+        self.assertIn("at most once per process", message_fields)
+
+    def test_assignment_mapping_preserves_claim_reassignment_and_unassignment(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        assignment_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /task/{id}/")
+            and ("claim`" in row or "assignee`" in row)
+        ]
+        claim_row = next(row for row in assignment_rows if "/claim`" in row)
+        assignee_row = next(row for row in assignment_rows if "/assignee`" in row)
+
+        self.assertEqual(2, len(assignment_rows))
+        self.assertIn(".allowoverride(false)", claim_row)
+        self.assertIn(".allowoverride(true)", assignee_row)
+        self.assertIn("null", assignee_row)
+        self.assertIn("manual migration", assignee_row)
 
     def test_activity_history_mapping_preserves_requested_states_and_filters(self):
         mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
