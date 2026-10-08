@@ -158,6 +158,19 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn('.businessId("legacy-business-key")', message)
         self.assertIn("processInstance.getBusinessId()", message)
 
+    def test_business_key_correlation_requires_an_initialized_subscription_key(self):
+        mapping = MESSAGE_PATTERN.read_text(encoding="utf-8")
+        row = next(
+            line
+            for line in mapping.splitlines()
+            if line.startswith("| `runtimeService.correlateMessage(name, businessKey, vars)` |")
+        )
+
+        self.assertIn("explicit subscription correlation key", row.lower())
+        self.assertIn("initialized before the catch event", row.lower())
+        self.assertIn("applied after correlation", row.lower())
+        self.assertIn("manually redesign the model", row.lower())
+
     def test_test_deployment_extraction_supports_single_and_array_values(self):
         source = """
         @TestDeployment(resources = "single.bpmn")

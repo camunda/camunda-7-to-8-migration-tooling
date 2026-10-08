@@ -96,6 +96,17 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
                 self.assertIn("CamundaAssert.assertThatDecision(", row)
                 self.assertIsNone(re.search(r"(?<![.\w])assertThatDecision\(", row))
 
+    def test_matched_rule_assertions_require_successful_evaluation(self):
+        catalog = " ".join(DECISION_PATTERN.read_text(encoding="utf-8").split())
+
+        for assertion in (
+            "hasNoMatchedRules()",
+            "hasMatchedRules(int...)",
+            "hasNotMatchedRules(int...)",
+        ):
+            with self.subTest(assertion=assertion):
+                self.assertIn(f".isEvaluated().{assertion}", catalog)
+
     def test_nullable_input_uses_a_map_that_accepts_null(self):
         source = (
             C7

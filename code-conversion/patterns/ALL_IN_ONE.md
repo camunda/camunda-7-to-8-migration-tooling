@@ -3319,7 +3319,7 @@ void testMessageCorrelation() {
 
 | Camunda 7 | Camunda 8 | Note |
 |---|---|---|
-| `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Read the correlation-key expression from the converted model's message subscription. Evaluate it against the test variables. Pass the resulting key, not the business key or expression text. |
+| `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Read the correlation-key expression from the converted model's message subscription. Pass its evaluated key, not the business key or expression text. Only map when the model has an explicit subscription correlation key and the matching process variable is initialized before the catch event. Variables sent with this command are applied after correlation and cannot initialize the key. Otherwise, manually redesign the model. |
 | `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | Use the signal name from the converted model. |
 
 This example assumes that the converted model's message subscription reads the `correlationKey` process variable. Set that variable to the same value passed to `.correlationKey(...)`. Use `newPublishMessageCommand()` when the test needs publication or buffering semantics instead of immediate correlation.
@@ -3996,8 +3996,8 @@ CPT's DMN evaluation and assertion APIs shown here are available from Camunda 8.
 | `collectEntries("x")` with hit policy `COLLECT` | Parse `response.getDecisionOutput()` as a list of scalar values for one output column or maps keyed by output name for multiple columns. | Select values by output name and compare rows without relying on their order. Do not use `hasOutput(List)` for `COLLECT`. |
 | `collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | `RULE ORDER` defines result order. |
 | `collectEntries("x")` with hit policy `OUTPUT ORDER` | Manual redesign | Camunda 8.9 does not support `OUTPUT ORDER`. |
-| `result.isEmpty()`, `getSingleResult()` is `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasNoMatchedRules()` | |
-| Matched-rule checks through `HistoricDecisionInstance` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasMatchedRules(int...)` or `.hasNotMatchedRules(int...)` | `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
+| `result.isEmpty()`, `getSingleResult()` is `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNoMatchedRules()` | A failed evaluation must not be treated as an empty result. |
+| Matched-rule checks through `HistoricDecisionInstance` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasMatchedRules(int...)` or `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNotMatchedRules(int...)` | Call `isEvaluated()` before each matched-rule assertion so a failed evaluation cannot appear to have no matches. `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
 | An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | Check `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for a failed evaluation. |
 
 Keep null inputs. Build variables with a `HashMap` or another map that accepts null values. Do not use `Map.of` when the Camunda 7 test passed a null value.
