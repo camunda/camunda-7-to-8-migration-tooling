@@ -476,6 +476,20 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                 row = next(line for line in engine_rest.splitlines() if line.startswith("| " + source))
                 self.assertIn(target, row)
 
+        task_completion = next(
+            line
+            for line in engine_rest.splitlines()
+            if line.startswith(
+                "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
+            )
+        )
+        self.assertIn(
+            "UserTaskSelectors.byElementId(elementId, processInstanceKey)",
+            task_completion,
+        )
+        self.assertIn("newCompleteUserTaskCommand(userTaskKey)", task_completion)
+        self.assertIn("search by `processInstanceKey` and `elementId`", task_completion)
+
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())
         source = STANDALONE_TASK_TEST.read_text()

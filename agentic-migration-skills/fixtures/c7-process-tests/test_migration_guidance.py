@@ -29,6 +29,10 @@ SCENARIO_PATTERNS = (
     REPO_ROOT
     / "code-conversion/patterns/40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md"
 )
+USER_TASK_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/40-user-task.md"
+)
 INTERVIEW_QUESTIONS = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
@@ -2977,6 +2981,73 @@ class MigrationGuidanceTest(unittest.TestCase):
         conversion = user_task_mappings[0]["Camunda Process Test 8.9 or later"]
         self.assertIn("byKey(processInstanceKey)", conversion)
         self.assertIn('byElementId("A", processInstanceKey)', conversion)
+
+    def test_user_task_mapping_prefers_process_instance_scoped_selectors(self):
+        mappings = markdown_table(USER_TASK_PATTERN, ["Camunda 7", "CPT", "Note"])
+        selector_mapping = next(row for row in mappings if "task()" in row["Camunda 7"])
+        self.assertIn(
+            'UserTaskSelectors.byElementId("A", processInstanceKey)',
+            selector_mapping["CPT"],
+        )
+        self.assertIn(
+            'UserTaskSelectors.byTaskName("Task name", processInstanceKey)',
+            selector_mapping["CPT"],
+        )
+        self.assertIn(
+            "use an unscoped selector only when the test proves task uniqueness",
+            selector_mapping["Note"].lower(),
+        )
+
+        completion_mapping = next(
+            row for row in mappings if "complete(task()" in row["Camunda 7"]
+        )
+        self.assertIn(
+            'completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)',
+            completion_mapping["CPT"],
+        )
+
+    def test_scenario_bpmn_error_mapping_preserves_user_task_condition(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        user_task_errors = [
+            row
+            for row in mappings
+            if "task.handleBpmnError" in row["Camunda Platform Scenario"]
+            and "task.handleEscalation" in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(user_task_errors))
+        self.assertIn("user-task", user_task_errors[0]["Camunda Platform Scenario"].lower())
+        self.assertEqual(
+            "No direct counterpart",
+            user_task_errors[0]["Camunda Process Test 8.9 or later"],
+        )
+
+        worker_errors = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"].startswith("Worker-backed wait states")
+        ]
+        self.assertEqual(1, len(worker_errors))
+        self.assertIn(
+            "mockJobWorker(type).thenThrowBpmnError",
+            worker_errors[0]["Camunda Process Test 8.9 or later"],
+        )
+        external_task_errors = [
+            row
+            for row in mappings
+            if "external-task stubs" in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(external_task_errors))
+        self.assertIn(
+            "mockJobWorker(type).thenThrowBpmnError",
+            external_task_errors[0]["Camunda Process Test 8.9 or later"],
+        )
 
     def test_wait_state_targets_explain_instance_scope(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")

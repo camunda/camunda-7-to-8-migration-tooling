@@ -55,7 +55,7 @@ class InvoiceScenarioTest {
 | JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
 | `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `processTestContext.when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars))` | The condition and completion action use the Scenario instance's process-instance key. The action must resolve the wait state so CPT can observe it again. |
 | `thenReturn(first, second)` or different actions per call on a conditional behavior | Chain `.then(first).then(second)` on the matching CPT conditional behavior. | CPT repeats the last action after earlier actions run. Do not use this chain for worker mocks. |
-| `task.handleBpmnError(...)`, `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
+| User-task stubs whose action calls `task.handleBpmnError(...)` or `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtMessageIntermediateThrowEvent`, `waitsAtMessageEndEvent` with `complete(vars)` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
 | `waitsAtBusinessRuleTask("R")` when the converted task uses `zeebe:calledDecision` | `mockDmnDecision(decisionId, output)` | The called decision runs natively and does not create a worker job. |
 | `waitsAtBusinessRuleTask("R")` when the converted task defines `zeebe:taskDefinition` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
