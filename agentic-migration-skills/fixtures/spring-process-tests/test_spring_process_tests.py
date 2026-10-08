@@ -23,9 +23,17 @@ DEPLOYMENT_PATTERN = (
     / "code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md"
 )
 DEPENDENCIES_PATTERN = REPO_ROOT / "code-conversion/patterns/10-general/dependencies.md"
-ENGINE_REST_PATTERN = (
+STARTING_PROCESS_PATTERN = (
     REPO_ROOT
-    / "code-conversion/patterns/40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md"
+    / "code-conversion/patterns/20-client-code/10-process-engine/starting-process-instances.md"
+)
+USER_TASKS_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/handle-user-tasks.md"
+)
+MESSAGE_CORRELATION_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/correlate-messages.md"
 )
 PATTERN_SOURCES = (
     REPO_ROOT
@@ -451,10 +459,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
 
-    def test_endpoint_migration_preserves_start_complete_and_correlation_operations(self):
+    def test_endpoint_migration_uses_operation_specific_client_mappings(self):
         reference = " ".join(REFERENCE.read_text().split())
-        engine_rest = ENGINE_REST_PATTERN.read_text()
+        pattern_sources = " ".join(PATTERN_SOURCES.read_text().split())
+        controller = SOURCE_CONTROLLER.read_text()
 
+        self.assertIn("runtimeService.startProcessInstanceByKey", controller)
         self.assertIn(
             "The skill preserves the endpoint operation that the test exercises.",
             reference,
@@ -463,32 +473,51 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The skill maps the original C7 operation to the equivalent `CamundaClient` operation.",
             reference,
         )
-        self.assertNotIn(
-            "The endpoint starts the process through `CamundaClient`.",
+        self.assertIn(
+            "The skill uses the client catalog file that matches the original C7 operation behind the endpoint.",
             reference,
         )
-        for source, target in (
-            ("`POST /process-definition/key/{key}/start`", "newCreateInstanceCommand"),
-            ("`GET /task?processInstanceId=...` then `POST /task/{id}/complete`", "completeUserTask"),
-            ("`POST /message`", "newCorrelateMessageCommand"),
-        ):
-            with self.subTest(source=source):
-                row = next(line for line in engine_rest.splitlines() if line.startswith("| " + source))
-                self.assertIn(target, row)
 
-        task_completion = next(
-            line
-            for line in engine_rest.splitlines()
-            if line.startswith(
-                "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
-            )
-        )
-        self.assertIn(
-            "UserTaskSelectors.byElementId(elementId, processInstanceKey)",
-            task_completion,
-        )
-        self.assertIn("newCompleteUserTaskCommand(userTaskKey)", task_completion)
-        self.assertIn("search by `processInstanceKey` and `elementId`", task_completion)
+        for signal, catalog_path in (
+            (
+                "Endpoint starts a process instance by ID or key",
+                "20-client-code/10-process-engine/starting-process-instances.md",
+            ),
+            (
+                "Endpoint starts a process instance by message",
+                "20-client-code/10-process-engine/starting-process-instances.md",
+            ),
+            (
+                "Endpoint searches, assigns, completes, or reads variables from a user task",
+                "20-client-code/10-process-engine/handle-user-tasks.md",
+            ),
+            (
+                "Endpoint correlates a message",
+                "20-client-code/10-process-engine/correlate-messages.md",
+            ),
+        ):
+            with self.subTest(signal=signal):
+                self.assertIn(f"`{catalog_path}`", reference)
+                self.assertIn(f"| {signal} | `{catalog_path}` |", pattern_sources)
+
+        for pattern, source, target in (
+            (STARTING_PROCESS_PATTERN, "startProcessInstanceByKey", "newCreateInstanceCommand"),
+            (
+                STARTING_PROCESS_PATTERN,
+                "startProcessInstanceByMessage",
+                "newCorrelateMessageCommand",
+            ),
+            (USER_TASKS_PATTERN, "getTaskService().complete", "newUserTaskCompleteCommand"),
+            (
+                MESSAGE_CORRELATION_PATTERN,
+                "correlateMessage(",
+                "newCorrelateMessageCommand",
+            ),
+        ):
+            with self.subTest(pattern=pattern.name):
+                mapping = pattern.read_text()
+                self.assertIn(source, mapping)
+                self.assertIn(target, mapping)
 
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())

@@ -42,13 +42,18 @@ Fetch `ALL_IN_ONE.md` only when the inventory spans most of the catalog, or when
 ### Test code
 
 The Test Inventory in `test-migration.md` selects the test catalog files.
+The skill fetches the client catalog file that matches each C7 operation behind an endpoint-driven test.
 A selected row is a Test Inventory row with handling `Migrate`, `Migrate to CPT`, or `Migrate (lower priority)`.
 Fetch test catalog files only for selected rows.
 
-| Test Inventory signal | Catalog path |
+| Test Inventory or endpoint-operation signal | Catalog path |
 |---|---|
 | Any selected row in the module | `40-test-assertions/20-test-setup/10-junit-harness.md`, `40-test-assertions/20-test-setup/20-deployment.md`, `40-test-assertions/20-test-setup/30-spring-boot-test.md`, and `10-general/dependencies.md` |
 | Test kind `process test` | `40-test-assertions/10-assertions/20-process-instance.md` |
+| Endpoint starts a process instance by ID or key | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Endpoint starts a process instance by message | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Endpoint searches, assigns, completes, or reads variables from a user task | `20-client-code/10-process-engine/handle-user-tasks.md` |
+| Endpoint correlates a message | `20-client-code/10-process-engine/correlate-messages.md` |
 | Business-key handling in a test | `20-client-code/10-process-engine/business-key-and-tags.md` |
 | Assertions in a selected row | `40-test-assertions/10-assertions/80-assertion-mapping.md`. Add the files for the detected assertions: `40-test-assertions/10-assertions/10-complete-test-case.md`, `40-test-assertions/10-assertions/20-process-instance.md`, `40-test-assertions/10-assertions/30-process-variable.md`, `40-test-assertions/10-assertions/40-user-task.md`, `40-test-assertions/10-assertions/50-message.md`, `40-test-assertions/10-assertions/60-job.md`, `40-test-assertions/10-assertions/70-executable-entry-points.md` |
 | User-task search, assignment, or completion | `40-test-assertions/10-assertions/40-user-task.md` |

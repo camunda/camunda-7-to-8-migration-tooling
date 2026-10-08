@@ -608,8 +608,14 @@ endpoint.
 The skill preserves the endpoint operation that the test exercises.
 The skill maps the original C7 operation to the equivalent `CamundaClient` operation.
 
-The skill uses `40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md` for exact
-Engine REST operations.
+The skill uses the client catalog file that matches the original C7 operation behind the endpoint.
+
+| Endpoint operation | Catalog file |
+|---|---|
+| Starts a process instance by ID or key | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Starts a process instance by message | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Searches, assigns, completes, or reads variables from a user task | `20-client-code/10-process-engine/handle-user-tasks.md` |
+| Correlates a message | `20-client-code/10-process-engine/correlate-messages.md` |
 
 When the endpoint starts or advances a process, C8 workers can run asynchronously after the endpoint
 returns. The skill uses waiting CPT assertions for process state or worker effects that the test
