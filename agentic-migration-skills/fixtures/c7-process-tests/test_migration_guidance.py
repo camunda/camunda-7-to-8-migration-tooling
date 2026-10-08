@@ -2991,10 +2991,20 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual("No direct counterpart", unqualified_task_mapping["CPT"])
         self.assertIn("UserTaskState.CREATED", unqualified_task_mapping["Note"])
         self.assertIn(".hasSize(1)", unqualified_task_mapping["Note"])
+        self.assertIn("poll", unqualified_task_mapping["Note"].lower())
         self.assertIn("userTaskKey", unqualified_task_mapping["Note"])
 
         example = USER_TASK_PATTERN.read_text(encoding="utf-8")
         self.assertIn("assertThat(userTasks).hasSize(1);", example)
+        self.assertIn(
+            "await().atMost(Duration.ofSeconds(10)).untilAsserted",
+            example,
+        )
+        self.assertIn(
+            "processInstanceKey(processInstance.getProcessInstanceKey())",
+            example,
+        )
+        self.assertIn(".state(UserTaskState.CREATED)", example)
         self.assertIn(
             "newCompleteUserTaskCommand(userTask.getUserTaskKey())",
             example,
@@ -3007,6 +3017,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             'UserTaskSelectors.byElementId("A", processInstanceKey)',
             element_id_mapping["CPT"],
         )
+        self.assertIn("poll", element_id_mapping["Note"].lower())
 
         task_name_mapping = next(
             row for row in mappings if row["Camunda 7"] == 'findId("Task name")'
@@ -3016,6 +3027,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             task_name_mapping["CPT"],
         )
         self.assertIn(".hasSize(1)", task_name_mapping["Note"])
+        self.assertIn("poll", task_name_mapping["Note"].lower())
 
         unqualified_completion = next(
             row
@@ -3025,6 +3037,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertEqual("No direct counterpart", unqualified_completion["CPT"])
         self.assertIn("UserTaskState.CREATED", unqualified_completion["Note"])
         self.assertIn(".hasSize(1)", unqualified_completion["Note"])
+        self.assertIn("poll", unqualified_completion["Note"].lower())
         self.assertIn("userTaskKey", unqualified_completion["Note"])
 
         completion_mapping = next(
@@ -3036,11 +3049,13 @@ class MigrationGuidanceTest(unittest.TestCase):
             'completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)',
             completion_mapping["CPT"],
         )
+        self.assertIn("poll", completion_mapping["Note"].lower())
 
         claim_mapping = next(
             row for row in mappings if "claim(task()" in row["Camunda 7"]
         )
         self.assertIn(".allowOverride(false)", claim_mapping["CPT"])
+        self.assertIn("poll", claim_mapping["Note"].lower())
 
     def test_scenario_bpmn_error_mapping_preserves_user_task_condition(self):
         mappings = markdown_table(

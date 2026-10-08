@@ -3189,23 +3189,30 @@ void testUserTaskIsReachedAndCompleted() {
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `task()` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`, then assert `.hasSize(1)` before inspecting the result. Use its exact `userTaskKey` when completing it. |
-| `task("A")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` | `A` is the BPMN user-task element ID. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the element can repeat, search created tasks and assert `.hasSize(1)`. |
-| `findId("Task name")` | `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the name can match multiple created tasks, search and assert `.hasSize(1)`. |
-| `complete(task(), withVariables(vars))` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`. Assert `.hasSize(1)`, then complete the selected task by its exact `userTaskKey`. |
-| `complete(task("A"), withVariables(vars))` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` | Include the process-instance key in the selector. If the element can repeat, search created tasks and assert `.hasSize(1)`. |
-| `taskService.complete(id, vars)` | `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Find the corresponding C8 task with equivalent process-instance and task-identity filters, then complete its exact `userTaskKey`. |
-| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").allowOverride(false).send().join()` | Set `allowOverride(false)` so an already-assigned task still fails as it does in Camunda 7. Get the task key with a user-task search. Record a reason before dropping the assignment step. |
+| `task()` | No direct counterpart | Poll a search by `processInstanceKey` and `UserTaskState.CREATED` until `.hasSize(1)` passes. Inspect or complete its exact `userTaskKey`. |
+| `task("A")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` | `A` is the BPMN user-task element ID. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the element can repeat, poll a `CREATED` search scoped by `processInstanceKey` and `elementId` until `.hasSize(1)` passes. |
+| `findId("Task name")` | `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the name can match multiple tasks, poll a `CREATED` search scoped by `processInstanceKey` and task name until `.hasSize(1)` passes. |
+| `complete(task(), withVariables(vars))` | No direct counterpart | Poll a search by `processInstanceKey` and `UserTaskState.CREATED` until `.hasSize(1)` passes. Complete that task by its exact `userTaskKey`. |
+| `complete(task("A"), withVariables(vars))` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` | Include the process-instance key in the selector. If the element can repeat, poll a `CREATED` search scoped by `processInstanceKey` and `elementId` until `.hasSize(1)` passes. |
+| `taskService.complete(id, vars)` | `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | When using `CamundaClient`, poll a `CREATED` search with equivalent process-instance and task-identity filters until exactly one result is visible. Complete its exact `userTaskKey`. |
+| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").allowOverride(false).send().join()` | Set `allowOverride(false)` so an already-assigned task still fails as it does in Camunda 7. Poll the `CREATED` search by `processInstanceKey` until exactly one task is visible before reading its key. Record a reason before dropping the assignment step. |
 
 The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
+
+User-task client searches are eventually consistent. Use a bounded poll before inspecting or completing a search result.
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
 
 ```java
+import static org.awaitility.Awaitility.await;
+
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.camunda.client.api.search.enums.UserTaskState;
+import io.camunda.client.api.search.response.UserTask;
 
 @Autowired
 private CamundaClient client;
@@ -3220,13 +3227,17 @@ void testUserTaskIsReachedAndCompleted() {
   assertThat(processInstance)
     .hasActiveElements(byName("Approve Request"));
 
-  var userTasks = client.newUserTaskSearchRequest()
-    .filter(filter -> filter
-      .processInstanceKey(processInstance.getProcessInstanceKey())
-      .state(UserTaskState.CREATED))
-    .send().join().items();
-  assertThat(userTasks).hasSize(1);
-  var userTask = userTasks.get(0);
+  var userTaskRef = new AtomicReference<UserTask>();
+  await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+    var userTasks = client.newUserTaskSearchRequest()
+      .filter(filter -> filter
+        .processInstanceKey(processInstance.getProcessInstanceKey())
+        .state(UserTaskState.CREATED))
+      .send().join().items();
+    assertThat(userTasks).hasSize(1);
+    userTaskRef.set(userTasks.get(0));
+  });
+  var userTask = userTaskRef.get();
   assertThat(userTask.getName()).isEqualTo("Approve Request");
   assertThat(userTask.getAssignee()).isEqualTo("demo");
 
@@ -4169,7 +4180,7 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and correlation-key expression from the converted copy's `zeebe:subscription`. Choose publish only when the test requires buffered delivery. See [Message request fields](#message-request-fields). |
 | `POST /signal` without `executionId` | `client.newBroadcastSignalCommand().signalName(name).variables(vars).tenantId(tenantId).send().join()` | Broadcast to matching signal subscriptions. Preserve `variables` and `tenantId` when supplied. Camunda 8 has no equivalent `withoutTenantId` field, and its optional `tenantId` does not express every Camunda 7 tenant scope. Confirm the scope or handle it manually. |
 | `POST /signal` with `executionId` | Manual redesign | Camunda 7 targets one execution. The Camunda 8 broadcast command has no execution selector and can signal all matching subscriptions. |
-| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId(elementId, processInstanceKey), vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Scope the CPT selector to the process instance returned by the C8 start command. When using `CamundaClient` directly, search by `processInstanceKey` and `elementId`, then complete that result's exact `userTaskKey`. |
+| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId(elementId, processInstanceKey), vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Scope the CPT selector to the process instance returned by the C8 start command. When using `CamundaClient` directly, user-task search is eventually consistent. Poll by `processInstanceKey`, `elementId`, and `UserTaskState.CREATED` until exactly one task is visible, then complete its exact `userTaskKey`. |
 | `POST /task/{id}/claim` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(false).send().join()` | Set `allowOverride(false)` to preserve the C7 failure when the task already has an assignee. |
 | `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` | Set `allowOverride(true)` to preserve reassignment. C7 accepts `userId: null` to unassign, which has no direct Camunda 8.9 equivalent. Use manual migration when the test unassigns a task. |
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |

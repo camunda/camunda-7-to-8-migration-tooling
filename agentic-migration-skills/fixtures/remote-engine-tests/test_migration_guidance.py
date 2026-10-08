@@ -809,6 +809,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()",
             row,
         )
+        self.assertIn("poll", row.lower())
+        self.assertIn("eventually consistent", row.lower())
+        self.assertIn("UserTaskState.CREATED", row)
+        self.assertIn("processInstanceKey", row)
+        self.assertIn("elementId", row)
+        self.assertIn("exactly one", row.lower())
 
     def test_unavailable_baseline_keeps_shared_engine_verdict_manual(self):
         baseline_reporting = REFERENCE.read_text(encoding="utf-8").split(
