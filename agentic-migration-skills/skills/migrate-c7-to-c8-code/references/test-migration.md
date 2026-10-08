@@ -414,8 +414,12 @@ When the change adds a file, use `null` for the old hash. When the change remove
 
 ## CPT repeat and parity checks
 
-Run the `test_repeat`, review, `test_parity`, and `coverage_parity` checks in
-`validation-evidence.md` for each migrated suite.
+Run the `test_repeat` check for each migrated suite.
+Record one `assertion_strength` review per migrated test class.
+Record one `mock_boundary` review per migrated C7 test.
+When every suite's repeat runs and all reviews pass, record the project-level `test_parity` check.
+When the CPT suites have run, record the project-level `coverage_parity` check.
+`validation-evidence.md` defines each command.
 
 For each `assertion_strength` review, compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. If a CPT test cannot retain an assertion, then record a reason.
 

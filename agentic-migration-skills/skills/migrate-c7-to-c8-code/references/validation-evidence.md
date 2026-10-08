@@ -164,8 +164,9 @@ it stops the process.
 
 ### Test checks
 
-These checks apply when `test_run_mode` is `run`. `test-migration.md` defines when the skill runs
-each check and the decisions behind it.
+When `test_run_mode` is `run`, record these checks. `test-migration.md` defines when the skill runs
+each check and the decisions behind it. When `test_run_mode` is `migrate_only`, follow
+[Migrate tests only](#migrate-tests-only) instead.
 
 **C7 baseline.** Run each suite that contains a migratable test immediately after `init`, before
 Step 3 changes any file:
@@ -392,8 +393,10 @@ The Test Parity table lists every C7 test, its C7 result, mapped CPT tests, both
 status, and notes. The Notes column lists approved retirement reasons. The section also lists
 approved test changes and approved mock changes.
 
-**Migrate tests only.** When the user selects **Migrate tests only**, block every module test suite
-and Step 4 process scenario with the exact reason `declined by user (Question 8)`:
+### Migrate tests only
+
+When the user selects **Migrate tests only**, block every module test suite and Step 4 process
+scenario with the exact reason `declined by user (Question 8)`:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind tests --scenario unit --reason "declined by user (Question 8)"
