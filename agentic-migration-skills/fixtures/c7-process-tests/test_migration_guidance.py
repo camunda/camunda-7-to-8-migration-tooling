@@ -2466,7 +2466,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             with self.subTest(source_directory=source_directory):
                 self.assertIn("`{}`".format(source_directory), reference)
 
-    def test_step_4_gate_covers_selected_remote_engine_tests(self):
+    def test_step_4_gate_covers_all_migratable_inventory_rows(self):
         tests_gate = normalized(
             MIGRATION_SKILL.read_text(encoding="utf-8")
             .split("9. **Tests** —", 1)[1]
