@@ -505,6 +505,40 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn(".businessId(businessKey)", start_row)
         self.assertIn("when the request includes", start_row.lower())
         self.assertIn("8.9", start_row)
+        for request_field in (
+            "caseInstanceId",
+            "startInstructions",
+            "skipCustomListeners",
+            "skipIoMappings",
+            "withVariablesInReturn",
+        ):
+            with self.subTest(request_field=request_field):
+                self.assertIn(request_field.lower(), start_row.lower())
+        self.assertIn("manual migration", start_row.lower())
+        self.assertIn("create-with-result", start_row.lower())
+        self.assertIn("map `startinstructions` explicitly", start_row.lower())
+        self.assertIn(
+            "no matching request options for `caseinstanceid`, "
+            "`skipcustomlisteners`, or `skipiomappings`",
+            start_row.lower(),
+        )
+        self.assertIn("only when this wait matches the test", start_row.lower())
+
+    def test_bpmn_error_mapping_preserves_optional_error_message(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        bpmn_error_row = next(
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /external-task/{id}/bpmnError`")
+        )
+
+        self.assertIn(
+            "throwBpmnErrorFromJob(type, code, errorMessage, vars)",
+            bpmn_error_row,
+        )
+        self.assertIn("when supplied", bpmn_error_row.lower())
+        self.assertIn("three-argument", bpmn_error_row.lower())
+        self.assertIn("preserve", bpmn_error_row.lower())
 
     def test_message_mapping_preserves_supported_fields_and_marks_gaps(self):
         mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")

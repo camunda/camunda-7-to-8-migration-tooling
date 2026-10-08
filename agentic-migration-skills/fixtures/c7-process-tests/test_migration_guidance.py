@@ -2984,22 +2984,53 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_user_task_mapping_prefers_process_instance_scoped_selectors(self):
         mappings = markdown_table(USER_TASK_PATTERN, ["Camunda 7", "CPT", "Note"])
-        selector_mapping = next(row for row in mappings if "task()" in row["Camunda 7"])
+
+        unqualified_task_mapping = next(
+            row for row in mappings if row["Camunda 7"] == "task()"
+        )
+        self.assertEqual("No direct counterpart", unqualified_task_mapping["CPT"])
+        self.assertIn("UserTaskState.CREATED", unqualified_task_mapping["Note"])
+        self.assertIn(".hasSize(1)", unqualified_task_mapping["Note"])
+        self.assertIn("userTaskKey", unqualified_task_mapping["Note"])
+
+        example = USER_TASK_PATTERN.read_text(encoding="utf-8")
+        self.assertIn("assertThat(userTasks).hasSize(1);", example)
+        self.assertIn(
+            "newCompleteUserTaskCommand(userTask.getUserTaskKey())",
+            example,
+        )
+
+        element_id_mapping = next(
+            row for row in mappings if row["Camunda 7"] == 'task("A")'
+        )
         self.assertIn(
             'UserTaskSelectors.byElementId("A", processInstanceKey)',
-            selector_mapping["CPT"],
+            element_id_mapping["CPT"],
+        )
+
+        task_name_mapping = next(
+            row for row in mappings if row["Camunda 7"] == 'findId("Task name")'
         )
         self.assertIn(
             'UserTaskSelectors.byTaskName("Task name", processInstanceKey)',
-            selector_mapping["CPT"],
+            task_name_mapping["CPT"],
         )
-        self.assertIn(
-            "use an unscoped selector only when the test proves task uniqueness",
-            selector_mapping["Note"].lower(),
+        self.assertIn(".hasSize(1)", task_name_mapping["Note"])
+
+        unqualified_completion = next(
+            row
+            for row in mappings
+            if row["Camunda 7"] == "complete(task(), withVariables(vars))"
         )
+        self.assertEqual("No direct counterpart", unqualified_completion["CPT"])
+        self.assertIn("UserTaskState.CREATED", unqualified_completion["Note"])
+        self.assertIn(".hasSize(1)", unqualified_completion["Note"])
+        self.assertIn("userTaskKey", unqualified_completion["Note"])
 
         completion_mapping = next(
-            row for row in mappings if "complete(task()" in row["Camunda 7"]
+            row
+            for row in mappings
+            if row["Camunda 7"] == 'complete(task("A"), withVariables(vars))'
         )
         self.assertIn(
             'completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)',

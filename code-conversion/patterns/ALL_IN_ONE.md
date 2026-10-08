@@ -3189,8 +3189,12 @@ void testUserTaskIsReachedAndCompleted() {
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `task()`, `task("A")`, or `findId("Task name")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` or `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the element ID or task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. Use an unscoped selector only when the test proves task uniqueness. |
-| `complete(task(), withVariables(vars))` or `taskService.complete(id, vars)` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` or `completeUserTask(selector, vars)` | Include the process-instance key in the selector. When the test calls `CamundaClient` directly, search within the process instance and complete the selected user-task key. |
+| `task()` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`, then assert `.hasSize(1)` before inspecting the result. Use its exact `userTaskKey` when completing it. |
+| `task("A")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` | `A` is the BPMN user-task element ID. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the element can repeat, search created tasks and assert `.hasSize(1)`. |
+| `findId("Task name")` | `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the name can match multiple created tasks, search and assert `.hasSize(1)`. |
+| `complete(task(), withVariables(vars))` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`. Assert `.hasSize(1)`, then complete the selected task by its exact `userTaskKey`. |
+| `complete(task("A"), withVariables(vars))` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` | Include the process-instance key in the selector. If the element can repeat, search created tasks and assert `.hasSize(1)`. |
+| `taskService.complete(id, vars)` | `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Find the corresponding C8 task with equivalent process-instance and task-identity filters, then complete its exact `userTaskKey`. |
 | `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").allowOverride(false).send().join()` | Set `allowOverride(false)` so an already-assigned task still fails as it does in Camunda 7. Get the task key with a user-task search. Record a reason before dropping the assignment step. |
 
 The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
@@ -3201,12 +3205,10 @@ Note that you typically address elements by ID and not by name, which we do for 
 import java.util.HashMap;
 import java.util.Map;
 
-import io.camunda.process.test.api.assertions.UserTaskSelectors;
+import io.camunda.client.api.search.enums.UserTaskState;
 
 @Autowired
 private CamundaClient client;
-@Autowired
-private CamundaProcessTestContext processTestContext;
 
 @Test
 void testUserTaskIsReachedAndCompleted() {
@@ -3217,16 +3219,23 @@ void testUserTaskIsReachedAndCompleted() {
 
   assertThat(processInstance)
     .hasActiveElements(byName("Approve Request"));
-      
-  assertThat(UserTaskSelectors.byTaskName("Approve Request"))
-    .isCreated()
-    .hasName("Approve Request")
-    .hasAssignee("demo");
 
-  // Complete the task by its name selector
+  var userTasks = client.newUserTaskSearchRequest()
+    .filter(filter -> filter
+      .processInstanceKey(processInstance.getProcessInstanceKey())
+      .state(UserTaskState.CREATED))
+    .send().join().items();
+  assertThat(userTasks).hasSize(1);
+  var userTask = userTasks.get(0);
+  assertThat(userTask.getName()).isEqualTo("Approve Request");
+  assertThat(userTask.getAssignee()).isEqualTo("demo");
+
+  // Complete the selected task by its exact user-task key
   Map<String, Object> variables = new HashMap<>();
   variables.put("approved", true);
-  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
+  client.newCompleteUserTaskCommand(userTask.getUserTaskKey())
+    .variables(variables)
+    .send().join();
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
@@ -4156,7 +4165,7 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | Camunda 7 Engine REST call | CPT 8.9 replacement | Notes |
 |---|---|---|
 | `POST /deployment/create` | `@TestDeployment(resources = "converted-c8-<name>.bpmn")` or the application's `@Deployment` | Deploy the converted copy. |
-| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. When the request includes `businessKey`, add `.businessId(businessKey)` (Camunda 8.9+). For Camunda 8.8, use tags or a process variable as described in `20-client-code/10-process-engine/business-key-and-tags.md`. |
+| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. When the request includes `businessKey`, add `.businessId(businessKey)` (Camunda 8.9+). For Camunda 8.8, use tags or a process variable as described in `20-client-code/10-process-engine/business-key-and-tags.md`. This direct mapping covers only `variables` and optional `businessKey`. Map `startInstructions` explicitly with C8 create-instance start-instruction support. C8 has no matching request options for `caseInstanceId`, `skipCustomListeners`, or `skipIoMappings`. Use manual migration if the test depends on them. C8 create-with-result waits for process completion before returning variables. Use it for `withVariablesInReturn` only when this wait matches the test, or use manual migration. |
 | `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and correlation-key expression from the converted copy's `zeebe:subscription`. Choose publish only when the test requires buffered delivery. See [Message request fields](#message-request-fields). |
 | `POST /signal` without `executionId` | `client.newBroadcastSignalCommand().signalName(name).variables(vars).tenantId(tenantId).send().join()` | Broadcast to matching signal subscriptions. Preserve `variables` and `tenantId` when supplied. Camunda 8 has no equivalent `withoutTenantId` field, and its optional `tenantId` does not express every Camunda 7 tenant scope. Confirm the scope or handle it manually. |
 | `POST /signal` with `executionId` | Manual redesign | Camunda 7 targets one execution. The Camunda 8 broadcast command has no execution selector and can signal all matching subscriptions. |
@@ -4164,7 +4173,7 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `POST /task/{id}/claim` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(false).send().join()` | Set `allowOverride(false)` to preserve the C7 failure when the task already has an assignee. |
 | `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` | Set `allowOverride(true)` to preserve reassignment. C7 accepts `userId: null` to unassign, which has no direct Camunda 8.9 equivalent. Use manual migration when the test unassigns a task. |
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |
-| `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |
+| `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, errorMessage, vars)` when the request supplies `errorMessage`; otherwise use `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. Pass the error message when supplied. Use the three-argument overload when it is absent. |
 | `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
 | `GET /history/activity-instance?processInstanceId=...` when checking completed activity IDs or order only | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | These assertions cover completed elements only. Handle canceled or terminated elements separately. |
 | Other `/history/activity-instance` queries, including `unfinished`, `canceled`, assignee, time, or count filters | `newElementInstanceSearchRequest()` with equivalent filters and AssertJ, or manual migration | Filter by process-instance key and preserve the requested state and filters. Mark the case manual when C8 cannot express them. |
