@@ -1163,7 +1163,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
-        return camundaClient.newUserTaskAssignCommand(userTaskKey)
+        return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
                 .send()
                 .join();
@@ -1184,7 +1184,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public CompleteUserTaskResponse completeUserTask(Long userTaskKey, Map<String, Object> variableMap) {
-        return camundaClient.newUserTaskCompleteCommand(userTaskKey)
+        return camundaClient.newCompleteUserTaskCommand(userTaskKey)
                 .variables(variableMap)
                 .send()
                 .join();
@@ -3561,7 +3561,7 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `assertThat(pi).externalTask("A")` | No counterpart | C7 first checks that `"A"` is waiting, then filters by activity ID and scopes the lookup to `pi`. Assert `hasActiveElements("A")`, then search jobs by process-instance key and converted element ID or job type; assert `.hasSize(1)` when preserving C7's single-result behavior. |
 | `assertThat(pi).externalTask(ExternalTaskQuery query)` | No counterpart | C7 adds the process-instance ID to the supplied query and uses `singleResult()`. Search jobs by process-instance key with equivalent filters, then assert `.hasSize(1)` when preserving C7's single-result behavior. |
 | `BpmnAwareTests.externalTask()`, `externalTask("A")`, `externalTask(ExternalTaskQuery query)` (also overloads with `ProcessInstance`) | No counterpart | These are `BpmnAwareTests` helpers, not `ProcessInstanceAssert` methods. C7 scopes them to the last asserted or explicitly supplied process instance. Camunda 8 models external tasks as jobs; query jobs by process-instance key and the converted element ID or job type, and assert `.hasSize(1)` when preserving the C7 single-result behavior. `JobSelectors` can select jobs for actions, not assertions. |
-| `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A", pi.getProcessInstanceKey())).isCreated().hasAssignee("u")` | Include the process-instance key to preserve C7's scope. |
+| `assertThat(task()).isAssignedTo("u")` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`, then poll until `.hasSize(1)` passes. Assert that its assignee is `u` with AssertJ. |
 | `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).isCreated().hasName("Approve")` | |
 | `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
 | `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
@@ -3651,7 +3651,7 @@ class OrderProcessTest {
 
 Use `@CamundaProcessTest` with injected `CamundaClient` and `CamundaProcessTestContext` fields. Convert JUnit 3 and JUnit 4 process tests to JUnit 5.
 
-Remove `camunda.cfg.xml` when it configures only the test engine. Ask the user to decide how to handle a plugin, history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
+Before removing `camunda.cfg.xml`, inventory every setting. Remove it only when it configures the test engine alone. Ask the user how to handle each plugin, custom history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
 
 [CPT getting started](https://docs.camunda.io/docs/apis-tools/testing/getting-started/)
 
@@ -4182,7 +4182,7 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `POST /signal` with `executionId` | Manual redesign | Camunda 7 targets one execution. The Camunda 8 broadcast command has no execution selector and can signal all matching subscriptions. |
 | `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId(elementId, processInstanceKey), vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Scope the CPT selector to the process instance returned by the C8 start command. When using `CamundaClient` directly, user-task search is eventually consistent. Poll by `processInstanceKey`, `elementId`, and `UserTaskState.CREATED` until exactly one task is visible, then complete its exact `userTaskKey`. |
 | `POST /task/{id}/claim` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(false).send().join()` | Set `allowOverride(false)` to preserve the C7 failure when the task already has an assignee. |
-| `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` | Set `allowOverride(true)` to preserve reassignment. C7 accepts `userId: null` to unassign, which has no direct Camunda 8.9 equivalent. Use manual migration when the test unassigns a task. |
+| `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` or, when `userId` is `null`, `client.newUnassignUserTaskCommand(userTaskKey).send().join()` | Set `allowOverride(true)` to preserve reassignment. Use the unassign command when C7 sends `userId: null`. |
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |
 | `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, errorMessage, vars)` when the request supplies `errorMessage`; otherwise use `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. Pass the error message when supplied. Use the three-argument overload when it is absent. |
 | `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |

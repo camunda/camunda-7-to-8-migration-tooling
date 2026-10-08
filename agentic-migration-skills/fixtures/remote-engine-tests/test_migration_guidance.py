@@ -592,8 +592,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertEqual(2, len(assignment_rows))
         self.assertIn(".allowoverride(false)", claim_row)
         self.assertIn(".allowoverride(true)", assignee_row)
-        self.assertIn("null", assignee_row)
-        self.assertIn("manual migration", assignee_row)
+        self.assertIn("userid: null", assignee_row)
+        self.assertIn(
+            "client.newunassignusertaskcommand(usertaskkey).send().join()",
+            assignee_row,
+        )
+        self.assertNotIn("manual migration", assignee_row)
 
     def test_activity_history_mapping_preserves_requested_states_and_filters(self):
         mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")

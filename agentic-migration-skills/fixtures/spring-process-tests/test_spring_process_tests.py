@@ -507,7 +507,8 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                 "startProcessInstanceByMessage",
                 "newCorrelateMessageCommand",
             ),
-            (USER_TASKS_PATTERN, "getTaskService().complete", "newUserTaskCompleteCommand"),
+            (USER_TASKS_PATTERN, "getTaskService().claim", "newAssignUserTaskCommand"),
+            (USER_TASKS_PATTERN, "getTaskService().complete", "newCompleteUserTaskCommand"),
             (
                 MESSAGE_CORRELATION_PATTERN,
                 "correlateMessage(",
@@ -518,6 +519,27 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                 mapping = pattern.read_text()
                 self.assertIn(source, mapping)
                 self.assertIn(target, mapping)
+
+        user_task_mapping = USER_TASKS_PATTERN.read_text()
+        self.assertNotIn("newUserTaskAssignCommand", user_task_mapping)
+        self.assertNotIn("newUserTaskCompleteCommand", user_task_mapping)
+
+    def test_junit_harness_inventories_camunda_cfg_xml_settings(self):
+        junit_pattern = " ".join(JUNIT_PATTERN.read_text().split())
+
+        self.assertIn(
+            "Before removing `camunda.cfg.xml`, inventory every setting.",
+            junit_pattern,
+        )
+        self.assertIn(
+            "Remove it only when it configures the test engine alone.",
+            junit_pattern,
+        )
+        self.assertIn(
+            "Ask the user how to handle each plugin, custom history level, or "
+            "other setting that changes behavior.",
+            junit_pattern,
+        )
 
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())

@@ -57,6 +57,6 @@ class OrderProcessTest {
 
 Use `@CamundaProcessTest` with injected `CamundaClient` and `CamundaProcessTestContext` fields. Convert JUnit 3 and JUnit 4 process tests to JUnit 5.
 
-Remove `camunda.cfg.xml` when it configures only the test engine. Ask the user to decide how to handle a plugin, history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
+Before removing `camunda.cfg.xml`, inventory every setting. Remove it only when it configures the test engine alone. Ask the user how to handle each plugin, custom history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
 
 [CPT getting started](https://docs.camunda.io/docs/apis-tools/testing/getting-started/)

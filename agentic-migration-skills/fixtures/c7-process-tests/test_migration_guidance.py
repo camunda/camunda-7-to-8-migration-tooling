@@ -33,6 +33,10 @@ USER_TASK_PATTERN = (
     REPO_ROOT
     / "code-conversion/patterns/40-test-assertions/10-assertions/40-user-task.md"
 )
+ASSERTION_MAPPING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/80-assertion-mapping.md"
+)
 INTERVIEW_QUESTIONS = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
@@ -2993,6 +2997,26 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn(".hasSize(1)", unqualified_task_mapping["Note"])
         self.assertIn("poll", unqualified_task_mapping["Note"].lower())
         self.assertIn("userTaskKey", unqualified_task_mapping["Note"])
+
+        assertion_mappings = markdown_table(
+            ASSERTION_MAPPING_PATTERN, ["Camunda 7", "CPT", "Note"]
+        )
+        assignment_assertion = next(
+            row
+            for row in assertion_mappings
+            if row["Camunda 7"] == 'assertThat(task()).isAssignedTo("u")'
+        )
+        self.assertEqual("No direct counterpart", assignment_assertion["CPT"])
+        for required in (
+            "processInstanceKey",
+            "UserTaskState.CREATED",
+            ".hasSize(1)",
+            "poll",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required.lower(), assignment_assertion["Note"].lower())
+                self.assertIn(required.lower(), unqualified_task_mapping["Note"].lower())
+        self.assertNotIn('byElementId("A"', assignment_assertion["CPT"])
 
         example = USER_TASK_PATTERN.read_text(encoding="utf-8")
         self.assertIn("assertThat(userTasks).hasSize(1);", example)

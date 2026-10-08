@@ -46,7 +46,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
-        return camundaClient.newUserTaskAssignCommand(userTaskKey)
+        return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
                 .send()
                 .join();
@@ -67,7 +67,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public CompleteUserTaskResponse completeUserTask(Long userTaskKey, Map<String, Object> variableMap) {
-        return camundaClient.newUserTaskCompleteCommand(userTaskKey)
+        return camundaClient.newCompleteUserTaskCommand(userTaskKey)
                 .variables(variableMap)
                 .send()
                 .join();
