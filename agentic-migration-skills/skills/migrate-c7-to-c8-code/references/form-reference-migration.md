@@ -13,25 +13,20 @@ Generated Task Forms (`camunda:formData`, `camunda:formField`, direct `camunda:f
 different workflow. Use `form-migration.md` for them. Never recategorize them here.
 
 No step here is automatic. Camunda 8 cannot run Camunda 7 HTML or JavaScript, and an external
-application has no form schema in the engine to convert. Classify, inventory, and ask. Rebuild a
-Camunda 8 form only on an explicit user request. Offer that help unprompted. Never rebuild a form on
-your own initiative.
+application has no form schema in the engine to convert. Classify, inventory, and ask. Offer the
+rebuild help unprompted.
 
 This procedure applies to M1, M2, M3, and E1. While the run is analyze-only, produce the
 classification and inventory, but write no form files and edit no BPMN.
 
 ## Required inputs
 
-Same as `form-migration.md`: the exact original Camunda 7 BPMN, its fresh converted copy from the
-current run, the selected Camunda 8 target version, and the project-relative source path, process
-id, and owning element id. Pair source and copy with the current run's captured paths plus BPMN
-element ids. Never guess the pairing.
+Use the required inputs and pairing rules in `form-migration.md`. Never guess the pairing.
 
 ## Classify from the original source
 
-Parse the original BPMN with a namespace-aware parser. Never use a regular expression to parse XML
-or read its metadata. A regex check on an already parsed scalar value is allowed for narrow
-validation. Never use a regex to define or validate a BPMN identifier. Preserve parsed ids as
+Classify from the parsed original BPMN. A regex check on an already parsed scalar value is allowed
+for narrow validation. Never use a regex to define or validate a BPMN identifier. Preserve parsed ids as
 provided. Never assume the extension namespace uses the literal prefix `camunda`. Match the
 namespace URI `http://camunda.org/schema/1.0/bpmn`.
 
@@ -85,12 +80,11 @@ Report these as their own review categories instead of forcing them into the tab
 A converter release with classified form-key support emits `form-key-embedded`,
 `form-key-camunda-form`, `form-key-external`, or `form-key-expression` for a user-task form key. An
 older release emits one generic `form-key` finding for all of them. A start-event form key surfaces
-as an `attribute-not-supported` warning.
+as an `attribute-not-supported` warning. A literal `camunda:formRef` produces no finding. An
+expression value may emit an expression-transformation finding.
 
-Use a finding as corroboration only. The source classification above is authoritative, because the
-converter report can be stale, imported, produced by an older converter, or absent entirely because
-M2 runs no converter. If a finding and the source classification disagree, report the disagreement.
-Never pick one side silently.
+The source classification above is authoritative, because the converter report can be stale,
+imported, produced by an older converter, or absent entirely because M2 runs no converter.
 
 ## Inventory every reference
 
@@ -221,7 +215,8 @@ For both:
    real tag or accept another binding.
 5. Confirm the form deploys together with the process for a `deployment` binding.
 
-If the `.form` file cannot be found, mark the row `blocked` and ask. Never fabricate a form id.
+If the `.form` file cannot be found, then mark the row `blocked`. Keep the category
+**needs review**. Ask the user. Never fabricate a form id.
 
 ## Rebuild a reference as a Camunda 8 form
 
@@ -273,8 +268,7 @@ Insert a visible `MigrationWarning_...` component for every unresolved row, exac
 `form-migration.md` describes, and record the same gap in `MIGRATION_REPORT.md`.
 
 Layout, styling, custom JavaScript behavior, and conditional logic are never carried over. The skill
-states this explicitly when it presents the draft. A rebuilt form reproduces the *data contract*,
-not the Camunda 7 user interface. The skill never claims behavioral equivalence.
+states this explicitly when it presents the draft. The skill never claims behavioral equivalence.
 
 ### Link an accepted rebuilt form
 
@@ -294,8 +288,8 @@ reference. The converted element must not keep both a rebuilt form and a stale C
 
 Remove the `externalReference` (Camunda user tasks) or `formKey` (job-worker user tasks) attribute
 the converter copied. Reuse the existing `bpmn:extensionElements` and `zeebe:userTask`. Never create
-a second `zeebe:formDefinition`. Leave the original Camunda 7 BPMN untouched. Leave the referenced
-Camunda 7 HTML file in place, since deleting it is a separate cleanup the user must request.
+a second `zeebe:formDefinition`. Leave the referenced Camunda 7 HTML file in place, since deleting
+it is a separate cleanup the user must request.
 
 ## Keep an external application
 

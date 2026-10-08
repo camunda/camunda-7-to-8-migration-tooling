@@ -2,9 +2,8 @@
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked (SHOULD) and an option is marked (MAY).
 
-This checklist defines every code transformation item. Approach A runs OpenRewrite only after the
-skill passes every delegate gate or the user decides each open item. The skill uses this checklist
-to clean the recipe output. In Approach B, the skill applies the full checklist by hand.
+This checklist defines every code transformation item. Approach A uses this checklist to clean the
+recipe output. In Approach B, the skill applies the full checklist by hand.
 
 Confirm each item before the next. Ask the user before each commit.
 
@@ -25,7 +24,7 @@ The skill does not report a migration as complete while a worker input remains b
 
 Before cleanup, compare every generated `@JobWorker` with its original source. Confirm the business
 logic, job type, inputs, outputs, and exception behavior. Do not delete or rename source logic until
-this comparison passes.
+this comparison passes. Successful compilation does not confirm behavior.
 
 Approach A runs this section after OpenRewrite. The cleanup removes recipe artifacts while preserving
 the worker's job type, inputs, outputs, and behavior. Load
@@ -129,7 +128,7 @@ These items are not in the catalog:
 - When at least one Test Inventory row has the `Spring` modifier and handling `Migrate to CPT`, the
   skill selects the CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
   For Spring test migration, the skill follows `references/test-migration.md`, including its
-  [Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes).
+  [Spring Process Test artifact selection](test-migration.md#harness-and-dependencies).
 - Add the Camunda public repository only when the selected artifact or version is not on Maven
   Central:
   - Maven: `<repository><id>camunda-public</id><url>https://artifacts.camunda.com/artifactory/public/</url></repository>`
@@ -209,6 +208,7 @@ Write `none` when the runtime path has no provider candidates. The skill applies
 | The runtime path or provider evidence is unverified. | None | Blocking finding | Keep the finding open and the migration incomplete. |
 
 Do not skip this check when application source has no SLF4J imports.
+Never mark logging or startup readiness **PASS** without a passing provider result.
 
 ### Maven build wiring
 
@@ -292,22 +292,15 @@ Resolve configuration errors and record those findings and deprecated aliases.
 ## HTTP application and engine REST topology
 
 When the production-source inventory identifies a Spring web server, an application HTTP endpoint,
-a health check, or a Camunda 7 Engine REST call, apply
-[`http-topology-migration.md`](http-topology-migration.md) before changing code. Record the endpoint
-owners, consumers, and health dependencies in `MIGRATION_REPORT.md`.
-Record the target application bind address and port, the Camunda REST base address, and the
-authentication mode in `MIGRATION_REPORT.md`. Where the management server uses a separate bind
-address or port, record both. Run the endpoint checks in that reference.
+a health check, or a Camunda 7 Engine REST call, apply the decisions confirmed with
+[`http-topology-migration.md`](http-topology-migration.md) while changing code.
 
 ---
 
 ## 2. Client Code (ProcessEngine to CamundaClient)
 
-Catalog: `20-client-code/10-process-engine/`. One file per mapping: `starting-process-instances`,
-`business-key-and-tags`, `correlate-messages`, `broadcast-signals`, `cancel-process-instance`,
-`handle-user-tasks`, `handle-process-variables`, `handle-files-and-documents`, `query-history`,
-`evaluate-decisions`, `batch-operations`, `raise-incidents`, `handle-resources`,
-`search-process-definitions`, `adjusting-the-java-class`. Fetch the ones the inventory needs.
+Catalog: `20-client-code/10-process-engine/`, one file per mapping. `pattern-catalog-sources.md`
+selects the files that the inventory needs.
 
 These items are not in the catalog:
 
@@ -318,6 +311,13 @@ These items are not in the catalog:
 - Flag the business-key semantic difference in `MIGRATION_REPORT.md` when the migrated process
   mutates the key.
 - Preserve startup behavior exactly: what starts, when it starts, and how many instances.
+- Camunda 7 `processDefinitionKey` (a string key) becomes Camunda 8 `bpmnProcessId`, and Camunda 7
+  `processDefinitionId` (a UUID) becomes Camunda 8 `processDefinitionKey`. Decision definitions swap
+  the same way.
+- Camunda 7 `processInstanceId` is a `String`. Camunda 8 `processInstanceKey` is a `Long`. Update
+  declarations and call sites, not only the names.
+- Variables are plain JSON and the `TypedValue` API is gone, so every `VariableMap` use changes.
+- Batch operations exist since 8.8. Only a custom batch handler needs a manual design.
 
 ### Mandatory open items for migrated queries
 
@@ -357,15 +357,27 @@ Catalog: `20-client-code/10-process-engine/count-query-results.md`.
 - Never use `items().size()` or `items().stream().count()` for a complete query count.
 - If the search can exceed cluster result limits, then review `page().hasMoreTotalItems()`.
 
+Step 4 validation:
+
+- Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.size()`.
+- Use a whitespace-tolerant or syntax-aware search for `.items()` followed by `.stream()` and
+  `.count()`.
+- Trace search results assigned to variables before checking later `.size()` or `.stream().count()`
+  uses.
+- If a hit represents a complete query count, then treat it as a validation failure.
+- Confirm that each migrated C7 `list().size()`, `list().stream().count()`, or `count()` uses
+  `.page().totalItems()`.
+
 ---
 
 ## 3. JavaDelegate to Job Worker (OpenRewrite covers this)
 
-Catalog: `30-glue-code/10-java-spring-delegate/` (`adjusting-the-java-class`,
-`handling-process-variables`, `handling-a-bpmn-error`, `handling-a-failure`, `handling-an-incident`)
-and `30-glue-code/outbound-http-rest-connector.md`.
+Catalog: `30-glue-code/10-java-spring-delegate/` and `30-glue-code/outbound-http-rest-connector.md`.
 
 ### Synchronous transaction and security semantics
+
+Run this gate for every C7 JavaDelegate. In Approach A, run it before `REWRITE_COMMAND`. In
+Approach B, run it before each delegate transformation.
 
 Before transforming a C7 JavaDelegate, the skill traces every incoming BPMN path to the delegate.
 The skill includes paths that start the process and paths that continue from a wait state through
@@ -386,7 +398,7 @@ access.
 | The delegate or an invoked service relies on the C7 engine thread's transaction or security context, including thread-bound values. | Record the specific context and affected call site. Mark that C7 context as **not preserved**. | Choose a worker-side transaction or security mechanism, or refactor the code to remove that dependency. |
 
 If the first row matches, then the skill stops the transformation and asks the user to supply
-evidence or make the listed decision.
+evidence or make the listed decision. In Approach A, the skill also stops OpenRewrite.
 When the user supplies evidence, the skill reruns the gate.
 The skill resolves the missing-evidence item when the gate passes or the user makes the explicit
 decision.
@@ -398,6 +410,9 @@ inherit the C7 engine transaction or thread-bound security context.
 The skill never describes the worker as preserving synchronous behavior. When the user decides, the
 skill records the selected behavior and accepted parity gap in the `MIGRATION_REPORT.md` decision
 log. The skill resolves the behavior-gap item only after that decision.
+The skill records the gate result, every incoming path, the C7 command segment that runs the
+delegate, each `asyncBefore` and `asyncAfter` boundary, rollback effects, and every user decision in
+`MIGRATION_REPORT.md`. Undecided gaps stay open.
 
 ### Worker behavior
 
@@ -435,17 +450,8 @@ Follow `references/test-migration.md` for every Camunda 7 test in the Test Inven
 the JUnit 5 and CPT 8.9+ migration, deployment rules, semantic changes, dependency changes, and
 parity checks.
 
-Catalog: the Test code table in `pattern-catalog-sources.md` selects these files from the Test
+Catalog: the Test code table in `pattern-catalog-sources.md` selects the files from the Test
 Inventory. The catalog is the source of truth for exact API mappings.
-
-- `40-test-assertions/10-assertions/` (`10-complete-test-case`, `20-process-instance`,
-  `30-process-variable`, `40-user-task`, `50-message`, `60-job`, `70-executable-entry-points`,
-  `80-assertion-mapping`)
-- `40-test-assertions/20-test-setup/` (`10-junit-harness`, `20-deployment`, `30-spring-boot-test`)
-- `40-test-assertions/30-mocks/` (`10-delegate-mocks`, `20-call-activity-and-decision-mocks`)
-- `40-test-assertions/40-decisions/` (`10-decision-tests`)
-- `40-test-assertions/50-coverage-and-scenarios/` (`10-coverage`, `20-scenario-tests`)
-- `10-general/dependencies.md` (Camunda 7 test artifacts and their CPT replacements)
 
 This item is not in the catalog:
 
@@ -492,6 +498,8 @@ Count occurrences for sizing, but decide remediation ONCE per category (or per c
 
    Treat the baseline comparison as authoritative. A class remains an invalid worker target even
    when its name ends with `Worker`. Only a class absent from the baseline can be the new adapter.
+   Compare each adapter input, output, and absent-value behavior with the C7 source, using the worker
+   contract checks above.
 
    Add a preceding service task whose `@JobWorker` calls the method (or runs the equivalent logic) and stores the result in a plain process variable. Then replace the expression with a FEEL reference to that variable (e.g. `=total`). For multi-instance `collection` this is the required shape, because the collection must exist as a variable before the multi-instance body starts.
 2. **Compute via execution listener** (most elegant when no extra visible shape in the diagram is desired): attach a `zeebe:executionListener` (8.6+) backed by a `@JobWorker` that computes the value into a variable, e.g. on the `end` event of the preceding element or the `start` event of the element carrying the expression. Caveats: the listener must run BEFORE the expression is evaluated. For multi-instance `collection` it must sit on a preceding element, never the MI body itself (the collection is read at activation). Listeners are jobs too, so a failure creates an incident on the element. The precompute step becomes invisible in the diagram, so document it.
@@ -500,19 +508,63 @@ Count occurrences for sizing, but decide remediation ONCE per category (or per c
 
 This category is out of scope for auto-generation. Detect, count, and name it. The human decides the approach per category.
 
+Apply the worker-adapter rule to JUEL method-invocation findings in M1, M2, M3, and E1.
+
+Worker-adapter check for Step 4: compare every `@JobWorker` declaration's fully qualified declaring
+class name with the original Java source baseline recorded in Step 2. Flag the declaration when its
+class appears in that baseline, even when the class name ends with `Worker`. Accept it only when the
+class is absent from the baseline, is a new `*Worker` adapter component, and delegates to the
+baseline bean. Record each flagged declaration, the baseline match, and its replacement adapter in
+`MIGRATION_REPORT.md`.
+
 ---
 
 ## 8. Generated Task Form Dependencies (NOT covered by OpenRewrite)
 
-When the model inventory finds `camunda:formData`, `camunda:formField`, or `camunda:formProperty`, inspect the code that supplied or consumed their runtime behavior:
-
-- `FormFieldValidator` implementations and named validator beans or classes need a new backend or application validation design. form-js validation is not server-side enforcement.
-- `FormService`, `TaskFormData`, `StartFormData`, `FormField`, and `FormProperty` consumers may depend on C7 metadata that no longer exists at runtime.
-- `submitTaskForm`/`submitStartForm` and REST form-submission clients may depend on field ids, aliases, type conversion, business-key extraction, or validation exceptions.
-- Redesign code that reads custom form-field properties, even when the metadata is copied to the C8 form component.
-- Reconcile code that expects C7 `Date` or full-range Java `long` values with the C8 form output.
+When the model inventory finds `camunda:formData`, `camunda:formField`, or `camunda:formProperty`,
+locate the code that supplied or consumed their runtime behavior with the application-consumer
+cross-check in `form-migration.md`. C7 form metadata no longer exists at runtime, and form-js
+validation is not server-side enforcement.
 
 Do not delete or rewrite these consumers from form structure alone. Cross-check each against the user-approved decisions from `form-migration.md`, then implement only the agreed worker, listener, API, input/output mapping, or application validation.
+
+---
+
+## 9. Custom incident notifications (NOT covered by OpenRewrite)
+
+Where the scope includes code migration, run this assessment and decision gate in Step 2.
+Find `org.camunda.bpm.engine.impl.incident.IncidentHandler` implementations and
+`ProcessEnginePlugin` registrations in the source and configuration.
+Trace each handler's registration and observable actions.
+When a handler sends notifications, record a separate `incident-notification` finding in
+`MIGRATION_REPORT.md`. Capture its trigger, channel, recipients, context, duplicate behavior, and
+exposed data. Keep the finding separate from job-worker migration.
+
+Ask the project owner to choose a Camunda 8-compatible integration or explicitly waive notifications
+for each finding. Never remove or replace the handler, its registration, or its configuration
+before the project records its decision.
+
+| Project decision | Action | Notification parity |
+|---|---|---|
+| Not recorded | Keep the finding `blocked`. Record the call site and decision question as an `open` item. Stop before Step 3 confirmation or deployment. | `blocked` |
+| Approved integration | Record the target, integration, channel, recipients, approved context, duplicate policy, and privacy requirements. Keep the finding `blocked` until Step 4 verification passes, then resolve it. | `blocked` until Step 4 passes, then `verified` |
+| Explicit waiver | Record the approver, reason, and accepted behavior loss. Resolve the finding. | `waived` (not parity) |
+
+When the project approves an integration, test it in a disposable Camunda 8 target with synthetic
+data during Step 4. Verify each handler using its recorded trigger.
+When testing a failed-job handler, fail a test job with zero remaining retries and verify the
+expected incident.
+Verify notification delivery through the approved channel to the approved recipients.
+Verify that the notification includes useful context approved by the project.
+Verify that the notification contains no secrets or sensitive business data.
+Verify the agreed duplicate policy for one triggering event.
+Where delivery can retry, verify redelivery does not create an unwanted duplicate.
+Record the target version, integration, incident, expected and actual delivery counts, and redacted
+evidence in `MIGRATION_REPORT.md`.
+
+Where a notification finding exists, include a separate `Notification parity` row for each finding
+in the validation summary. Compilation, worker registration, and Operate visibility do not prove
+notification parity.
 
 ---
 

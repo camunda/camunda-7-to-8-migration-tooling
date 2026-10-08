@@ -8,24 +8,25 @@ This reference uses C7 for Camunda 7, C8 for Camunda 8, and CPT for Camunda Proc
 ## Test Inventory
 
 The skill detects C7 tests during Step 2 for every migration scope, including Assessment only and code approach C.
-During assessment, the skill edits no project file other than `MIGRATION_REPORT.md`.
-The skill scans each module's build-declared test source sets.
-The skill scans abstract test classes, shared test bases, test configuration classes, and `camunda.cfg.xml` in test resources.
-The skill scans `src/test/java` and additional source sets such as `src/it/java` or Gradle `integrationTest`.
 
-| Runs a BPMN process or DMN decision on a Camunda 7 engine | Uses a framework or approach that existed for Camunda 7 | Matches the shared-engine exception in Scope confirmation | Scope decision |
+A **shared-engine test** reads a shared Camunda 7 engine URL from any configuration source and calls
+that engine. The test does not start the engine, and the engine is neither local nor a test-owned
+container.
+
+| Runs a BPMN process or DMN decision on a Camunda 7 engine | Uses a framework or approach that existed for Camunda 7 | Is a shared-engine test | Scope decision |
 |---|---|---|---|
 | Yes | Yes | Any | When both prerequisites are met, the skill includes the test in scope. |
 | No | Any | Yes | The skill includes the test in scope as `remote-engine test` with `Report only` handling. |
 | No | Any | No | The skill excludes the test from scope. |
 | Yes | No | Any | If a test does not use a framework or approach that existed for Camunda 7, then the skill excludes the test from scope. |
+
 A dependency alone never makes a test eligible for migration.
 When production code or an unmigrated test uses a dependency, the skill keeps it.
 For example, `camunda-platform-7-mockito` provides engine-backed helpers and `DelegateExecutionFake` for plain unit tests.
+The skill inventories CMMN tests and tests that use unsupported engine internals as `manual redesign` with `Report only` handling, although they do not meet this scope rule.
 
 The skill inventories every test method declared or inherited by each concrete test class in the scanned test source sets.
 It records each test's test kind and handling, including tests marked out of scope.
-Apply the table from top to bottom. The first matching row assigns one test kind and handling.
 The skill classifies tests by executed engine behavior, not assertion type.
 When a real C7 process or decision test asserts only endpoint responses or downstream side effects, the skill keeps the test in scope.
 The skill classifies an embedded Engine REST call from a `@SpringBootTest` as a remote-engine test, not a process test.
@@ -37,13 +38,7 @@ Calls to mocks, fakes, or stubs do not count as engine execution.
 The skill requires a completed task's `processInstanceId` to identify an executed BPMN process before
 `TaskService.complete(...)` is a process-test signal.
 `TaskService.newTask()` without a process instance is not a process-test signal.
-The `camunda-platform-7-mockito` dependency can provide engine-backed helpers or `DelegateExecutionFake`.
 When methods in one class differ, the skill classifies each method separately.
-
-CMMN tests and tests that use unsupported Camunda engine internals do not meet this scope rule.
-`ClockUtil` used to control timers is a supported test utility.
-The skill does not assign `manual redesign` based on `ClockUtil` alone.
-The skill inventories CMMN tests and tests that use unsupported engine internals as `manual redesign` with `Report only` handling.
 
 ## Candidate discovery
 
@@ -63,16 +58,18 @@ When a discovered test has `Report only` or out-of-scope handling, the skill kee
 
 ## Test kinds
 
+Apply the table from top to bottom. The first matching row assigns one test kind and handling.
+
 | Priority | Test kind | Detect by | Handling |
 |---|---|---|---|
 | 1 | out of scope (Camunda 8) | Uses Zeebe Process Test (`io.camunda.zeebe.process.test.*`) or CPT (`io.camunda.process.test.*`). | Not part of test migration |
-| 2 | manual redesign | A C7 engine test covers CMMN APIs or models, or unsupported engine internals such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
+| 2 | manual redesign | A C7 engine test covers CMMN APIs or models, or unsupported engine internals such as `ProcessEnginePlugin`, BPMN parse listeners, custom history levels, or `ProcessEngineConfigurationImpl` internals. A CMMN or engine-internals test that runs no BPMN process or DMN decision also gets this classification. `ClockUtil` is a supported test utility. `ClockUtil` timer control does not trigger this signal by itself. | Report only |
 | 3 | manual migration | A JGiven (`io.holunda.testing:camunda-bpm-jgiven`) test executes a real C7 process or decision and requires manual migration. Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle (CDI), or the Camunda 7 Quarkus extension. A test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | Report only |
 | 4 | scenario test | Runs `org.camunda.bpm.scenario.*` against C7. | Migrate (lower priority) |
-| 5 | remote-engine test | A test runs a BPMN process or DMN decision on a C7 engine through Engine REST (`/engine-rest`), a service-API REST client such as `camunda-platform-7-rest-client-spring-boot`, `org.camunda.bpm.client.*` or `@ExternalTaskSubscription`. The test may start the C7 engine with a Testcontainers image or Docker Compose. | Migrate (lower priority) |
+| 5 | remote-engine test | A test runs a BPMN process or DMN decision on a C7 engine through Engine REST (`/engine-rest`), a service-API REST client such as `camunda-platform-7-rest-client-spring-boot`, `org.camunda.bpm.client.*` or `@ExternalTaskSubscription`. The test may start the C7 engine with a Testcontainers image or Docker Compose. A shared-engine test is a remote-engine test whether or not it runs a process or decision. [Handling overrides](#handling-overrides) sets its handling. | Migrate (lower priority) |
 | 6 | decision test | Evaluates a DMN decision on C7 through `DmnEngineRule`, `DmnEngine`, `DmnEngineConfiguration`, or `DecisionService`. | Migrate |
 | 7 | process test | Runs a BPMN process on C7 through `ProcessEngineRule`, `ProcessEngineExtension` including `org.camunda.bpm.extension:camunda-bpm-junit5`, `ProcessEngineTestCase`, `BpmnAwareTests`, `ProcessEngineTests`, `AbstractProcessEngineRuleTest`, or `StandaloneInMemoryTestConfiguration`. It may call a real C7 engine's `RuntimeService` to start a process (for example, `startProcessInstanceByKey(...)`), `TaskService` to complete a task with a non-null `processInstanceId`, or `RuntimeService` to correlate a message. It may call a Spring Boot endpoint that starts a process, completes a process-backed task, or correlates a message on a real C7 engine. | Migrate to CPT |
-| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or tests that use WireMock or another Engine REST stub. The skill classifies every other test that runs no process or decision as out of scope, including a test that only deploys a model. When the shared-engine exception in Scope confirmation applies, the skill classifies that test as a remote-engine test instead. | Not part of test migration |
+| 8 | out of scope | Does not execute a real C7 BPMN process or DMN decision. This includes Kotlin or Groovy tests that use Camunda 7 test APIs but run no process or decision, standalone tasks created with `TaskService.newTask()` without a `processInstanceId`, plain Java tests, delegate or worker unit tests, `DelegateExecutionFake`, mocked `DelegateExecution`, mocked `RuntimeService`, Spring test slices with mocked C7 APIs, or tests that use WireMock or another Engine REST stub. The skill classifies every other test that runs no process or decision as out of scope, including a test that only deploys a model. | Not part of test migration |
 
 When a JGiven test does not execute a real C7 process or decision, the skill assigns the out-of-scope test kind.
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
@@ -141,10 +138,7 @@ The skill inventories each dependency before removal.
 When production code uses an artifact, the skill keeps it.
 When a production dependency has no Camunda 8 equivalent, the skill records a required redesign.
 
-Standalone Camunda 7 DMN tests run with an in-process engine.
-The migrated CPT tests need a Camunda 8 runtime.
-CPT uses Docker by default and supports a configured remote runtime.
-When the skill asks Question 8, the skill follows its DMN runtime notice in `interview-questions.md`.
+When the skill asks Question 8, the skill includes the DMN runtime notice from `interview-questions.md`.
 
 ### Limitations
 
@@ -159,29 +153,10 @@ When the skill asks Question 8, the skill follows its DMN runtime notice in `int
 
 | Signal | Confirmation required |
 |---|---|
-| A test uses CMMN APIs or models, or unsupported Camunda engine internals | The skill marks the test as `manual redesign` and uses `Report only` handling. The skill applies this classification to tests that do not run a BPMN process or DMN decision. |
-| A test uses `ClockUtil` to control a timer | Treat `ClockUtil` as a supported test utility. Do not assign `manual redesign` based on `ClockUtil` alone. |
 | `@Test`, `@ParameterizedTest`, `@RepeatedTest`, or a JUnit 3 test method | The method runs a BPMN process or DMN decision on a Camunda 7 engine |
-| `@Deployment` | The method runs a process or decision. The annotation alone is not enough |
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
-| A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | Keep it as `remote-engine test` and use `Report only` handling. Record `CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.` as the reason. |
-| Any other test that runs no BPMN process or DMN decision on Camunda 7 and does not match the shared-engine exception | The skill classifies the test as out of scope. |
-| A Camunda 7 dependency or a test class name | Not sufficient without an engine-backed process or decision |
-
-When one test matches multiple test kinds, the skill assigns the first matching kind in this order:
-
-| Order | Matching signal | Test kind |
-|---|---|---|
-| 1 | The test uses a Camunda 8 test API | out of scope (Camunda 8) |
-| 2 | The test uses CMMN or unsupported engine internals. `ClockUtil` timer control does not trigger this signal by itself. | manual redesign |
-| 3 | JGiven or Cucumber scenarios use Camunda 7 APIs to run an engine-backed BPMN process or DMN decision. The Cucumber classification includes applicable hooks, not only steps. An in-scope test uses Arquillian, camunda-bpm-needle, or the Camunda 7 Quarkus extension. The test runs an engine-backed process from a BPMN model built with the Camunda 7 fluent model API. A Kotlin or Groovy test uses Camunda 7 test APIs to run an engine-backed BPMN process or DMN decision. | manual migration |
-| 4 | The test uses camunda-platform-scenario | scenario test |
-| 5 | The test reads a shared Camunda 7 engine URL from any configuration source, does not start that engine, and the engine is neither local nor a test-owned container. The test runs no process or decision | remote-engine test |
-| 6 | The test runs a BPMN process or DMN decision against a running Camunda 7 engine remotely | remote-engine test |
-| 7 | The test directly evaluates a DMN decision | decision test |
-| 8 | The test runs a BPMN process | process test |
-| 9 | The test runs no BPMN process or DMN decision on Camunda 7 and does not match the shared-engine exception at order 5 | out of scope |
+| `@Deployment`, a Camunda 7 dependency, or a test class name | Not sufficient without an engine-backed process or decision |
 
 ## Modifiers
 
@@ -218,9 +193,7 @@ The skill also includes JUnit 3 `public void test...()` methods.
 The skill includes Spock feature methods in Groovy classes that extend `spock.lang.Specification`.
 The skill includes these methods without a `@Test` annotation.
 
-Where Kotlin or Groovy tests run an engine-backed BPMN process or DMN decision on C7, the skill marks them as `manual migration`.
-The engine must be Camunda 7.
-The skill records their source language in the `Notes` cell.
+The skill records the source language of a Kotlin or Groovy test in the `Notes` cell.
 
 ## Test models
 
@@ -294,7 +267,13 @@ Do not migrate tests during Step 2.
 
 | Condition | Handling | Reason or note |
 |---|---|---|
-| A remote-engine test reads a shared engine URL from any configuration source, does not start the engine, and the engine is neither local nor a test-owned container | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
+| A shared-engine test | Report only | Record the exact shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
+
+When a test uses a shared engine, the skill records this exact reason in `MIGRATION_REPORT.md`:
+
+> CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.
+
+The skill records a shared-engine test as `manual` in the parity ledger.
 
 ## Camunda 8.8 target
 
@@ -368,192 +347,26 @@ When `test_run_mode` is `run`, use these phases in this order:
 When the selected mode is `migrate_only`, do not run a test command. Follow the declined-test path
 in `validation-evidence.md`.
 
-Keep the Test Inventory in `MIGRATION_REPORT.md`. Keep the machine-readable test mode and suite
-commands in `.camunda-migration/validation/step2-inventory.json`:
-
-A **Run tests** inventory includes `test_suites`:
-
-```json
-{
-  "schema_version": 1,
-  "modules": ["examples/web"],
-  "models": ["models/order.bpmn"],
-  "test_run_mode": "run",
-  "test_suites": [
-    {
-      "module": "examples/web",
-      "name": "unit",
-      "command": ["mvn", "-B", "-pl", "examples/web", "test"],
-      "test_ids": ["examples/web:com.example.OrderTest#testOrder"]
-    }
-  ]
-}
-```
-
-Where deferred verification is planned, a **Migrate tests only** inventory declares `test_suites` in
-Step 2. The validator rejects suites added later, because the source snapshot does not cover them.
-Where deferred verification is not planned, a **Migrate tests only** inventory omits `test_suites`:
-
-```json
-{
-  "schema_version": 1,
-  "modules": ["examples/web"],
-  "models": ["models/order.bpmn"],
-  "test_run_mode": "migrate_only"
-}
-```
-
+Keep the Test Inventory in `MIGRATION_REPORT.md`, and keep it unchanged after Step 2. Record the
+machine-readable test mode and suite commands in `.camunda-migration/validation/step2-inventory.json`
+as `validation-evidence.md` defines. Record CPT mappings in `test-mapping.json`.
 Where Question 8 does not apply, the skill omits `test_run_mode`.
-
-Use `run` or `migrate_only` for `test_run_mode`. Set `test_ids` to Test Inventory IDs in each suite.
-When `test_run_mode` is `run`, assign every migratable test to at least one suite. Use a distinct
-`name` for each suite in a module. The validator uses `command` for the Camunda 7 baseline. It runs
-the command without a shell.
-Keep the Test Inventory unchanged after Step 2. Record CPT mappings in `test-mapping.json`.
-
-Where the build uses custom JUnit report paths, set `reports` to a list of module-relative globs.
-The default report paths are Maven Surefire, Maven Failsafe, and Gradle test-result XML files.
-Where Camunda 7 coverage reports use another path, set `coverage_reports` on the matching Step 2
-inventory `test_suites[]` entry to module-relative globs.
-The default Camunda 7 coverage paths are `target/process-test-coverage/**/report.json` and
-`target/process_test_coverage/**/*.json`.
-Where a suite uses custom test source or resource directories, list each project-relative path in
-`test_source_roots` or `test_resource_roots`. Each path must remain inside that suite's module.
-When the freeze check runs, each configured root must exist as a directory.
-Where a deferred suite uses custom test roots under `target` or `build`, declare those roots in the
-initial `migrate_only` inventory so the source snapshot includes their files.
-Where a configured root uses generated files under `target` or `build`, generate those files before
-`init`.
 
 ## Camunda 7 baseline
 
-Run each suite that contains a migratable test:
+Run each suite that contains a migratable test with the `c7_baseline` check in
+`validation-evidence.md`, before Step 3 changes any file. A failed or skipped C7 test remains visible
+in the ledger. A C7 test that did not pass is not required to pass parity.
 
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind c7_baseline --scenario unit -- mvn -B -pl examples/web test
-```
-
-Use the exact command recorded in `step2-inventory.json`. The validator rejects a different
-command. The validator rejects a baseline run after any Step 2 source file changes.
-The Step 2 source snapshot hashes each existing Test Inventory file and every file under each
-configured test source or resource root, including roots under `target` and `build`.
-
-The validator parses JUnit XML with Python's standard library. It reads Surefire files from
-`target/surefire-reports/TEST-*.xml`. It reads Failsafe files from `target/failsafe-reports/`.
-It reads Gradle files from `build/test-results/**/`.
-
-The validator maps each invocation to `<module>:<fully qualified class>#<method>`. The `method`
-part can be a framework display name, including spaces and punctuation, such as a Cucumber scenario
-or Spock feature name. The validator preserves a report name that exactly matches a C7 Test
-Inventory ID or mapped CPT test ID. It removes parameter and repeat suffixes from other JUnit
-report names before matching them. The table below maps invocation results to the method result.
-
-When the baseline check captures a fresh report for every suite test ID, the check passes. A failed or
-skipped C7 test remains visible in the ledger. A C7 test that did not pass is not required to pass
-parity. The baseline check can record valid reports from a C7 command that exits nonzero. The ledger
-retains the individual test results.
-
-| Invocation results | Method result |
-|---|---|
-| Every invocation passed | `passed` |
-| One or more invocations errored | `error` |
-| No invocation errored and one or more failed | `failed` |
-| No invocation errored or failed and one or more skipped | `skipped` |
-
-The validator copies JUnit reports to `.camunda-migration/validation/baseline/`. It records one
-result for each Test Inventory ID in the suite. Where the project uses Git, it records the Step 2 Git commit. It stores the C7 test results in `test-mapping.json`.
-The validator matches each baseline-suite record against its recorded `c7_baseline` check before it uses the record for parity.
-Where a fresh C7 report contains a `Report only` test that the suite omits, the validator also
-records that test.
-
-Where Camunda 7 process-test-coverage reports exist, the validator copies and parses their JSON
-reports. It records covered flow-node and sequence-flow IDs under each `modelKey`. It maps those IDs
-to the covered process.
-
-When a suite cannot run, record it as blocked:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind c7_baseline --scenario unit --reason "The suite requires an unavailable database."
-```
-
-Ask the user whether to continue without that baseline. Record approval in
-`test-mapping.json`:
-
-```json
-{
-  "baseline": {
-    "continue_without_baseline": {
-      "decision": "continue",
-      "reason": "The approved database is unavailable.",
-      "approved_by": "operator"
-    }
-  }
-}
-```
-
-Do not invent test results. Without a C7 baseline, report parity as `not verified`. The validation
-gate remains `NOT READY`.
+If a suite cannot run, then record it as blocked and ask the user whether to continue without that
+baseline. Record the approval in `test-mapping.json`. Do not invent test results. Without a C7
+baseline, report parity as `not verified`. The validation gate remains `NOT READY`.
 
 ## Test parity ledger
 
-The validator owns `.camunda-migration/validation/test-mapping.json`. It writes `c7_result` from
-JUnit reports. Never write `c7_result` by hand.
-
-The skill records each test mapping and each approval in the ledger:
-
-```json
-{
-  "schema_version": 1,
-  "baseline": {
-    "commit": "<Step 2 Git commit or null>",
-    "source_digest": "<Step 2 source snapshot digest>",
-    "suites": [
-      {
-        "module": "examples/web",
-        "suite": "unit",
-        "command": ["mvn", "-B", "-pl", "examples/web", "test"],
-        "result": "passed",
-        "reports": ".camunda-migration/validation/baseline/<suite-id>/junit",
-        "report_files": [
-          ".camunda-migration/validation/baseline/<suite-id>/junit/target/surefire-reports/TEST-OrderTest.xml"
-        ],
-        "coverage_reports": null,
-        "coverage_report_files": [],
-        "coverage_available": false,
-        "coverage_by_process": {},
-        "test_results": {
-          "examples/web:com.example.OrderTest#testOrder": {
-            "result": "passed",
-            "invocations": ["passed"],
-            "invocation_count": 1
-          }
-        },
-        "evidence_path": ".camunda-migration/validation/logs/<check-id>.json"
-      }
-    ],
-    "coverage_available": false,
-    "coverage": {},
-    "continue_without_baseline": null
-  },
-  "tests": [
-    {
-      "c7_id": "examples/web:com.example.OrderTest#testOrder",
-      "test_kind": "process test",
-      "handling": "Migrate",
-      "c7_result": "passed",
-      "c8_ids": ["examples/web:com.example.OrderCptTest#testOrder"],
-      "mocks": {
-        "c7": ["Mocks.register(\"orderService\", mock)"],
-        "c8": ["@MockitoBean OrderService"]
-      },
-      "status": "migrated"
-    }
-  ],
-  "freeze": {"files": {}},
-  "test_changes": [],
-  "mock_changes": []
-}
-```
+The validator owns `.camunda-migration/validation/test-mapping.json`. Never write `c7_result` by hand.
+The skill records each test mapping and each approval in the ledger shape that
+`validation-evidence.md` defines.
 
 Use these ledger statuses:
 
@@ -570,16 +383,8 @@ The validator requires a C7 baseline for every suite that contains a migrated or
 When a `Report only` test passed in the C7 baseline, its `manual` status does not satisfy parity.
 Migrate it or record an approved retirement before claiming `READY`.
 
-When a ledger edit changes a test check's digest, the validator ignores that stale record. Record each still-required check again.
-The validator includes frozen test-file hashes and approved `test_changes` in assertion-strength and
-mock-boundary review digests. When the hashes or approvals change, record each required review again.
-
 Set `retirement.reason` and `retirement.approved_by` on each retired test. The validator rejects a
 retired test without both values.
-
-When all C7 tests are retired and no migrated or added `c8_ids` remain, the validator still checks
-the C7 baseline and retired disposition. It does not require `test_freeze` or `test_repeat`. It
-skips target coverage comparison because no CPT tests remain.
 
 Set `c8_ids` on each added test. Set `suite` to the name of the module test suite that runs it. The
 validator requires `test_repeat` only for that suite and requires each added CPT test to pass in both
@@ -589,20 +394,7 @@ added test rows.
 
 ## Freeze migrated tests
 
-When test migration completes, run the freeze check:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_freeze
-```
-
-The validator hashes each existing file named by a migrated Test Inventory row. It also hashes
-every file under `src/test/` in each module with a migrated or added CPT test.
-For each suite with migrated or added CPT tests, it hashes every file under the configured
-`test_source_roots` and `test_resource_roots`.
-The source snapshot also locks the configured root paths before migration starts.
-The validator stores the original freeze digest in its `test_freeze` check log. Keep `freeze.files`
-unchanged after the first freeze. If the ledger differs from the logged digest, then the validator
-rejects it.
+When test migration completes, run the `test_freeze` check in `validation-evidence.md`.
 
 While the skill migrates production code, it does not edit a frozen test file. Ask the user before a test file must
 change. Record each approved change with its path, reason, old hash, new hash, and approver:
@@ -622,99 +414,17 @@ When the change adds a file, use `null` for the old hash. When the change remove
 
 ## CPT repeat and parity checks
 
-The `test_repeat` check runs each CPT suite with mapped migrated or added tests twice:
+Run the `test_repeat` check for each migrated suite.
+Record one `assertion_strength` review per migrated test class.
+Record one `mock_boundary` review per migrated C7 test.
+When every suite's repeat runs and all reviews pass, record the project-level `test_parity` check.
+When the CPT suites have run, record the project-level `coverage_parity` check.
+`validation-evidence.md` defines each command.
 
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind test_repeat --scenario unit -- mvn -B -pl examples/web test
-```
+For each `assertion_strength` review, compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. If a CPT test cannot retain an assertion, then record a reason.
 
-The validator parses and preserves each run's JUnit XML. It compares each test method's result and
-invocation results across the two runs. A difference marks the suite flaky. A failed command also
-fails the repeat check.
-
-When both runs and all reviews pass, record the computed parity check:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind test_parity
-```
-
-The validator does not treat a skipped CPT test as a pass for parity. Each C7 test with
-`c7_result: passed` must map to passing CPT tests in both runs. An approved retired test is the only
-other passing disposition. A failed or skipped C7 baseline test is listed but is not required to
-pass parity. The validator rejects a CPT test ID mapped from multiple migrated C7 tests.
-
-Record assertion-strength reviews once per migrated test class:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest --kind assertion_strength --note "Reviewed assertions for examples/web:com.example.OrderTest."
-```
-
-Compare each C7 assertion with its CPT assertion. Keep equal or stronger assertions. If a CPT test cannot retain an assertion, then record a reason.
-
-Record one mock-boundary review per migrated C7 test:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . review --type test --target examples/web:com.example.OrderTest#testOrder --kind mock_boundary --note "Reviewed C7 test examples/web:com.example.OrderTest#testOrder and its CPT mocks."
-```
-
-| C7 mock boundary | CPT mock boundary | Verdict |
-|---|---|---|
-| C7 registers a domain-service mock. | CPT uses `@MockitoBean` for the same service. | Allowed. |
-| C7 uses `autoMock("bpmn/sample.bpmn")`. | CPT mocks a job type declared in that model's converted copy. | Allowed. |
-| C7 runs a component for real. | CPT adds a worker, child-process, decision, or Spring mock. | Requires user approval. |
-
-The validator resolves each `autoMock` resource to one source model. It allows only job types
-declared in that model's converted copy. If the resource resolves to zero or multiple models, then
-each CPT job-worker mock requires approval.
-
-Record each approved new CPT mock in `mock_changes` with `cpt_test_id`, `mock`, `reason`, and
-`approved_by`. The `cpt_test_id` must identify a CPT test mapped from a migrated C7 test. The
-validator rejects an unapproved new mock.
-
-When one C7 test maps to multiple CPT tests, record `mocks.c8_by_test_id` as an object keyed by
-every ID in `c8_ids`. List each CPT test's mocks under its ID. Set `mocks.c8` to the union of those
-per-test lists. When a multi-ID test has any C8 mocks, the validator requires this map. Where `mocks.c8` is
-empty, the map is optional.
-
-## Coverage parity
-
-The `coverage_parity` check compares C7 and CPT coverage:
-
-```sh
-python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type project --target . --kind coverage_parity
-```
-
-The validator reads C7 process coverage from `target/process-test-coverage/**/report.json`. It reads
-CPT process coverage from `target/coverage-report/report.json` by default. Where a suite writes CPT coverage to another path, set `coverage_reports` to module-relative globs
-on the matching module's `test_suites[]` entry in `validation-evidence.json`. The Step 2 inventory's
-`test_suites[].coverage_reports` configures Camunda 7 coverage reports only.
-See the [CPT Process Test Coverage documentation](https://docs.camunda.io/docs/apis-tools/testing/getting-started/#process-test-coverage).
-
-The CPT 8.9.21 JSON report stores process entries in `coverages[]`. Newer CPT report schemas use
-`processCoverages[]`. Both arrays contain `processDefinitionId`, `completedElements`, and
-`takenSequenceFlows`. The validator compares the process IDs with C7-covered IDs. Where shared element IDs map a renamed process uniquely, the validator uses that mapping. If no converted process contains a C7-covered ID, then the validator ignores that ID. It checks each retained C7-covered ID against both CPT runs.
-If one C7 process maps to multiple converted processes, then the gate reports ambiguity. If
-multiple C7 process IDs map to the same CPT process ID, then the gate reports ambiguity.
-If one C7 process ID appears in multiple source models and a covered element remains in a
-converted model, then the gate reports ambiguity.
-The CPT report identifies processes by ID, not by converted model path. If a covered process ID appears in more than one converted model, then the gate reports ambiguity.
-The validator marks a process row without C7-covered elements as `CPT coverage`. This status reports
-CPT coverage without claiming parity.
-
-The validator also lists CPT decision coverage from `decisionCoverages[].decisionDefinitionId` and
-`decisionCoverages[].matchedRuleIds`. Camunda 7 process-test-coverage does not provide a matching
-decision baseline.
-
-When no C7 coverage report exists, record `No Camunda 7 coverage baseline` in
-`MIGRATION_REPORT.md`. The validator still records CPT coverage. It does not claim coverage parity.
-
-## Report
-
-The validator writes a Test Parity table to `MIGRATION_REPORT.md`. It lists every C7 test, its C7
-result, mapped CPT tests, both CPT run results, status, and notes.
-
-The Notes column lists approved retirement reasons. The section also lists approved test changes
-and approved mock changes. The validator owns the Test Parity and Test Coverage sections.
+The `mock_boundary` review applies the [Mock boundary](#mock-boundary) rules to the mocks in the
+[Parity ledger](#parity-ledger).
 
 ## Verification Plan for a Deferred Test Run
 
@@ -755,7 +465,7 @@ names. (SHOULD)
 | Camunda 8 target | Response |
 |---|---|
 | 8.9 or later | Use target-aligned CPT and follow this section. |
-| 8.8 | Apply the Camunda 8.8 target table above. Keep `Report only` handling with the reason `test migration needs Camunda 8.9 or later`. Do not change test dependencies. |
+| 8.8 | Apply the [Camunda 8.8 target](#camunda-88-target) table. Do not change test dependencies. |
 
 Most CPT assertions wait for an expected state for up to 10 seconds by default.
 `hasNotActivatedElements(...)` evaluates the current process state immediately and does not wait.
@@ -907,8 +617,8 @@ the matching CPT dependency from `code-conversion/patterns/10-general/dependenci
 
 | Target application | CPT dependency in test scope | Test annotation |
 |---|---|---|
-| Spring Boot 4 with `camunda-spring-boot-starter` | `camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
-| Spring Boot 3 with `camunda-spring-boot-3-starter` | `camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring Boot 4.x with `camunda-spring-boot-starter` | `io.camunda:camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | `io.camunda:camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
 | Spring without Spring Boot | `camunda-process-test-java` | `@CamundaProcessTest` |
 
 The CPT Spring dependencies include the CPT Java API. The skill does not add
@@ -1050,9 +760,8 @@ a Java test with Camunda Process Test (CPT) and `io.camunda:camunda-process-test
 is Camunda 8.9 or later.
 The skill does not create CPT instruction-based JSON tests.
 
-When the target is Camunda 8.8, the skill sets scenario-test handling to `Report only`. The skill
-records the test as `manual` in the parity ledger with the exact reason `test migration needs
-Camunda 8.9 or later`.
+When the target is Camunda 8.8, the skill applies the [Camunda 8.8 target](#camunda-88-target) table
+and records the test as `manual` in the parity ledger.
 
 The scenario runner's Cucumber module, logging, and history fast-forward reports stay out of scope.
 
@@ -1343,37 +1052,27 @@ When migrated tests still use Mockito, the skill keeps Mockito.
 
 ## Remote-engine test migration
 
-Camunda Process Test (CPT) provides the Camunda 8 test runtime, commands, and assertions.
-A remote-engine test drives a running Camunda 7 engine through Engine REST or the external-task client.
-A shared-engine test calls an engine that the test does not start.
-The engine is neither local nor a test-owned container.
+This section covers each `remote-engine test` from the [Test kinds](#test-kinds) table.
 
 ## Scope and classification
 
-Classify each Camunda 7 test before changing it.
-Apply the rows from top to bottom. Stop at the first matching row.
-Only the shared-engine row classifies a test without a BPMN process or DMN decision as remote-engine.
-The no-process row overrides every client-shape row below it.
+Classify each Camunda 7 test with the [Test kinds](#test-kinds) table before changing it.
+A test that the table classifies as manual migration, manual redesign, or out of scope keeps that
+classification and handling.
+A shared-engine test keeps its [handling override](#handling-overrides).
+Apply the [Camunda 8.8 target](#camunda-88-target) table before any client-shape row.
+Apply the rows below from top to bottom. Stop at the first matching row.
 
 | Camunda 7 test shape | Classification | Skill action |
 |---|---|---|
 | Load, performance, or end-to-end UI test against Camunda 7 | Out of scope | Do not migrate it in this test slice. |
 | Unit test of an external-task handler that starts no engine | Out of scope | Migrate it as ordinary code. |
 | WireMock or another Engine REST stub | Out of scope | Do not migrate it as a remote-engine test. |
-| Test is already classified as manual migration | Report only | Preserve the existing manual migration verdict and reason. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to the existing reason. |
-| Test is already classified as manual redesign | Report only | Preserve the existing manual redesign verdict and reason. |
-| Test calls an engine that it does not start, and the engine is neither local nor a test-owned container | Report only | Record `manual` in the parity ledger with the shared-engine reason below. Where the target is Camunda 8.8, append `test migration needs Camunda 8.9 or later` to that reason. |
-| Any other test that does not run a BPMN process or DMN decision on Camunda 7, including a test that only deploys a model | Out of scope | Do not migrate it to CPT. |
-| Target is Camunda 8.8 and the test would otherwise be in scope | Report only | Record `test migration needs Camunda 8.9 or later` in `MIGRATION_REPORT.md`. |
 | Engine REST calls through RestAssured, RestTemplate, TestRestTemplate, WebClient, HTTP clients, or generated OpenAPI clients | In scope | Replace Engine REST calls with the matching CPT command or assertion. |
 | Java clients that call Engine REST through a Camunda 7 service API, including `camunda-platform-7-rest-client-spring-boot` | In scope | Replace the client calls with Camunda 8 commands and assertions. |
 | `org.camunda.bpm.client.ExternalTaskClient` or `@ExternalTaskSubscription` from `org.camunda.bpm.springboot:camunda-bpm-spring-boot-starter-external-task-client` | In scope | Migrate the worker and keep its process behavior in the CPT test. |
 | Testcontainers image `camunda/camunda-bpm-platform` or Docker Compose setup started by the test | In scope | Remove the Camunda 7 runtime setup and use the CPT-managed runtime. |
 | `@SpringBootTest(webEnvironment = RANDOM_PORT)` calling the embedded engine's `/engine-rest` | In scope | Map the REST calls. Use the Spring test harness from the Spring migration. |
-
-When a test uses a shared engine, the skill records this exact reason in `MIGRATION_REPORT.md`:
-
-> CPT deletes all runtime data between tests, so the test needs a dedicated Camunda 8 runtime.
 
 ## Runtime and build changes
 
@@ -1383,16 +1082,11 @@ When no remaining test uses a Camunda 7 REST-client dependency, the skill remove
 When no remaining test uses Testcontainers, the skill removes Testcontainers from test dependencies.
 When another test still uses Testcontainers, the skill keeps the test dependency.
 Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.
-Select the Spring Process Test artifact using the target project's Spring Boot version.
+Select the Spring Process Test artifact from the [Spring harness table](#harness-and-dependencies).
 Add the selected Spring artifact in test scope.
 Annotate each migrated JUnit test that uses plain Java with `@CamundaProcessTest` to register `CamundaProcessTestExtension`.
 Annotate each migrated Spring CPT test with `@CamundaSpringProcessTest` to start the Spring Process Test harness.
 The artifact dependency alone does not start the CPT runtime or inject the CPT client and context fields.
-
-| Target Spring Boot version | CPT test artifact |
-|---|---|
-| Spring Boot 3.5.x | `io.camunda:camunda-process-test-spring-boot-3` |
-| Spring Boot 4.x | `io.camunda:camunda-process-test-spring` |
 
 | User request | CPT test type | Runtime action |
 |---|---|---|
@@ -1418,12 +1112,10 @@ Use `processTestContext.completeJob(type, variables)` or `processTestContext.moc
 
 Replace Awaitility or `Thread.sleep` polling on engine state with CPT assertions.
 Keep Awaitility only for state outside Camunda.
-CPT assertions wait up to 10 seconds by default.
 When the default assertion timeout is too short, the skill sets `CamundaAssert.setAssertionTimeout(Duration)` or `camunda.process-test.assertion.timeout`.
 
-When the active path contains a timer catch event, the skill asserts that the timer catch event is active before using `processTestContext.increaseTime(duration)`.
-When the active path contains a boundary timer, the skill asserts that the attached activity is active instead. CPT does not expose a boundary timer as an active element.
-Identify the job type before translating a Camunda 7 `POST /job/{id}/execute` call.
+Identify the job type before translating a Camunda 7 `POST /job/{id}/execute` call. The
+[Engine REST mapping](#engine-rest-mapping) defines the timer and non-timer cases.
 
 Replace Camunda 7 typed variable values with plain JSON values.
 When a JSON value changes the Java type, the skill updates the Java assertions. For example, the skill changes `Integer` to `Long`.
@@ -1464,7 +1156,7 @@ When the baseline did not run, the skill does not claim parity from an expected 
 | In-scope test whose baseline did not run | `not run` |
 | Shared-engine test, whether its baseline ran or not | `manual` |
 
-Include the exact shared-environment reason above.
+Include the exact shared-engine reason from [Handling overrides](#handling-overrides).
 Do not report a shared-engine test as an automated CPT pass.
 
 See the [CPT 8.9 configuration](https://docs.camunda.io/docs/8.9/apis-tools/testing/configuration/), [assertions](https://docs.camunda.io/docs/8.9/apis-tools/testing/assertions/), and [utilities](https://docs.camunda.io/docs/8.9/apis-tools/testing/utilities/) documentation.

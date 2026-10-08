@@ -267,7 +267,7 @@ class DecisionTestMigrationGuidanceTest(unittest.TestCase):
     def test_json_input_type_is_checked_against_the_converted_dmn(self):
         reference = " ".join(REFERENCE.read_text().lower().split())
 
-        self.assertIn("a camunda 7 `date` or typed value", reference)
+        self.assertIn("where a camunda 7 value is a `date` or typed value", reference)
         self.assertIn("json representation", reference)
         self.assertIn(
             "the skill does not assume the java type survives serialization",

@@ -4,12 +4,7 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 (SHOULD) and an option is marked (MAY).
 
 An HTTP topology is the set of application routes, Engine REST calls, health checks, bind addresses,
-and their consumers.
-
-Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.
-Exclude test-only Engine REST clients and test-owned servers from the production topology.
-The skill excludes dependencies declared only in test scope and plugin executions bound only to test
-phases from production-source evidence.
+and their consumers. `SKILL.md` Step 2 defines the production sources that trigger this procedure.
 
 ## Inventory
 
@@ -69,17 +64,16 @@ Cluster REST API route is then under `/v2`, for example
 and [REST API documentation](https://docs.camunda.io/docs/apis-tools/orchestration-cluster-api-rest/orchestration-cluster-api-rest-overview/)
 to confirm the address and API.
 
-Do not store credentials in `MIGRATION_REPORT.md`. Record the authentication method and redact
-credential values.
+Record the authentication method.
 
 ## Validate the target topology
 
 Run the application and the C8 cluster at the configured addresses at the same time. Confirm their
 ports do not collide when they share a host.
 
-Test each changed application endpoint through the application server. Test each replacement
-Camunda operation through the selected C8 API. Assert the intended response or process behavior.
-Do not accept a test that only loads the Spring context.
+While the cluster is reachable, test every discovered application endpoint through the application
+server. Test each replacement Camunda operation through the selected C8 API. Assert the intended
+response or process behavior. Do not accept a test that only loads the Spring context.
 
 Configure finite connection and response timeouts for every remote HTTP health-check client.
 When the source includes a health check, test each dependency while it responds and while it is
@@ -89,7 +83,3 @@ Never preserve a constant `engineRest=ok` value.
 Confirm that the application does not serve or proxy the old `/engine-rest` routes. Record the
 commands, results, and any blocked checks in `MIGRATION_REPORT.md`. Leave a blocked check open when
 the cluster or a required user decision is unavailable.
-
-The [`spring-boot-web-topology` fixture](../../../fixtures/spring-boot-web-topology/README.md)
-checks separate application and cluster ports, live health, process start through the application
-API, and the absence of the old Engine REST route.

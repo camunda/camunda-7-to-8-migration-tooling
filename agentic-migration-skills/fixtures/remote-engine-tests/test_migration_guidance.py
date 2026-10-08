@@ -133,7 +133,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_skill_points_to_the_reference(self):
         skill = " ".join(SKILL.read_text(encoding="utf-8").split())
         self.assertIn(
-            "The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine, Camunda 7 decision-test CPT mapping, and Spring process-test migration.",
+            "The skill follows `references/test-migration.md` for every Test Inventory row that it migrates.",
             skill,
         )
 
@@ -252,144 +252,52 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "## Runtime and build changes", 1
         )[0]
         self.assertIn(
-            "Apply the rows from top to bottom. Stop at the first matching row.",
+            "Apply the rows below from top to bottom. Stop at the first matching row.",
             classification,
         )
-        first_client_shape = classification.index("| Engine REST calls through")
-        no_process_boundary = (
-            "| Any other test that does not run a BPMN process or DMN decision on "
-            "Camunda 7, including a test that only deploys a model | Out of scope | "
-            "Do not migrate it to CPT. |"
+        self.assertIn(
+            "A test that the table classifies as manual migration, manual redesign, or out of "
+            "scope keeps that classification and handling.",
+            " ".join(classification.split()),
         )
+        first_client_shape = classification.index("| Engine REST calls through")
         for boundary in (
-            "| Test is already classified as manual migration | Report only | "
-            "Preserve the existing manual migration verdict and reason. "
-            "Where the target is Camunda 8.8, append `test migration needs "
-            "Camunda 8.9 or later` to the existing reason. |",
-            "| Test is already classified as manual redesign | Report only | "
-            "Preserve the existing manual redesign verdict and reason. |",
-            "| Test calls an engine that it does not start",
+            "| Load, performance, or end-to-end UI test against Camunda 7",
             "| Unit test of an external-task handler that starts no engine",
             "| WireMock or another Engine REST stub",
-            "| Load, performance, or end-to-end UI test against Camunda 7",
-            no_process_boundary,
         ):
             with self.subTest(boundary=boundary):
                 self.assertLess(classification.index(boundary), first_client_shape)
-        for boundary in (
-            "| Test is already classified as manual migration",
-            "| Test calls an engine that it does not start",
-        ):
-            row = next(
-                row for row in classification.splitlines() if row.startswith(boundary)
-            )
-            self.assertIn(
-                "Where the target is Camunda 8.8, append `test migration needs "
-                "Camunda 8.9 or later`",
-                row,
-            )
-        shared_engine_index = classification.index(
-            "| Test calls an engine that it does not start"
-        )
-        self.assertLess(
-            shared_engine_index,
-            classification.index(no_process_boundary),
-        )
-        for boundary in (
-            "| Test is already classified as manual migration",
-            "| Test is already classified as manual redesign",
-        ):
-            with self.subTest(boundary=boundary):
-                self.assertLess(classification.index(boundary), shared_engine_index)
 
     def test_camunda_8_8_gate_precedes_in_scope_client_shapes(self):
-        classification = REFERENCE.read_text(encoding="utf-8").split("## Scope and classification", 1)[1].split(
-            "## Runtime and build changes", 1
-        )[0]
-        scope_confirmation = REFERENCE.read_text(encoding="utf-8").split(
-            "## Scope confirmation", 1
-        )[1].split("\n## ", 1)[0]
-        version_gate = (
-            "| Target is Camunda 8.8 and the test would otherwise be in scope | "
-            "Report only | Record `test migration needs Camunda 8.9 or later` in "
-            "`MIGRATION_REPORT.md`. |"
-        )
-        no_process_boundary = (
-            "| Any other test that does not run a BPMN process or DMN decision on "
-            "Camunda 7, including a test that only deploys a model | Out of scope | "
-            "Do not migrate it to CPT. |"
-        )
-        self.assertIn(version_gate, classification)
-        self.assertIn(
-            "| Any other test that runs no BPMN process or DMN decision on Camunda 7 "
-            "and does not match the shared-engine exception | The skill classifies "
-            "the test as out of scope. |",
-            scope_confirmation,
-        )
-        shared_engine_boundary = "| Test calls an engine that it does not start"
-        for boundary in (
-            "| Load, performance, or end-to-end UI test against Camunda 7",
-            "| Unit test of an external-task handler that starts no engine",
-            "| WireMock or another Engine REST stub",
-            shared_engine_boundary,
-            no_process_boundary,
-            "| Test is already classified as manual migration | Report only | "
-            "Preserve the existing manual migration verdict and reason. "
-            "Where the target is Camunda 8.8, append `test migration needs "
-            "Camunda 8.9 or later` to the existing reason. |",
-            "| Test is already classified as manual redesign | Report only | "
-            "Preserve the existing manual redesign verdict and reason. |",
-        ):
-            with self.subTest(boundary=boundary):
-                self.assertLess(
-                    classification.index(boundary), classification.index(version_gate)
-                )
-        self.assertLess(
-            classification.index(shared_engine_boundary),
-            classification.index(no_process_boundary),
-        )
-        for client_shape in (
-            "| Engine REST calls through",
-            "| Java clients that call Engine REST through",
-            "| `org.camunda.bpm.client.ExternalTaskClient`",
-            "| Testcontainers image `camunda/camunda-bpm-platform`",
-            "| `@SpringBootTest(webEnvironment = RANDOM_PORT)`",
-        ):
-            with self.subTest(client_shape=client_shape):
-                self.assertLess(
-                    classification.index(no_process_boundary),
-                    classification.index(client_shape),
-                )
-                self.assertLess(
-                    classification.index(version_gate),
-                    classification.index(client_shape),
-                )
-
-    def test_shared_engine_definition_matches_report_only_boundary(self):
         reference = REFERENCE.read_text(encoding="utf-8")
-        definition_start = reference.index("A shared-engine test calls")
-        definition_end = reference.index("\n\n", definition_start)
-        shared_engine_definition = reference[definition_start:definition_end]
         classification = reference.split("## Scope and classification", 1)[1].split(
             "## Runtime and build changes", 1
         )[0]
-        report_only_rule = next(
-            row
-            for row in classification.splitlines()
-            if row.startswith("| Test calls an engine that it does not start")
+        version_gate = (
+            "Apply the [Camunda 8.8 target](#camunda-88-target) table before any "
+            "client-shape row."
         )
-        scope_confirmation = reference.split("## Scope confirmation", 1)[1].split(
-            "\n## ", 1
-        )[0]
-        shared_scope_rule = next(
-            row
-            for row in scope_confirmation.splitlines()
-            if row.startswith("| A remote-engine test reads a shared engine URL")
+        self.assertIn(version_gate, classification)
+        self.assertLess(
+            classification.index(version_gate),
+            classification.index("| Load, performance, or end-to-end UI test against Camunda 7"),
         )
-        shared_precedence_rule = next(
-            row
-            for row in scope_confirmation.splitlines()
-            if row.startswith("| 5 |")
+        camunda_88 = reference.split("## Camunda 8.8 target", 1)[1].split("\n## ", 1)[0]
+        for handling in (
+            "| Migrate | Report only |",
+            "| Migrate to CPT | Report only |",
+            "| Migrate (lower priority) | Report only |",
+        ):
+            with self.subTest(handling=handling):
+                self.assertIn(handling, camunda_88)
+
+    def test_shared_engine_definition_matches_report_only_boundary(self):
+        reference = REFERENCE.read_text(encoding="utf-8")
+        definition_start = reference.index("A **shared-engine test**")
+        definition_end = reference.index("\n\n", definition_start)
+        shared_engine_definition = " ".join(
+            reference[definition_start:definition_end].lower().split()
         )
         handling_overrides = reference.split("## Handling overrides", 1)[1].split(
             "\n## ", 1
@@ -397,46 +305,40 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         shared_override_rule = next(
             row
             for row in handling_overrides.splitlines()
-            if row.startswith("| A remote-engine test reads a shared engine URL")
+            if row.startswith("| A shared-engine test |")
         )
         shared_reason = (
             "CPT deletes all runtime data between tests, so the test needs a dedicated "
             "Camunda 8 runtime."
         )
-        self.assertIn(shared_reason, shared_scope_rule)
+        self.assertIn(shared_reason, handling_overrides)
+        self.assertEqual(1, reference.count(shared_reason))
         self.assertIn(
             "When a test uses a shared engine, the skill records this exact reason in "
             "`MIGRATION_REPORT.md`:",
-            reference,
+            handling_overrides,
         )
+        self.assertIn("| Report only |", shared_override_rule)
         self.assertIn(
             "Where the target is Camunda 8.8, append `test migration needs "
             "Camunda 8.9 or later`",
             shared_override_rule,
         )
-
-        for boundary in ("does not start", "neither local nor a test-owned container"):
+        for boundary in (
+            "from any configuration source",
+            "does not start",
+            "neither local nor a test-owned container",
+        ):
             with self.subTest(boundary=boundary):
                 self.assertIn(boundary, shared_engine_definition)
-                self.assertIn(boundary, report_only_rule)
-
-        for name, rule in (
-            ("scope confirmation", shared_scope_rule),
-            ("scope precedence", shared_precedence_rule),
-            ("handling override", shared_override_rule),
-        ):
-            with self.subTest(rule=name):
-                normalized_rule = " ".join(rule.lower().split())
-                self.assertIn("from any configuration source", normalized_rule)
-                self.assertNotIn("environment variable", normalized_rule)
-                self.assertIn("does not start", normalized_rule)
-                self.assertIn(
-                    "neither local nor a test-owned container",
-                    normalized_rule,
-                )
-
-        self.assertIn("does not start", report_only_rule)
-        self.assertIn("neither local nor a test-owned container", report_only_rule)
+        self.assertNotIn("environment variable", shared_engine_definition)
+        classification = reference.split("## Scope and classification", 1)[1].split(
+            "## Runtime and build changes", 1
+        )[0]
+        self.assertIn(
+            "A shared-engine test keeps its [handling override](#handling-overrides).",
+            classification,
+        )
 
     def test_skill_classifies_test_engine_calls_before_http_topology(self):
         code_inventory = " ".join(
@@ -479,14 +381,10 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
         http_topology = " ".join(HTTP_TOPOLOGY.read_text(encoding="utf-8").split())
         self.assertIn(
-            "Classify tests that drive a Camunda 7 engine with `test-migration.md` before building this inventory.",
+            "`SKILL.md` Step 2 defines the production sources that trigger this procedure.",
             http_topology,
         )
-        self.assertIn(
-            "Exclude test-only Engine REST clients and test-owned servers from the production topology.",
-            http_topology,
-        )
-        self.assertIn(test_only_build_filter, http_topology)
+        self.assertNotIn(test_only_build_filter, http_topology)
 
     def test_step_3_http_topology_gate_uses_production_sources(self):
         step_3_topology = SKILL.read_text(encoding="utf-8").split("15. **HTTP topology**", 1)[1].split(
@@ -550,14 +448,13 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 "| `execute(job())` or `managementService.executeJob(id)` for a timer"
             )
         )
-        waiting_timer_rules = " ".join(
-            reference_text.split("## Waiting, timers, and variables", 1)[1]
-            .split("\n## ", 1)[0]
-            .split()
-        ).lower()
+        waiting_timer_rules = reference_text.split("## Waiting, timers, and variables", 1)[1].split(
+            "\n## ", 1
+        )[0]
 
         self.assertIn("processTestContext.increaseTime(duration)", timer_row)
-        for timer_rule in (timer_row, process_timer_row, waiting_timer_rules):
+        self.assertIn("[Engine REST mapping](#engine-rest-mapping)", waiting_timer_rules)
+        for timer_rule in (timer_row, process_timer_row):
             normalized_rule = " ".join(timer_rule.split()).lower()
             with self.subTest(timer_rule=timer_rule[:80]):
                 self.assertIn("timer catch event", normalized_rule)
@@ -573,13 +470,19 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
         reference = REFERENCE.read_text(encoding="utf-8")
         self.assertIn(
-            "| Spring Boot 3.5.x | `io.camunda:camunda-process-test-spring-boot-3` |",
+            "| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | "
+            "`io.camunda:camunda-process-test-spring-boot-3` |",
             reference,
         )
         self.assertIn(
-            "| Spring Boot 4.x | `io.camunda:camunda-process-test-spring` |",
+            "| Spring Boot 4.x with `camunda-spring-boot-starter` | "
+            "`io.camunda:camunda-process-test-spring` |",
             reference,
         )
+        runtime_changes = reference.split("## Runtime and build changes", 1)[1].split(
+            "## Worker behavior", 1
+        )[0]
+        self.assertIn("[Spring harness table](#harness-and-dependencies)", runtime_changes)
         runtime_configuration = " ".join(reference.split())
         self.assertIn(
             "Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.",
@@ -599,7 +502,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
         checklist = CHECKLIST.read_text(encoding="utf-8")
         self.assertIn(
-            "[Spring Process Test artifact selection](test-migration.md#runtime-and-build-changes)",
+            "[Spring Process Test artifact selection](test-migration.md#harness-and-dependencies)",
             checklist,
         )
 

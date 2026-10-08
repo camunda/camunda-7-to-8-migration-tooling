@@ -179,7 +179,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
 
         summary_start = skill.index("#### Summary")
-        summary_end = skill.index("#### Custom incident notifications", summary_start)
+        summary_end = skill.index("### Step 3: Execute Migration", summary_start)
         summary = skill[summary_start:summary_end].lower()
         self.assertIn("test counts", summary)
         self.assertIn("report only", summary)
@@ -189,7 +189,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
         self.assertIn(
-            "The skill follows `references/test-migration.md` for tests that drive a running Camunda 7 engine, Camunda 7 decision-test CPT mapping, and Spring process-test migration.",
+            "The skill follows `references/test-migration.md` for every Test Inventory row that it migrates.",
             " ".join(skill.split()),
         )
 

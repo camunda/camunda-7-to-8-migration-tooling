@@ -4,17 +4,15 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 
 ## Pre-Interview Detection
 
-Pick a candidate project root (use provided argument or current working directory), then:
-1. Detect build tool from `pom.xml` (Maven) or `build.gradle` / `build.gradle.kts` (Gradle)
-2. Glob for models: `**/*.bpmn`, `**/*.bpmn20.xml`, `**/*.dmn`, `**/*.dmn11.xml`
-
-This shapes the scope question. The confirmed scan after Q1 gates whether to offer C7 engine options.
+Pick a candidate project root from the provided argument or the current working directory. Then run
+the Step 1 detection in `SKILL.md`. The detection shapes the scope question. The confirmed scan after
+Q1 gates whether to offer C7 engine options.
 
 ## Question Batching Rules
 
 - At most 4 questions per prompt
 - Every question with `options` must have at least 2 options
-- Batch: Prompt 1 = Q1, then re-scan, Prompt 2 = Q2+Q3, Prompt 3 = conditional Q4/Q5/Q5a/Q6
+- Follow the prompt order in `SKILL.md` Step 1
 
 Ask Question 7 in a separate prompt after Step 2 identifies an HTTP topology. Do not add it to
 Prompt 3 because that prompt can already contain four questions.
@@ -82,10 +80,8 @@ Include only if user selected model migration.
   requirement for the local CLI.
 - E2. Provide a model path - wait for user to provide another file/directory
 
-For Code + models, preflight Java separately for each selected phase.
-M1 and E1 use Java 21 or later. OpenRewrite uses Java 21-25.
-Approach B, M2, and M3 do not require Java for their selected paths.
-Preflight a separate M1 or E1 phase on its own.
+For Code + models, preflight Java separately for each selected phase with the Java runtime table in
+`SKILL.md`.
 
 ## Question 5a - Model Execution Mode
 

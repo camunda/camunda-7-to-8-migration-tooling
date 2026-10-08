@@ -7,7 +7,7 @@ Project documentation means README files, runbooks, deployment guides, form guid
 ## Step 2: Assessment
 
 1. Inspect root and module README files, operational guides, deployment instructions, and form instructions.
-2. Search documentation for C7 dependency coordinates, `org.camunda.bpm`, `ProcessEngine`, and `RuntimeService`.
+2. Search documentation for C7 dependency coordinates, `org.camunda.bpm`, `ProcessEngine`, `RuntimeService`, and embedded-engine claims.
 3. Search for `camunda:formKey`, `embedded:app:`, `/camunda/app/`, `/engine-rest`, and rollback assumptions.
 4. Inspect application profiles, port settings, worker startup commands, form resources, and process-test commands.
 5. Inspect every existing CI workflow and the build or test scripts that it calls.
@@ -15,8 +15,6 @@ Project documentation means README files, runbooks, deployment guides, form guid
 7. Compare each document and workflow with the code and model inventories.
 
 Do not classify a document from its title alone.
-While the skill assesses the project, it does not edit project files other than `MIGRATION_REPORT.md`.
-Do not record credentials, tokens, or private endpoint values in `MIGRATION_REPORT.md`.
 
 Use this table to classify each document:
 
@@ -43,7 +41,6 @@ Record parity gaps, including transaction or rollback changes, as open items.
 Record profiles, ports, worker commands, form decisions, and parity gaps for each updated document in `MIGRATION_REPORT.md`.
 Never guess a URL, profile, port, worker name, form mapping, or parity decision.
 If the project does not document a value, ask the user or leave an open item.
-Never publish credentials, tokens, or private endpoint values in documentation, CI logs, or `MIGRATION_REPORT.md`.
 
 While the user selects assessment-only or analyze-only, record proposed documentation updates in `MIGRATION_REPORT.md` instead of editing those documents.
 
@@ -108,7 +105,6 @@ List every workflow that builds, tests, packages, publishes, or deploys migrated
 
 Use a table with these columns: Check, Command or workflow, Runtime, Result, Evidence.
 Record every applicable packaging, configuration, BPMN lint, and process-test result.
-Replace sensitive values with `<redacted>`.
 Record a CI run link only when it does not expose private endpoints or credentials.
 While the user selects assessment-only or analyze-only, record checks as `not run`.
 Set the readiness verdict to `not assessed`.

@@ -6,9 +6,7 @@ Use this when the scope is Code + models.
 
 ## Execution Order
 
-When `test_run_mode` is `run`, use the phase order in `references/test-migration.md`.
-
-Follow that reference for the baseline, test mapping, freeze, and parity checks.
+When `test_run_mode` is `run`, use the Step 3 order in `SKILL.md`.
 
 When no in-scope test requires that order, the code and model paths are independent.
 Run models first because the diagrams define job types and listeners for the code. (SHOULD)
@@ -17,8 +15,8 @@ Follow the user's preference.
 ## Cross-Check After Both Complete
 
 Cross-reference the grouped Diagram Converter findings (see `model-migration-approaches.md` step 5) against the code migration output. First detect the mapping shape, then apply the matching check.
-Run the `SKILL.md` Step 5 verification gate before assigning **no action** to a category/impact row with a
-`converted-c8-*` BPMN or DMN copy.
+Run the verification gate in `model-migration-approaches.md` before assigning **no action** to a
+category/impact row with a `converted-c8-*` BPMN or DMN copy.
 
 When M2 is in scope without a Diagram Converter report, scan every `zeebe:taskDefinition/@type` in
 each converted BPMN file. Read the corresponding original Camunda 7 implementation attribute and
@@ -125,39 +123,28 @@ Keep the existing needs-fix evidence until that check passes.
 ### 2c. Unsupported start-event listener scope
 
 When a model finding has messageId `execution-listener-on-start-event`, use the relocation procedure
-in `model-migration-approaches.md` before completing the code cross-check.
-Confirm that the chosen target supports execution listeners on the enclosing process or subprocess
-before you offer relocation.
-If the chosen target is earlier than Camunda 8.6, do not offer relocation.
-Keep the model category **needs review** and offer manual migration for a target earlier than
-Camunda 8.6.
+in `model-migration-approaches.md` step 5d.3 before completing the code cross-check.
 Resolve the original listener implementation.
 Resolve its recreated Camunda 8 listener type.
 Check that the migrated worker or connector route covers the recreated listener type.
-Keep the model category **needs review** when the target support is unconfirmed, the user declines
-relocation, or the route is uncovered.
+Keep the model category **needs review** while the route is uncovered.
 Record the target process or subprocess and the worker or connector evidence in `MIGRATION_REPORT.md`.
 
 ### 3. FEEL method-invocation category
 
-Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). These are the model-side occurrences of FEEL method-invocation (`code-transform-checklist.md` item 7): a JUEL expression invoked a Java method, on a bean or a plain variable (e.g. `${execution.getVariable("a").size()}`). The category applies regardless of element type: sequence-flow condition expressions, `multiInstanceLoopCharacteristics` `collection`/completion conditions, callActivity `calledElement`, timer expressions, input/output parameters, or job/user-task attributes (assignee, dueDate, priority, ...). The remediation is the same in every case: a preceding job worker, execution listener, or DMN business rule table computes the value into a plain variable that FEEL can read.
+Take all rows with messageId `expression-method-not-possible` (message contains "Method invocation is not possible in FEEL"). These are the model-side occurrences of the FEEL method-invocation category in `code-transform-checklist.md` item 7, for every element type.
 
 Handle these rows as ONE named category, not one by one:
 
 - Group every occurrence under the named category **FEEL method-invocation** and surface one total count. Break it down per element type via the `elementType` column or message context prefix (MAY). Never list occurrences row by row. This is often the single largest work item in a real report.
-- Present one recommended decision point for the whole category, listing ALL options: **precompute via job worker** (default), **compute via execution listener** (no visible shape added), **refactor into DMN** (business-rule logic), or the exceptional **JUEL job worker** fallback. The full decision process is `code-transform-checklist.md` item 7. Let the user decide once per category, or per sub-group of occurrences sharing one invoked method/expression.
+- Collect one decision for the whole category, or per sub-group of occurrences sharing one invoked method/expression, with the decision process in `code-transform-checklist.md` item 7.
 - Cross-check against the code migration output. Extract each distinct invoked method/expression from the findings' `message` column. Check that the chosen remediation covers each one. The remediation is either a `@JobWorker` (service task or execution listener) that computes the value into a variable, or a DMN definition referenced by a preceding business rule task. List invoked methods with no remediation as uncovered.
 
 Record the category, its total count, the decision taken, and any uncovered invoked methods in MIGRATION_REPORT.md.
 
 ### 4. Generated-form code and behavior
 
-For every `form-data` or `generated-form-property-source` item, cross-check the code inventory before accepting the generated form:
-
-- Locate `FormFieldValidator` implementations and validator beans or classes named by `camunda:constraint name="validator"`.
-- Locate `FormService`, `TaskFormData`, `StartFormData`, `FormField`, `FormProperty`, `submitTaskForm`, `submitStartForm`, and form REST API consumers.
-- Locate code that depends on a form field becoming the business key, custom field properties, C7 Java `Date`/`Long` values, form-property aliases/expressions, or server-side validation.
-- Check that the chosen form mapping and any worker/listener/API redesign cover every consumer.
+For every `form-data` or `generated-form-property-source` item, run the application-consumer cross-check in `form-migration.md` before accepting the generated form. Check that the chosen form mapping and any worker/listener/API redesign cover every consumer.
 
 Use `form-migration.md` to collect decisions. Uncovered consumers are **needs fix**. A pending mapping or enforcement decision is **needs review**. A generated form is not accepted merely because its JSON renders.
 
@@ -169,7 +156,7 @@ For every `c7-embedded-html-form`, `c7-external-form-reference`, `c7-camunda-for
 - Locate `FormService`, `submitTaskForm`, `submitStartForm`, `/form-variables`, and Camunda 7 task REST API clients. A kept external application depends on these callers, and they must all be rewritten against the Camunda 8 Orchestration Cluster API.
 - Locate code that serves or packages embedded form HTML (for example resources under `src/main/webapp/forms`) so the user can decide what happens to those files.
 
-Use `form-reference-migration.md` to collect decisions. A category stays **needs review** until its procedure-specific decision or prerequisite is complete. Embedded, external, and generic forms need a remediation decision. Camunda Form references need form discovery and a binding decision. Dynamic references need possible-value enumeration before a decision. The category is then **needs fix** until the relevant work is finished: a rebuilt form is accepted and linked, a custom-application integration is confirmed by a named owner, or a Camunda Form is converted, relinked, and deployed. If the `.form` file cannot be found for a Camunda Form reference, keep the row `blocked` and the category at **needs review** until the user resolves that prerequisite. A kept reference is never **no action** on the strength of the converter having copied it.
+Use `form-reference-migration.md` to collect decisions and apply its verdict lifecycle.
 
 ### 5. Now-redundant workaround code (deletion candidates)
 
@@ -223,7 +210,3 @@ When both migrations complete, ask whether to wire converted files into applicat
 
 When the skill creates or keeps a `@SpringBootApplication` class in a Maven module, apply "Maven
 build wiring" in `references/code-transform-checklist.md`.
-
-## Report Keeping
-
-Keep both inventories and both sets of results in `MIGRATION_REPORT.md` in the confirmed project root.

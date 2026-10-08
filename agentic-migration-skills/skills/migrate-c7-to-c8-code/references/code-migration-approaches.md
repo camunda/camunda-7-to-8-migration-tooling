@@ -20,26 +20,16 @@ One class does not predict the rest of the project.
 | Pair with AI review | Semantic or mixed delegate/client code needs API and business-behavior context. |
 | Still needs a team decision | Domain behavior, eventual consistency, transaction boundaries, architectural separation, and validation. |
 
-## Test migration order
-
-When `test_run_mode` is `run`, follow the phase order in `references/test-migration.md`.
-
 ## Approach A - OpenRewrite + AI
 
 Use this approach for repeated, supported, primarily syntactic transformations or a deterministic
 first diff.
 
-### Delegate transaction gate
-
-Before `REWRITE_COMMAND`, the skill runs the transaction and security gate in item 3 of
-`code-transform-checklist.md` for every C7 JavaDelegate.
-When the gate blocks migration or an open item lacks a user decision, the skill stops OpenRewrite
-and asks the user for the required evidence or decision.
-The skill reruns the gate after the user supplies evidence or decisions.
-The skill runs `REWRITE_COMMAND` only after every gate passes or every open item has a recorded user
-decision in `MIGRATION_REPORT.md`.
-
 ### Run OpenRewrite
+
+Run `REWRITE_COMMAND` only after the delegate transaction and security gate in
+`code-transform-checklist.md` item 3 passes for every C7 JavaDelegate, or `MIGRATION_REPORT.md`
+records a user decision for every open item.
 
 Use the latest recipe version in the target minor:
 
@@ -108,32 +98,14 @@ Set `REWRITE_COMMAND` to the matching build command:
 
 This Java check applies only to OpenRewrite Approach A.
 It does not limit M1, E1, M2, or M3.
-For Code + models, choose a runtime for each phase separately.
 If no compatible code runtime exists, ask for one or select Approach B.
-Do not block M1 or E1 when its CLI runtime meets the model requirement.
 
-1. Run `java -version` from `PATH`, capture stderr, and record the major version. Show the executable:
-   `command -v java` on macOS/Linux, `Get-Command java` in PowerShell, or `where java` in Windows
-   Command Prompt.
+1. Validate the code-phase runtime with the Java runtime procedure in `SKILL.md`. Never use an
+   unvalidated Java executable.
    - The recipe module supports Java 21-25 (`[21,26)`). Check the project's OpenRewrite
      configuration first for a narrower range.
-   - If Java is missing or outside that range, then ask for a JDK home that contains `bin/java`.
-     Never install Java or change the user's system configuration.
-   - Validate the supplied home with its `bin/java` (Windows: `bin/java.exe`) and `-version`.
-     Reject a stale path, JRE-only directory, missing `bin/javac` (Windows: `bin/javac.exe`), or
+   - Reject a stale path, JRE-only directory, missing `bin/javac` (Windows: `bin/javac.exe`), or
      incompatible version.
-   - When several compatible homes exist, use the lowest version. Prefer 21, then 22, 23, 24, or
-     25. (SHOULD)
-   - Read the `java.home` property from the selected executable's
-     `-XshowSettings:properties -version` output.
-   - Use that property value as the candidate `JAVA_HOME`. Never derive it from the executable path.
-   - Before setting the phase environment, run `<JAVA_HOME>/bin/java -version` and confirm that it
-     reports the same major as the selected executable. On Windows, use `<JAVA_HOME>\bin\java.exe`.
-   - If the property is missing or its `bin/java` is missing or reports a different major, ask for
-     another JDK.
-   - Set `JAVA_HOME` to the validated property value.
-   - Set `PATH` to `<JAVA_HOME>/bin` followed by the existing `PATH`. On Windows, use
-     `<JAVA_HOME>\bin`. Never use an unvalidated Java executable.
 
 2. Check the build files for a Spotless configuration.
 
@@ -164,18 +136,15 @@ Do not block M1 or E1 when its CLI runtime meets the model requirement.
 
 ### AI cleanup after OpenRewrite
 
-Before AI cleanup, compare each generated `@JobWorker` with its source. Confirm its business logic,
-inputs, outputs, exception behavior, and job type. Do not delete or rename source logic until this
-comparison passes. Successful compilation does not confirm behavior.
-
 Ask whether to commit the OpenRewrite result before cleanup. Then ask whether to run AI cleanup.
-Proceed only on YES. Load the pattern catalog (see references/pattern-catalog-sources.md), then:
+Proceed only on YES. Then:
 
-- Apply the **OpenRewrite output: de-recipe cleanup** section to every generated `@JobWorker`
-  method. Use the concrete examples in `30-glue-code/idiomatic-job-worker-cleanup.md`.
+- Apply the **OpenRewrite output: de-recipe cleanup** section of `code-transform-checklist.md` to
+  every generated `@JobWorker` method.
 - Resolve all `// TODO` comments it inserted, and fix compile errors.
-- Apply checklist items 1 (dependencies/configuration), 5 (listeners), 6 (tests), 7 (JUEL), and 8
-  (generated-form dependencies). Apply uncovered parts of item 2 (client code).
+- Apply checklist items 1 (dependencies/configuration), 5 (listeners), 6 (tests), 7 (JUEL), 8
+  (generated-form dependencies), and 9 (incident notifications). Apply uncovered parts of item 2
+  (client code).
 
 ---
 
@@ -185,8 +154,7 @@ Use this approach for the AI-only cases in the selection table. It avoids recipe
 capability affects the result. Apply the same behavior and semantic validation as the recipe-assisted
 path.
 
-Load the pattern catalog (see references/pattern-catalog-sources.md). Work Transform checklist items
-1-8 in order. Confirm each item before the next.
+Work every Transform checklist item in order.
 
 ---
 
