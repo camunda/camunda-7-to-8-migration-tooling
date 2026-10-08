@@ -240,12 +240,14 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
 
         self.assertIn(
             "when the target is Camunda 8.9 or later, verify that every process test with "
-            "handling `Migrate to CPT` was migrated",
+            "handling `Migrate to CPT` and every remote-engine test with handling "
+            "`Migrate (lower priority)` were migrated",
             skill,
         )
         self.assertIn(
-            "When the target is Camunda 8.8, verify that each such test keeps `Report only` "
-            "handling with the reason `test migration needs Camunda 8.9 or later`.",
+            "When the target is Camunda 8.8, verify that each such process test and "
+            "remote-engine test keeps `Report only` handling with the reason "
+            "`test migration needs Camunda 8.9 or later`.",
             skill,
         )
         self.assertIn("match a converted copy or an accepted form in the inventory", skill)
