@@ -13,7 +13,8 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |
 | `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |
 | `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
-| `GET /history/activity-instance?processInstanceId=...` | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | Preserve required activity order. |
+| `GET /history/activity-instance?processInstanceId=...` when checking completed activity IDs or order only | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | These assertions cover completed elements only. Handle canceled or terminated elements separately. |
+| Other `/history/activity-instance` queries, including `unfinished`, `canceled`, assignee, time, or count filters | `newElementInstanceSearchRequest()` with equivalent filters and AssertJ, or manual migration | Filter by process-instance key and preserve the requested state and filters. Mark the case manual when C8 cannot express them. |
 | `GET /process-instance/{id}/variables` or `GET /history/variable-instance` | `hasVariable(name, value)` or `hasVariables(map)` | Compare plain JSON values. |
 | `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
 | `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first. Assert the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |

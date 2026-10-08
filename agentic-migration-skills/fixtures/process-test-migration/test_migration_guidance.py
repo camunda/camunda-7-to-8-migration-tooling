@@ -271,6 +271,11 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
 
         self.assertEqual("No exact counterpart", cells[1])
         self.assertIn("hasNotActivatedElements", cells[2])
+        self.assertIn("also fails while the element is active", cells[2])
+        self.assertIn(
+            "already fails after the element completes or terminates",
+            cells[2],
+        )
         self.assertIn(
             "40-test-assertions/10-assertions/80-assertion-mapping.md",
             REFERENCE_PATH.read_text(),

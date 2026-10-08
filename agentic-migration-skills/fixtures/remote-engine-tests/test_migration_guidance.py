@@ -441,7 +441,6 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("/external-task/fetchandlock", "completejob"),
             ("/external-task/{id}/bpmnerror", "throwbpmnerrorfromjob"),
             ("/history/process-instance/{id}", "iscompleted"),
-            ("/history/activity-instance", "hascompletedelements"),
             ("/history/variable-instance", "hasvariable"),
             ("/incident?processinstanceid", "hasactiveincidents"),
         ):
@@ -453,6 +452,30 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
             normalized_reference,
         )
+
+    def test_activity_history_mapping_preserves_requested_states_and_filters(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        activity_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if "/history/activity-instance" in row
+        ]
+
+        self.assertEqual(2, len(activity_rows))
+        completed_row = next(
+            row for row in activity_rows if "completed activity ids" in row
+        )
+        self.assertIn("hascompletedelements", completed_row)
+        self.assertIn("order", completed_row)
+        self.assertIn("canceled", completed_row)
+        self.assertIn("terminated", completed_row)
+
+        filtered_row = next(row for row in activity_rows if "unfinished" in row)
+        for filter_name in ("canceled", "assignee", "time", "count"):
+            with self.subTest(filter_name=filter_name):
+                self.assertIn(filter_name, filtered_row)
+        self.assertIn("newelementinstancesearchrequest", filtered_row)
+        self.assertIn("manual", filtered_row)
 
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
         reference_text = REFERENCE.read_text(encoding="utf-8")

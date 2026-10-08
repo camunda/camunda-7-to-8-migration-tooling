@@ -3513,7 +3513,7 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
 | `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Both inspect the current state. If absence is meaningful only after a later point, assert that observation point first. See below. |
 | `hasPassed("A")`, `hasPassedInOrder("A", "B")` | `hasCompletedElements("A")`, `hasCompletedElementsInOrder("A", "B")` | Camunda 7 counts finished activity instances, including cancelled ones. Use `hasTerminatedElements("A")` when a boundary event interrupted the element. |
-| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements("A")` is stricter because it also fails when the element is active, completed, or terminated. Use it only when the test means the element was never activated. Otherwise decide per test and record the decision. |
+| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements("A")` is stricter because it also fails while the element is active. Camunda 7 `hasNotPassed` already fails after the element completes or terminates. Use the CPT assertion only when the test means the element was never activated. Otherwise decide per test and record the decision. |
 | `isEnded()` | `isCompleted()` or `isTerminated()` | Camunda 7 `isEnded()` passes for both completed and cancelled instances. |
 | `isNotEnded()`, `isActive()` | `isActive()` | |
 | `isStarted()` | `isCreated()` | |
@@ -4164,7 +4164,8 @@ Use these mappings for in-scope remote-engine tests. Deploy converted copies and
 | `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | Use `mockJobWorker(type).thenComplete(vars)` when the test replaces the worker boundary. |
 | `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |
 | `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
-| `GET /history/activity-instance?processInstanceId=...` | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | Preserve required activity order. |
+| `GET /history/activity-instance?processInstanceId=...` when checking completed activity IDs or order only | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | These assertions cover completed elements only. Handle canceled or terminated elements separately. |
+| Other `/history/activity-instance` queries, including `unfinished`, `canceled`, assignee, time, or count filters | `newElementInstanceSearchRequest()` with equivalent filters and AssertJ, or manual migration | Filter by process-instance key and preserve the requested state and filters. Mark the case manual when C8 cannot express them. |
 | `GET /process-instance/{id}/variables` or `GET /history/variable-instance` | `hasVariable(name, value)` or `hasVariables(map)` | Compare plain JSON values. |
 | `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
 | `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first. Assert the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
