@@ -35,6 +35,12 @@ MESSAGE_CORRELATION_PATTERN = (
     REPO_ROOT
     / "code-conversion/patterns/20-client-code/10-process-engine/correlate-messages.md"
 )
+CAMUNDA_8_PROCESS_EXAMPLES = (
+    REPO_ROOT
+    / "code-conversion/patterns/code-examples/camunda-8/src/main/java/io/camunda/conversion/process_instance"
+)
+START_PROCESS_EXAMPLE = CAMUNDA_8_PROCESS_EXAMPLES / "StartProcessInstance.java"
+HANDLE_USER_TASKS_EXAMPLE = CAMUNDA_8_PROCESS_EXAMPLES / "HandleUserTasks.java"
 PATTERN_SOURCES = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
@@ -544,6 +550,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "c8 message correlation cannot set a `businessid`",
             message_mapping.lower(),
         )
+        message_start_example = START_PROCESS_EXAMPLE.read_text(encoding="utf-8").split(
+            "startProcessByMessage", 1
+        )[1]
+        self.assertIn(".withoutCorrelationKey()", message_start_example)
+        self.assertNotIn("String correlationKey", message_start_example)
+        self.assertNotIn(".correlationKey(", message_start_example)
 
     def test_message_correlation_requires_a_preinitialized_subscription_key(self):
         mapping = MESSAGE_CORRELATION_PATTERN.read_text(encoding="utf-8")
@@ -571,6 +583,10 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
         self.assertIn(".allowOverride(false)", claim_mapping)
         self.assertIn("claim fails when the task already has an assignee", claim_mapping)
+        claim_example = HANDLE_USER_TASKS_EXAMPLE.read_text(encoding="utf-8").split(
+            "claimUserTask", 1
+        )[1].split("completeUserTask", 1)[0]
+        self.assertIn(".allowOverride(false)", claim_example)
 
     def test_junit_harness_inventories_camunda_cfg_xml_settings(self):
         junit_pattern = " ".join(JUNIT_PATTERN.read_text().split())

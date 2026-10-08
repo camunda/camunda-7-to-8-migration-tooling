@@ -486,6 +486,11 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             for row in mapping.splitlines()
             if "/external-task/fetchandlock" in row
         )
+        bpmn_error_row = next(
+            row
+            for row in mapping.splitlines()
+            if "/external-task/{id}/bpmnerror" in row
+        )
 
         self.assertIn("test-controlled", normalized_worker_behavior)
         self.assertIn("10-engine-rest-mapping.md", normalized_worker_behavior)
@@ -497,7 +502,29 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "processtestcontext.mockjobworker(type).thencomplete(variables)",
             normalized_worker_behavior,
         )
-        self.assertIn("processtestcontext.completejob(type, vars)", fetch_and_lock_row)
+        selector = (
+            "jobselectors.byjobtype(type).and("
+            "jobselectors.byprocessinstancekey(processinstancekey))"
+        )
+        for row in (fetch_and_lock_row, bpmn_error_row):
+            with self.subTest(row=row):
+                self.assertIn(selector, row)
+        for rule in (
+            "first matching job",
+            "exactly one match",
+            "exact c8 job key",
+            "manual migration",
+        ):
+            with self.subTest(rule=rule):
+                self.assertIn(rule, mapping)
+
+        job_pattern = JOB_PATTERN.read_text(encoding="utf-8").lower()
+        self.assertIn(
+            "jobselectors.byjobtype(jobtype).and("
+            "jobselectors.byprocessinstancekey(processinstancekey))",
+            job_pattern,
+        )
+        self.assertIn("exactly one job", job_pattern)
         self.assertIn("mockjobworker(type).thencomplete(vars)", fetch_and_lock_row)
 
     def test_dependency_changes_keep_independent_rules_separate(self):
@@ -563,7 +590,14 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                 self.assertIn(request_field.lower(), start_row.lower())
         self.assertIn("manual migration", start_row.lower())
         self.assertIn("create-with-result", start_row.lower())
-        self.assertIn("map `startinstructions` explicitly", start_row.lower())
+        self.assertIn(
+            "for c7 `startinstructions`, map only `startbeforeactivity` instructions without "
+            "instruction-local variables to the c8.9 `.startbeforeelement(elementid)` operation",
+            start_row.lower(),
+        )
+        self.assertIn("`startafteractivity`", start_row.lower())
+        self.assertIn("`starttransition`", start_row.lower())
+        self.assertIn("instruction-local variables", start_row.lower())
         self.assertIn(
             "no matching request options for `caseinstanceid`, "
             "`skipcustomlisteners`, or `skipiomappings`",
@@ -580,11 +614,17 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "throwBpmnErrorFromJob(type, code, errorMessage, vars)",
+            "throwBpmnErrorFromJob(JobSelectors.byJobType(type).and("
+            "JobSelectors.byProcessInstanceKey(processInstanceKey)), code, errorMessage, vars)",
+            bpmn_error_row,
+        )
+        self.assertIn(
+            "throwBpmnErrorFromJob(JobSelectors.byJobType(type).and("
+            "JobSelectors.byProcessInstanceKey(processInstanceKey)), code, vars)",
             bpmn_error_row,
         )
         self.assertIn("when supplied", bpmn_error_row.lower())
-        self.assertIn("three-argument", bpmn_error_row.lower())
+        self.assertIn("overload without `errormessage`", bpmn_error_row.lower())
         self.assertIn("preserve", bpmn_error_row.lower())
 
     def test_message_mapping_preserves_supported_fields_and_marks_gaps(self):

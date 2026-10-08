@@ -9,7 +9,7 @@ The CPT clock and job utilities in this pattern are available from Camunda 8.8.
 | `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion for the next state. |
 | `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first, or the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
 | `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
-| Completing an external task with `complete(externalTask(), vars)` or `fetchAndLock(...)` followed by `complete(...)` | `processTestContext.completeJob(jobType, vars)` | Use the converted topic as the job type. Use `throwBpmnErrorFromJob` for `handleBpmnError`. |
+| Completing an external task with `complete(externalTask(), vars)` or `fetchAndLock(...)` followed by `complete(...)` | `processTestContext.completeJob(JobSelectors.byJobType(jobType).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), vars)` | Preserve the C7 fetch filters and assert that the selector matches exactly one job because CPT acts on the first match. Use an equivalent filtered search and the exact C8 job key, or use manual migration, when the selector is not unique or cannot preserve the filters. Use `throwBpmnErrorFromJob` with the same selector for `handleBpmnError`. |
 | An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | A failing Camunda 8 worker creates an incident after its retries instead of throwing into the test. |
 
 ## Camunda 7
