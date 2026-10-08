@@ -441,17 +441,64 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             ("/external-task/fetchandlock", "completejob"),
             ("/external-task/{id}/bpmnerror", "throwbpmnerrorfromjob"),
             ("/history/process-instance/{id}", "iscompleted"),
-            ("/history/variable-instance", "hasvariable"),
+            ("/process-instance/{id}/variables", "hasvariable"),
             ("/incident?processinstanceid", "hasactiveincidents"),
         ):
             with self.subTest(source=source):
                 matching_rows = [row for row in mapping_rows if source.lower() in row]
                 self.assertEqual(1, len(matching_rows), f"Expected one mapping row for {source}")
                 self.assertIn(target, matching_rows[0])
+        history_variable_rows = [
+            row for row in mapping_rows if "/history/variable-instance" in row
+        ]
+        self.assertEqual(1, len(history_variable_rows))
+        history_variable_row = history_variable_rows[0]
+        self.assertNotIn("hasvariable(", history_variable_row)
+        for required in (
+            "newvariablesearchrequest",
+            "processinstancekey",
+            "scopekey",
+            "name",
+            "eventually consistent",
+            "historic",
+            "manual migration",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, history_variable_row)
+        self.assertIn(
+            "eventually consistent query apis",
+            normalized_reference,
+        )
         self.assertIn(
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
             normalized_reference,
         )
+
+    def test_fetch_and_lock_policy_points_to_catalog_mapping(self):
+        reference = REFERENCE.read_text(encoding="utf-8")
+        worker_behavior = reference.split("## Worker behavior", 1)[1].split(
+            "## Waiting, timers, and variables", 1
+        )[0]
+        normalized_worker_behavior = " ".join(worker_behavior.split()).lower()
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8").lower()
+        fetch_and_lock_row = next(
+            row
+            for row in mapping.splitlines()
+            if "/external-task/fetchandlock" in row
+        )
+
+        self.assertIn("test-controlled", normalized_worker_behavior)
+        self.assertIn("10-engine-rest-mapping.md", normalized_worker_behavior)
+        self.assertNotIn(
+            "processtestcontext.completejob(type, variables)",
+            normalized_worker_behavior,
+        )
+        self.assertNotIn(
+            "processtestcontext.mockjobworker(type).thencomplete(variables)",
+            normalized_worker_behavior,
+        )
+        self.assertIn("processtestcontext.completejob(type, vars)", fetch_and_lock_row)
+        self.assertIn("mockjobworker(type).thencomplete(vars)", fetch_and_lock_row)
 
     def test_dependency_changes_keep_independent_rules_separate(self):
         dependency_rules = " ".join(
@@ -771,7 +818,17 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn("@CamundaSpringProcessTest", c8_test)
         self.assertIn('@TestDeployment(resources = "converted-c8-payment.bpmn")', c8_test)
         self.assertIn("newCreateInstanceCommand()", c8_test)
-        self.assertIn('hasVariable("charged", true)', c8_test)
+        for required in (
+            "newVariableSearchRequest()",
+            "processInstanceKey(processInstance.getProcessInstanceKey())",
+            'name("charged")',
+            "withFullValues()",
+            "await().atMost(Duration.ofSeconds(10)).untilAsserted",
+            'getValue()).isEqualTo("true")',
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, c8_test)
+        self.assertNotIn('hasVariable("charged", true)', c8_test)
         self.assertIn('@JobWorker(type = "charge-payment")', c8_worker)
         self.assertIn('type="charge-payment"', c8_bpmn)
         self.assertIn("<artifactId>camunda-process-test-spring</artifactId>", c8_pom)
@@ -781,9 +838,17 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_mock_worker_guidance_configures_job_completion(self):
         reference = REFERENCE.read_text(encoding="utf-8")
         engine_rest = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        worker_guidance = reference.split("## Worker behavior", 1)[1].split(
+            "## Waiting, timers, and variables", 1
+        )[0]
         self.assertIn(
+            "10-engine-rest-mapping.md",
+            worker_guidance,
+        )
+        self.assertNotIn("processTestContext.completeJob(type, variables)", worker_guidance)
+        self.assertNotIn(
             "processTestContext.mockJobWorker(type).thenComplete(variables)",
-            reference,
+            worker_guidance,
         )
         self.assertIn("mockJobWorker(type).thenComplete(vars)", engine_rest)
 

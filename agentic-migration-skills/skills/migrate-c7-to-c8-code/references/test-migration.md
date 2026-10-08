@@ -470,10 +470,8 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
    deployed model paths, assertions, and job, timer, message, or signal operations.
 2. Resolve every source deployment to the model files that it actually loads. Map each file to a
    converted copy named `converted-c8-*`.
-3. Replace every implicit Camunda 7 `@Deployment` with an explicit CPT `@TestDeployment`. Use the
-   converted-copy path resolved by the Test Inventory.
-4. Keep the class and method annotation scope. A method-level `@TestDeployment` takes precedence
-   over a class-level annotation.
+3. Record the effective deployment resources and annotation scope in the Test Inventory.
+4. Use `40-test-assertions/20-test-setup/20-deployment.md` for the exact C7-to-CPT deployment mapping.
 5. Deploy only converted copies and accepted forms from the Test Inventory. Never deploy an
    original model or a form outside the inventory.
 6. Preserve the behavior of every passing Camunda 7 test.
@@ -921,7 +919,7 @@ Without approval, the mock-boundary review fails.
 | C7 mock library | A remaining test uses the library. | Keep the dependency. |
 | C7 mock library | No remaining test uses the library. | Remove the dependency. |
 | `camunda.cfg.xml` | A remaining C7 test uses the file. | Keep the file and its required `MockExpressionManager` settings. |
-| `camunda.cfg.xml` | No remaining C7 test uses the file. | Delete the file and its `MockExpressionManager` settings. Do not retain it for CPT tests. |
+| `camunda.cfg.xml` | No remaining C7 test uses the file. | Follow the inventory and user-decision rule in `40-test-assertions/20-test-setup/10-junit-harness.md` before removing the file. |
 
 When migrated tests still use Mockito, the skill keeps Mockito.
 
@@ -985,13 +983,13 @@ Without Spring, open the migrated worker in `@BeforeEach` with the injected `Cam
 Store each returned `JobWorker` in a field.
 Close each stored `JobWorker` in `@AfterEach`.
 
-When the Camunda 7 test itself called `/external-task/fetchAndLock` and completed the task, no real worker ran.
-Use `processTestContext.completeJob(type, variables)` or `processTestContext.mockJobWorker(type).thenComplete(variables)` for that boundary.
+When the Camunda 7 test itself called `/external-task/fetchAndLock`, the skill keeps the worker boundary test-controlled.
+Use `40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md` for the exact mapping.
 
 ## Waiting, timers, and variables
 
-Replace Awaitility or `Thread.sleep` polling on engine state with CPT assertions.
-Keep Awaitility only for state outside Camunda.
+Replace Awaitility or `Thread.sleep` polling on process state with CPT assertions.
+Use Awaitility for state outside Camunda and for reads from documented eventually consistent query APIs.
 When the default assertion timeout is too short, the skill sets `CamundaAssert.setAssertionTimeout(Duration)` or `camunda.process-test.assertion.timeout`.
 
 Identify the job type before translating a Camunda 7 `POST /job/{id}/execute` call. The

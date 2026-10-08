@@ -2152,6 +2152,26 @@ class MigrationGuidanceTest(unittest.TestCase):
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
 
+    def test_deployment_mapping_is_catalog_owned(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        inventory_deployment = reference.split("### Inventory and deployment", 1)[1].split(
+            "### Harness and API mappings", 1
+        )[0]
+        deployment_pattern = (
+            REPO_ROOT
+            / "code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("effective deployment resources", inventory_deployment)
+        self.assertIn("annotation scope", inventory_deployment)
+        self.assertNotIn("Replace every implicit Camunda 7 `@Deployment`", inventory_deployment)
+        self.assertNotIn(
+            "method-level `@TestDeployment` takes precedence",
+            inventory_deployment,
+        )
+        self.assertIn("20-test-setup/20-deployment.md", reference)
+        self.assertIn("Implicit `@Deployment`", deployment_pattern)
+
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
             EXPECTED_ASSESSMENT,

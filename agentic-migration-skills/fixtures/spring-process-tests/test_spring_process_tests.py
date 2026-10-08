@@ -526,6 +526,14 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_junit_harness_inventories_camunda_cfg_xml_settings(self):
         junit_pattern = " ".join(JUNIT_PATTERN.read_text().split())
+        build_cleanup = REFERENCE.read_text(encoding="utf-8").split("## Build cleanup", 1)[1].split(
+            "## References", 1
+        )[0]
+        camunda_cfg_cleanup = next(
+            row
+            for row in build_cleanup.splitlines()
+            if row.startswith("| `camunda.cfg.xml` | No remaining C7 test")
+        )
 
         self.assertIn(
             "Before removing `camunda.cfg.xml`, inventory every setting.",
@@ -540,6 +548,11 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "other setting that changes behavior.",
             junit_pattern,
         )
+        self.assertIn(
+            "40-test-assertions/20-test-setup/10-junit-harness.md",
+            camunda_cfg_cleanup,
+        )
+        self.assertNotIn("delete the file", camunda_cfg_cleanup.lower())
 
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())
