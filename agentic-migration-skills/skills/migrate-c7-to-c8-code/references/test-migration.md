@@ -84,20 +84,10 @@ Decision mocks use the mock subtask's `mockDmnDecision` rules.
 
 ### Harness and evaluation mapping
 
-| Camunda 7 | Camunda 8.9 with CPT | Notes |
-|---|---|---|
-| `@Rule DmnEngineRule` or `DmnEngine` built with `DmnEngineConfiguration` | `@CamundaProcessTest` with an injected `CamundaClient` | Camunda 7 evaluates DMN in process. CPT needs a Camunda 8 runtime. |
-| A Spring test that injects `DecisionService` | `@SpringBootTest` with `@CamundaSpringProcessTest` and an injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
-| `dmnEngine.parseDecision("dish", stream)`, `parseDecisions(stream)`, or `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | Deploy the converted DMN copy. A DRD deploys as one resource. |
-| `dmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
-| `Variables.putValue("a", 1).putValue("b", "x")` | A `Map<String, Object>` | The skill keeps the same logical inputs. Camunda 8 serializes map values as JSON. Where a Camunda 7 value is a `Date` or typed value, the skill checks that the converted DMN reads its JSON representation as intended. The skill does not assume the Java type survives serialization. |
-| `result.getSingleResult().getSingleEntry()` or `result.getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and one result. |
-| `result.getSingleResult().getEntry("a")` or `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected outputs. |
-| `result.collectEntries("x")` with hit policy `COLLECT` | The skill parses `response.getDecisionOutput()` as a list of scalar values for one output column, or a list of maps keyed by output name for multiple output columns. The skill selects values by output name and compares rows without relying on their order. | Camunda 8 returns `COLLECT` results in arbitrary order. |
-| `result.collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | The order is defined by the hit policy. |
-| `result.isEmpty()` or `getSingleResult()` returns `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).hasNoMatchedRules()` | |
-| Matched-rule checks through `HistoricDecisionInstance` | `hasMatchedRules(int...)` or `hasNotMatchedRules(int...)` | When the expected rule numbers are a subset of the matched rules, `hasMatchedRules` passes. |
-| An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | The skill checks `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for this response. |
+The code-conversion catalog owns exact decision-test mappings. Fetch
+`40-test-assertions/40-decisions/10-decision-tests.md` for harness, deployment, evaluation, assertion, and failure mappings.
+Spring decision tests also use `40-test-assertions/20-test-setup/30-spring-boot-test.md`.
+The `Test code` selector in `pattern-catalog-sources.md` selects both files.
 
 The skill reads the hit policy and output columns from the converted DMN copy before choosing an assertion.
 When the skill checks a map, it uses the output names from the converted DMN copy.
@@ -118,7 +108,7 @@ The skill never uses `Map.of` or `List.of` to build an expected output that cont
 If the target decision treats those inputs differently from Camunda 7, then the skill records the difference for review instead of dropping the input or adding a default.
 
 When Camunda 7 throws an exception for a decision evaluation, the skill checks the returned Camunda 8 response.
-The skill checks `getFailureMessage()` and `getFailedDecisionId()` for a failed Camunda 8 evaluation.
+The decision-test catalog maps failed evaluations to their response fields.
 The skill does not expect a Camunda 8 evaluation failure to throw.
 
 When a migrated decision test fails, the skill checks the converted DMN findings report.
@@ -128,11 +118,8 @@ The skill does not change the Diagram Converter.
 
 ### Build changes
 
-| Dependency use | Camunda 7 artifact | Camunda 8 test artifact |
-|---|---|---|
-| Standalone DMN tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` and `org.camunda.bpm.dmn:camunda-engine-feel-*` artifacts. | Add `io.camunda:camunda-process-test-java` in test scope. |
-| Spring decision tests | When tests are their only users, the skill removes test-scoped `org.camunda.bpm.dmn` engine and FEEL artifacts. | Use the CPT Spring artifact that matches the production Spring Boot starter. Use `camunda-process-test-spring` with Spring Boot 4 or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. |
-| Process engine used only by tests | When tests are its only users, the skill removes the test-scoped Camunda 7 engine. | Use the CPT artifact for the selected test harness. |
+The catalog's `10-general/dependencies.md` owns the Camunda 7 test-artifact replacements.
+The `Test code` selector in `pattern-catalog-sources.md` loads `10-general/dependencies.md` for each selected test module.
 
 The skill inventories each dependency before removal.
 When production code uses an artifact, the skill keeps it.
@@ -483,10 +470,8 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
    deployed model paths, assertions, and job, timer, message, or signal operations.
 2. Resolve every source deployment to the model files that it actually loads. Map each file to a
    converted copy named `converted-c8-*`.
-3. Replace every implicit Camunda 7 `@Deployment` with an explicit CPT `@TestDeployment`. Use the
-   converted-copy path resolved by the Test Inventory.
-4. Keep the class and method annotation scope. A method-level `@TestDeployment` takes precedence
-   over a class-level annotation.
+3. Record the effective deployment resources and annotation scope in the Test Inventory.
+4. Use `40-test-assertions/20-test-setup/20-deployment.md` for the exact C7-to-CPT deployment mapping.
 5. Deploy only converted copies and accepted forms from the Test Inventory. Never deploy an
    original model or a form outside the inventory.
 6. Preserve the behavior of every passing Camunda 7 test.
@@ -495,46 +480,18 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
 
 ### Harness and API mappings
 
-The mapping table covers engine-backed tests without Spring. Use the code-conversion pattern
-catalog as the source of truth for exact API mappings. Record any disagreement with the catalog in
-`MIGRATION_REPORT.md`.
-
-| Camunda 7 | CPT 8.9 or later | Note |
-|---|---|---|
-| `@Rule ProcessEngineRule`, `@ClassRule`, or `ProcessEngineRule("custom.cfg.xml")` | `@CamundaProcessTest` on the class, with `CamundaClient client` and `CamundaProcessTestContext processTestContext` fields | Configure the CPT runtime in `camunda-container-runtime.properties`. |
-| `@ExtendWith(ProcessEngineExtension.class)` or `@RegisterExtension ProcessEngineExtension` | `@CamundaProcessTest` on the class, with the same fields | |
-| `extends ProcessEngineTestCase` (JUnit 3) | JUnit 5 class with `@CamundaProcessTest` | Add `@Test` to each `testXxx()` method. Annotate an overridden `setUp()` with `@BeforeEach` and an overridden `tearDown()` with `@AfterEach`. Remove the `super.setUp()` and `super.tearDown()` calls. |
-| `extends AbstractProcessEngineRuleTest` or `new StandaloneInMemoryTestConfiguration().rule()` | `@CamundaProcessTest` | These Camunda 7 helpers start a standalone engine with `MockExpressionManager` and no Spring context. |
-| Test-only `camunda.cfg.xml` | Where only the test engine uses it, remove it. | Record plugins, custom history, and other behavior-changing settings. |
-| Class- or method-level `@Deployment(resources = {...})` | Class- or method-level `@TestDeployment(resources = {...})` | Name converted copies. Method-level annotations take precedence. |
-| Implicit `@Deployment` | Explicit `@TestDeployment(resources = "<resolved converted-copy path>")` | Use the path resolved by the Test Inventory. |
-| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns `ProcessInstanceEvent`. Where the test sets a business key, follow the catalog's business-key pattern. |
-| `assertThat(pi).isWaitingAt("A")` | `assertThat(pi).hasActiveElements("A")` | |
-| `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
-| `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Do not use `hasNotActivatedElements`. |
-| `hasPassed("A")` | `hasCompletedElements("A")` | |
-| `hasPassedInOrder("A", "B")` | `hasCompletedElementsInOrder("A", "B")` | |
-| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements` is stricter because it also fails for an active element. Decide per test and record the decision. |
-| `isEnded()` | `isCompleted()` | If the test cancels the instance, then use `isTerminated()`. |
-| `isNotEnded()` or `isActive()` | `isActive()` | |
-| `isStarted()` | `isCreated()` | |
-| `hasVariables("x")` | `hasVariableNames("x")` | |
-| `variables().containsEntry("x", value)` | `hasVariable("x", value)` | Typed or serialized Java values become JSON. See the catalog's process-variable pattern. |
-| `isWaitingFor("message")` | `isWaitingForMessage("message")` | |
-| `task()`, `task("A")`, or `findId("Task name")` | `UserTaskSelectors.byElementId("A")` or `UserTaskSelectors.byTaskName("Task name")` | |
-| `assertThat(task()).isAssignedTo("user")`, `.hasName(...)`, `.hasCandidateGroup(...)`, or `.hasDueDate(...)` | `assertThatUserTask(selector).hasAssignee("user")`, `.hasName(...)`, `.hasCandidateGroup(...)`, or `.hasDueDate(...)` | |
-| `complete(task(), withVariables(...))` or `taskService.complete(id, vars)` | `processTestContext.completeUserTask("A", vars)` or `completeUserTask(selector, vars)` | A string argument is the BPMN element ID. |
-| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").send().join()` | Get the task key with a user-task search. Record a reason before dropping the step. |
-| `complete(externalTask(), vars)` or `fetchAndLock(topic, ...)` followed by `complete` | `processTestContext.completeJob(jobType, vars)` | Use the converted topic as the job type. Use `throwBpmnErrorFromJob` for `handleBpmnError`. |
-| `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion. |
-| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(Duration)` | When the active path contains a timer catch event, the skill asserts that the timer catch event is active before increasing time. When the active path contains a boundary timer, the skill asserts that the attached activity is active instead. CPT does not expose a boundary timer as an active element. |
-| `ClockUtil.setCurrentTime(date)` or `ClockUtil.reset()` | `processTestContext.setTime(instant)` | CPT resets the clock after each test. |
-| `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Get `key` from the converted model's message subscription, not the business key. |
-| `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | |
-| `historyService` or `runtimeService` queries used as assertions | CPT assertions | The skill uses a waiting CPT assertion for asynchronous behavior. It establishes the observation point before it checks absence. Search requests are eventually consistent. |
-| An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | See the semantic differences below. |
-| Process-test-coverage rule or extension | Remove | CPT reports process coverage. The parity subtask compares coverage. |
-| `org.junit.Assert`, `@Before`, `@After`, `@Ignore`, or `@Test(expected = ...)` | JUnit 5 `Assertions` or AssertJ, `@BeforeEach`, `@AfterEach`, `@Disabled`, or `assertThrows` | |
+The code-conversion catalog owns exact API mappings for engine-backed tests without Spring.
+Use `40-test-assertions/20-test-setup/10-junit-harness.md` for harness and lifecycle mappings and
+`40-test-assertions/20-test-setup/20-deployment.md` for deployment mappings.
+Use `40-test-assertions/10-assertions/80-assertion-mapping.md` and the assertion-specific files
+selected in `pattern-catalog-sources.md` for assertion mappings.
+Use `40-test-assertions/10-assertions/20-process-instance.md`,
+`40-test-assertions/10-assertions/30-process-variable.md`,
+`40-test-assertions/10-assertions/40-user-task.md`,
+`40-test-assertions/10-assertions/50-message.md`,
+`40-test-assertions/10-assertions/60-job.md`, and
+`40-test-assertions/50-coverage-and-scenarios/10-coverage.md` for matching operations.
+Record any disagreement with the catalog in `MIGRATION_REPORT.md`.
 
 ### Semantic differences
 
@@ -548,22 +505,18 @@ catalog as the source of truth for exact API mappings. Record any disagreement w
 
 ### Dependency changes
 
-1. Remove `camunda-bpm-assert`, `camunda-bpm-junit5`, test-scoped `camunda-engine`, and Camunda 7
-   coverage artifacts after migrating their uses.
-2. Where the embedded test engine is the only H2 user, remove H2.
-3. Add `io.camunda:camunda-process-test-java` in test scope. Align its version with the target
-   Camunda version and the catalog's dependency pattern.
-4. Where the module uses the Camunda Spring Boot Starter, use the CPT Spring artifact instead. That
-   migration is outside this section.
-5. Where non-process JUnit 4 tests remain in the module, add `junit-vintage-engine`.
-6. Align AssertJ with the version required by CPT.
+Use `10-general/dependencies.md` for exact test artifact IDs, replacements, versions, and removal conditions.
+The skill inventories each dependency before removal. The skill keeps dependencies with remaining
+production or test consumers. The skill aligns AssertJ with the version required by CPT.
 
 ### Recipe-assisted migration
 
 The OpenRewrite pass adds the CPT dependency and renames assertions. Review every migrated test
 against its Camunda 7 source. A successful compile does not prove behavioral parity.
 
-While #3213 is open, inspect and repair these `ReplaceAssertionsRecipe` cases:
+When the selected recipe is earlier than `0.2.10` for Camunda 8.8 or `0.3.11` for Camunda 8.9 or 8.10, the skill applies the workarounds below.
+
+Inspect and repair these `ReplaceAssertionsRecipe` cases:
 
 | Recipe output or source | Required check |
 |---|---|
@@ -573,8 +526,8 @@ While #3213 is open, inspect and repair these `ReplaceAssertionsRecipe` cases:
 | Any other assertion chained after `variables()` | Keep the Camunda 7 call with a TODO. Do not replace it with `isCreated()`. |
 | `hasVariables()` with no names | Keep the Camunda 7 call with a TODO. Do not replace it with `hasVariableNames()`, which passes without names. |
 
-While #3214 is open, change assertion imports before `ReplaceAssertionsRecipe` runs or convert the
-assertions by hand afterward:
+The skill changes assertion imports before `ReplaceAssertionsRecipe` runs for the same recipe
+versions. Otherwise, it converts the assertions by hand afterward:
 
 | Camunda 7 code | Workaround before the recipe |
 |---|---|
@@ -612,38 +565,19 @@ A Spring test slice that uses only mocked C7 APIs is out of scope.
 
 ## Harness and dependencies
 
-The skill keeps the Spring Boot version and production starter selected in Step 3. The skill selects
-the matching CPT dependency from `code-conversion/patterns/10-general/dependencies.md`.
+The skill keeps the Spring Boot version and production starter selected in Step 3.
+The catalog owns exact Spring CPT artifacts and harness mappings. Fetch
+`40-test-assertions/20-test-setup/30-spring-boot-test.md` and `10-general/dependencies.md`.
+The `Test code` selector in `pattern-catalog-sources.md` loads both files for each selected module.
 
-| Target application | CPT dependency in test scope | Test annotation |
-|---|---|---|
-| Spring Boot 4.x with `camunda-spring-boot-starter` | `io.camunda:camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
-| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | `io.camunda:camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
-| Spring without Spring Boot | `camunda-process-test-java` | `@CamundaProcessTest` |
-
-The CPT Spring dependencies include the CPT Java API. The skill does not add
-`camunda-process-test-java` with either Spring dependency.
-
-The skill uses the dependency catalog for artifact versions. The skill does not choose a different
-starter for tests than the production starter.
-The skill removes each C7 test dependency that no remaining test or production code uses after
-migration.
-When only migrated tests use them, the skill removes `camunda-bpm-spring-boot-starter-test`,
-`camunda-bpm-junit5`, and `camunda-bpm-assert`.
+The Spring CPT pattern documents which dependencies include the CPT Java API.
+The skill uses the dependency catalog for artifact versions. It does not choose a different test
+starter from the production starter.
+The skill removes a C7 test dependency only after it confirms no remaining test or production code uses it.
 If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.
 
-The skill migrates each Spring Boot test to JUnit 5. The skill keeps `@SpringBootTest` and adds
-`@CamundaSpringProcessTest`. The skill injects `CamundaClient` and `CamundaProcessTestContext` with
-`@Autowired`.
-
-| C7 Spring test | C8 CPT test |
-|---|---|
-| `@RunWith(SpringRunner.class) @SpringBootTest` | `@SpringBootTest @CamundaSpringProcessTest` |
-| `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` |
-| `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | The skill removes the engine rule and initialization |
-| `camunda.bpm.*` test-engine properties | The skill removes them. Where a migrated test needs `camunda.process-test.*` properties, the skill adds them. |
-| H2 used only by the embedded engine | The skill removes H2. The skill keeps a data source used by the application |
-| The C7 test transaction reverts engine and application state | The skill keeps `@Transactional` only for application database state |
+The catalog's `40-test-assertions/20-test-setup/30-spring-boot-test.md` owns C7 Spring-to-CPT
+harness and configuration mappings. The dependency catalog owns test artifact mappings.
 
 The skill uses `@MockitoBean` with Spring Boot 4. The skill uses a supported Mockito test
 annotation with the selected Spring Boot 3 version. When Step 3 changes Spring Boot 3 to 4, the
@@ -672,11 +606,14 @@ endpoint.
 The skill preserves the endpoint operation that the test exercises.
 The skill maps the original C7 operation to the equivalent `CamundaClient` operation.
 
-| C7 endpoint operation | C8 endpoint operation |
+The skill uses the client catalog file that matches the original C7 operation behind the endpoint.
+
+| Endpoint operation | Catalog file |
 |---|---|
-| Starts a BPMN process | Starts the same process through `CamundaClient`. |
-| Completes a process-backed task | Completes the same task through `CamundaClient`. |
-| Correlates a message | Correlates the same message through `CamundaClient`. |
+| Starts a process instance by ID or key | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Starts a process instance by message | `20-client-code/10-process-engine/starting-process-instances.md` |
+| Searches, assigns, completes, or reads variables from a user task | `20-client-code/10-process-engine/handle-user-tasks.md` |
+| Correlates a message | `20-client-code/10-process-engine/correlate-messages.md` |
 
 When the endpoint starts or advances a process, C8 workers can run asynchronously after the endpoint
 returns. The skill uses waiting CPT assertions for process state or worker effects that the test
@@ -714,14 +651,9 @@ Do not maintain a separate approval table in `MIGRATION_REPORT.md`.
 The skill uses `@CamundaProcessTest` for a Spring application that does not use Spring Boot. The
 skill starts its workers with the injected `CamundaClient` through the application's bootstrap code.
 
-When the skill migrates a non-Boot Spring test that uses JUnit 4, it replaces its runner with
-`@ExtendWith(SpringExtension.class)`.
-The skill replaces JUnit 4 test and lifecycle annotations and assertions with JUnit 5 equivalents.
-It updates their imports.
-
-| JUnit 4 Spring test | JUnit 5 CPT test |
-|---|---|
-| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` | `@ExtendWith(SpringExtension.class)` without `@RunWith`. |
+The catalog's `40-test-assertions/20-test-setup/10-junit-harness.md` owns JUnit runner, lifecycle,
+and assertion mappings for Spring tests. The skill updates imports for renamed annotation or
+assertion types.
 
 When the migrated test needs Spring-managed beans, the skill keeps `@ContextConfiguration` and adds
 `@ExtendWith(SpringExtension.class)`.
@@ -756,8 +688,8 @@ each test classpath. When remaining tests require both artifacts, the skill sepa
 test classpaths. The skill inspects the test calls before classifying the method.
 
 When the Step 2 Test Inventory marks a scenario test `Migrate (lower priority)`, the skill targets
-a Java test with Camunda Process Test (CPT) and `io.camunda:camunda-process-test-java`. The target
-is Camunda 8.9 or later.
+a Java test with CPT. The target is Camunda 8.9 or later. Use `10-general/dependencies.md` for the
+CPT artifact ID.
 The skill does not create CPT instruction-based JSON tests.
 
 When the target is Camunda 8.8, the skill applies the [Camunda 8.8 target](#camunda-88-target) table
@@ -795,11 +727,9 @@ paths. The skill checks plugins or tasks that copy or generate resources.
 When a module applies different filters, target paths, or generation tasks, a shared resource root
 can produce unique output.
 
-| Camunda 7 engine-test setup | Camunda Process Test 8.9 or later | Notes |
-|---|---|---|
-| `@Rule ProcessEngineRule processEngineRule = new ProcessEngineRule()` | Add `@CamundaProcessTest` to the class. Remove the `ProcessEngineRule` field. | CPT supplies the engine-test runtime. |
-| `@Deployment(resources = "source.bpmn")` | `@TestDeployment(resources = "converted-c8-source.bpmn")` | Deploy the converted C8 copy. |
-| Test code needs a `CamundaClient` | Inject `CamundaProcessTestContext processTestContext`. Call `processTestContext.createClient()`. | |
+Use `40-test-assertions/20-test-setup/10-junit-harness.md` and
+`40-test-assertions/20-test-setup/20-deployment.md` for engine-test setup mappings.
+Use `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md` for scenario-test setup.
 
 1. The skill reads the converted copy before mapping test behavior. It uses that copy to find element
    IDs, external job types, message names and correlation keys, and timer definitions.
@@ -810,7 +740,7 @@ can produce unique output.
 4. When no retained method needs the `ProcessScenario` mock or Scenario runner setup, the skill
    removes both.
 5. When no remaining test uses a Scenario artifact, the skill removes the artifact.
-6. The skill adds `io.camunda:camunda-process-test-java` in test scope.
+6. The skill adds the CPT artifact selected from `10-general/dependencies.md` in test scope.
 7. The skill keeps Mockito initialization and cleanup for retained annotations that rely on
    `MockitoAnnotations.openMocks(this)`.
 
@@ -859,40 +789,10 @@ times out, its final assertion fails.
 When the skill records a scenario test as `manual`, it stores the specific reason in that test's
 parity-ledger entry.
 
-| Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
-|---|---|---|
-| `@Mock ProcessScenario process` and its Scenario stubs | The skill converts each migrated Scenario stub with the matching CPT behavior below. When no retained method needs C7 Scenario setup, the skill removes the mock and Scenario runner setup. | Map each verification to the CPT assertion rows below. |
-| `MockitoAnnotations.openMocks(this)` and matching cleanup | When no retained Mockito annotations require initialization, the skill removes initialization and matching cleanup. | When retained `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields rely on it, the skill keeps initialization and cleanup. |
-| JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
-| `waitsAtUserTask("X")` returning `task.complete(variables)` | `when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("X")).as("X").then(() -> processTestContext.completeUserTask(byElementId("X", processInstanceKey), variables))` | The action completes the task tested by the condition. |
-| `thenReturn(a, b)` for repeated actions on a conditional behavior | Chain `.then(a).then(b)` on the corresponding CPT conditional behavior. | CPT repeats the last action after earlier actions run. The skill does not apply this chain to worker mocks. |
-| `task.handleBpmnError(...)` or `task.handleEscalation(...)` on a user task | Record `manual` in the parity ledger with the unsupported operation as the reason | CPT has no direct user-task BPMN error or escalation action. |
-| `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtBusinessRuleTask`, `waitsAtMessageIntermediateThrowEvent`, or `waitsAtMessageEndEvent` completing an external task | `processTestContext.mockJobWorker(type).thenComplete(variables)` | Read `type` from the converted copy. |
-| The same external-task stubs handling a BPMN error | `processTestContext.mockJobWorker(type).thenThrowBpmnError(code, variables)` | Read `type` from the converted copy. |
-| Repeated external-task actions on a linear path | Call `completeJob(...)` or `throwBpmnErrorFromJob(...)` once per activation in the tested order. | The skill does not register a worker mock for these repeated actions. The skill does not chain `thenComplete(...)` or `thenThrowBpmnError(...)` because their builder methods return `JobWorkerMock`. |
-| Repeated external-task actions on a non-linear path | Configure `mockJobWorker(type).withHandler(...)` to select the response for each activated job. | |
-| `waitsAtTimerIntermediateEvent("T")` with an empty action | Assert `hasActiveElements("T")`, then call `processTestContext.increaseTime(duration)` | Read the duration from the converted timer definition. |
-| `action.defer(period, action)` | Increase time in bounded steps, then run the deferred action | Follow the time rule below. |
-| `waitsAtMessageIntermediateCatchEvent` or `waitsAtReceiveTask` with `receive(variables)` | Correlate the message with `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(variables).send().join()` | Read the message name and correlation-key FEEL expression from the converted copy's `zeebe:subscription`. Evaluate the expression against the test variables. Pass the result to `correlationKey(...)`. Never pass the expression text, such as `=orderId`. Use the resulting key in `isWaitingForMessage(name, key)`. |
-| `waitsAtSignalIntermediateCatchEvent` with `receive()` | Broadcast `client.newBroadcastSignalCommand().signalName(name).send().join()` | Read `name` from the converted copy. |
-| `waitsAtEventBasedGateway("G")` receiving event `"E"` | Use the corresponding message, signal, or timer action for `"E"` | Read the event type and subscription from the converted copy. |
-| `waitsAtConditionalIntermediateEvent("C")` | Call `processTestContext.updateVariables(byKey(processInstanceKey), variables)` | Converted conditional events need Camunda 8.9 or later. |
-| `runsCallActivity("C")` returning `Scenario.use(child)` | Deploy the converted child process and register its behaviors with `byProcessId(childProcessId)` | When the Camunda 7 test mocks the child process, the skill preserves that mocked boundary. |
-| `withMockedProcess("child")` and `waitsAtMockedCallActivity("C")` | Call `processTestContext.mockChildProcess("child", variables)` | This preserves the existing mocked-child boundary. |
-| `Scenario.run(process).startByKey(key, variables).execute()` | The skill creates an instance with `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(variables).send().join()` and retains the returned `ProcessInstanceEvent` | When the source test sets a business key, the skill applies the confirmed business-key mapping. |
-| `startByMessage(name, variables)` | The skill correlates a message start with `.messageName(name).withoutCorrelationKey().variables(variables).send().join()` and retains the returned `CorrelateMessageResponse` | |
-| `.fromBefore("A")` | Call `.startBeforeElement("A")` on the create command | |
-| `.fromAfter("A")` with no clear next element | Record `manual` in the parity ledger with the reason that CPT has no direct counterpart and the next element is ambiguous | When the next element is unambiguous, the skill starts before it. |
-| `startBy(customProcessStarter)` | Record `manual` in the parity ledger with the reason that CPT has no direct mapping for the custom starter | A custom `ProcessStarter` needs a manual migration. |
-| `Scenario.instance(process)` after `startByKey` | The skill asserts against the `ProcessInstanceEvent` returned by the create-instance command | |
-| `Scenario.instance(process)` after `startByMessage` | The skill selects the instance with `assertThatProcessInstance(byKey(correlationResponse.getProcessInstanceKey()))` | The correlate command returns a `CorrelateMessageResponse`, not a `ProcessInstanceEvent`. |
-| `verify(process).hasCompleted("E")` | Assert `hasCompletedElements("E")` | |
-| `verify(process, times(n)).hasCompleted("E")` | Assert `hasCompletedElement("E", n)`. | The skill preserves the exact completed-element count. |
-| `verify(process).hasFinished("E")` | The skill asserts `hasCompletedElements("E")`, `hasTerminatedElements("E")`, or both | The skill asserts each outcome present on the path. `hasFinished` includes completed and canceled elements. |
-| `verify(process, times(n)).hasFinished("E")` | When the completed-versus-terminated split is known, the skill asserts the completed count with `hasCompletedElement("E", completedCount)`, the terminated count with `hasTerminatedElement("E", terminatedCount)`, or both. | When all visits share an outcome, the skill uses one assertion. When the path has known mixed counts, the skill uses both assertions. When the split is unknown, the skill records `manual` in the parity ledger with the unknown completed-versus-terminated split as the reason and does not assert exact counts or their sum. |
-| `verify(process).hasCanceled("E")` | Assert `hasTerminatedElements("E")` | |
-| `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
-| `verify(process, never()).hasStarted("E")` | The skill asserts `hasNotActivatedElements("E")` only after a positive waiting assertion establishes the observation point. | This assertion evaluates immediately and does not wait. |
+The code-conversion catalog owns exact Scenario API mappings. Fetch
+`40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md` for stub, start, wait-state,
+timer, and verification mappings.
+The `Test code` selector in `pattern-catalog-sources.md` selects it for `scenario test` rows.
 
 ### Time rule
 
@@ -941,31 +841,11 @@ A whole-component mock must not start the real C8 worker for the mocked componen
 
 ## C7 mock API mapping
 
-| C7 test code | CPT test code | Required behavior |
-|---|---|---|
-| `Mocks.register("bean", mock)` for a `camunda:expression` target or collaborator | Keep the real mapped worker and inject the same Mockito mock into the expression service. | Treat the expression service as a collaborator. Do not call `mockJobWorker(type)`. |
-| `Mocks.register("delegate", mock)` for a whole `camunda:delegateExpression` | `mockJobWorker(type)` | Use the converted task's job type. |
-| `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read the input variables from the activated job. Keep the invocation verification. |
-| `doAnswer(...)` on a whole delegate with input-dependent outputs | `.withHandler(handler)` | Read the activation variables and complete the job with the matching outputs. |
-| `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary table | Classify the registered object. Do not infer its boundary from the helper name. |
-| `@MockBean` or `@MockitoBean` for a process-used delegate or listener | Apply the matching whole-component row in the [mock boundary](#mock-boundary) table | Preserve the whole-component mock boundary. |
-| `@MockBean` or `@MockitoBean` for a service called by a delegate | `@MockitoBean` or the version-compatible Spring mock for the same service | Keep the real worker enabled. |
-| `registerJavaDelegateMock("delegate")` | `mockJobWorker(type).thenComplete()` | The whole delegate was mocked. |
-| `.onExecutionSetVariables(vars)` or `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | Preserve every output variable. |
-| `.onExecutionSetVariables(vars1, vars2)` for repeated calls | `.withHandler(handler)` that completes each activation with its matching result | Preserve the order and value of each result. |
-| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | When the test checks a BPMN error code or message, the skill preserves it. |
-| `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Assert the resulting active incident instead of expecting a synchronous exception. |
-| `autoMock("process.bpmn")` | When the C7 helper mocks a delegate expression, the skill uses `mockJobWorker(type)` for its converted service-task or execution-listener type. The skill applies mock registrations in source order. The last registration for a bean sets the effective boundary, so `autoMock` can replace an earlier concrete registration. The skill does not infer mocks from `camunda:class` or `camunda:expression`. When the C7 test mocks either boundary separately, the skill maps it. For each retained user-task listener, the skill calls `completeJobOfUserTaskListener(...)` once for every matching activation. | Read each `type` from its own extension declaration in the converted copy. |
-| `registerExecutionListenerMock("listener")` | `mockJobWorker(type)` for the listener's job type | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
-| `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, the skill calls `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation. | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
-| `registerCallActivityMock("child").onExecutionSetVariables(vars)` | `mockChildProcess("child", vars)` | When outputs depend on parent variables, the skill uses the function overload. |
-| A call-activity mock using `onExecutionWaitForMessage`, `onExecutionWaitForTimerWithDuration`, `onExecutionSendMessage`, `onExecutionRunIntoError`, or `onExecutionDo` | No direct counterpart | Deploy the real converted child or ask the user to approve a test-only child model. |
-| `verifyJavaDelegateMock("name")` or `verifyExecutionListenerMock("name")` with `executed()`, `executed(times(n))`, or `executedNever()` | `assertThat(mock.getInvocations())` with `isEqualTo(1)`, `isEqualTo(n)`, or `isZero()` | Read the count only after a waiting CPT assertion on the related element. |
-| `verifyTaskListenerMock("name").executed()` | Increment an `AtomicInteger` in the `completeJobOfUserTaskListener` result callback. Assert the count is `1`. | Read the count only after a waiting CPT assertion on the related task or process. |
-| `verifyTaskListenerMock("name").executed(times(n))` | Increment an `AtomicInteger` in each matching listener-job result callback. Assert the count is `n`. | Call `completeJobOfUserTaskListener(...)` once for every matching listener-job activation. Read the count only after a waiting CPT assertion on the related task or process. |
-| `verifyTaskListenerMock("name").executedNever()` | Do not complete a matching listener job. | Assert that the same CPT checkpoint succeeds without a matching blocking listener job. If no waiting assertion proves the absence, then ask the user before claiming parity. |
-| `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and `job.getVariablesAsMap()` | Read the activated job after a waiting CPT assertion. |
-| `Mocks.reset()` or `@After` engine-mock cleanup | Remove the engine-mock cleanup | CPT resets runtime data after each test. |
+The code-conversion catalog owns exact C7 mock API mappings. Fetch
+`40-test-assertions/30-mocks/10-delegate-mocks.md` and
+`40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md`.
+The `Test code` selector in `pattern-catalog-sources.md` selects both files for each row with a
+`mocks` modifier.
 
 `withHandler` can complete a job with a selected output map. It can also fail a job:
 
@@ -1039,7 +919,7 @@ Without approval, the mock-boundary review fails.
 | C7 mock library | A remaining test uses the library. | Keep the dependency. |
 | C7 mock library | No remaining test uses the library. | Remove the dependency. |
 | `camunda.cfg.xml` | A remaining C7 test uses the file. | Keep the file and its required `MockExpressionManager` settings. |
-| `camunda.cfg.xml` | No remaining C7 test uses the file. | Delete the file and its `MockExpressionManager` settings. Do not retain it for CPT tests. |
+| `camunda.cfg.xml` | No remaining C7 test uses the file. | Follow the inventory and user-decision rule in `40-test-assertions/20-test-setup/10-junit-harness.md` before removing the file. |
 
 When migrated tests still use Mockito, the skill keeps Mockito.
 
@@ -1081,9 +961,7 @@ Remove the Camunda 7 container setup, Engine REST base URL, and credentials from
 When no remaining test uses a Camunda 7 REST-client dependency, the skill removes that dependency.
 When no remaining test uses Testcontainers, the skill removes Testcontainers from test dependencies.
 When another test still uses Testcontainers, the skill keeps the test dependency.
-Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.
-Select the Spring Process Test artifact from the [Spring harness table](#harness-and-dependencies).
-Add the selected Spring artifact in test scope.
+Use `10-general/dependencies.md` to select the CPT test artifact for each migrated test harness.
 Annotate each migrated JUnit test that uses plain Java with `@CamundaProcessTest` to register `CamundaProcessTestExtension`.
 Annotate each migrated Spring CPT test with `@CamundaSpringProcessTest` to start the Spring Process Test harness.
 The artifact dependency alone does not start the CPT runtime or inject the CPT client and context fields.
@@ -1105,13 +983,13 @@ Without Spring, open the migrated worker in `@BeforeEach` with the injected `Cam
 Store each returned `JobWorker` in a field.
 Close each stored `JobWorker` in `@AfterEach`.
 
-When the Camunda 7 test itself called `/external-task/fetchAndLock` and completed the task, no real worker ran.
-Use `processTestContext.completeJob(type, variables)` or `processTestContext.mockJobWorker(type).thenComplete(variables)` for that boundary.
+When the Camunda 7 test itself called `/external-task/fetchAndLock`, the skill keeps the worker boundary test-controlled.
+Use `40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md` for the exact mapping.
 
 ## Waiting, timers, and variables
 
-Replace Awaitility or `Thread.sleep` polling on engine state with CPT assertions.
-Keep Awaitility only for state outside Camunda.
+Replace Awaitility or `Thread.sleep` polling on process state with CPT assertions.
+Use Awaitility for state outside Camunda and for reads from documented eventually consistent query APIs.
 When the default assertion timeout is too short, the skill sets `CamundaAssert.setAssertionTimeout(Duration)` or `camunda.process-test.assertion.timeout`.
 
 Identify the job type before translating a Camunda 7 `POST /job/{id}/execute` call. The
@@ -1126,22 +1004,9 @@ Prefer `CamundaClient` commands and CPT assertions over raw HTTP. (SHOULD)
 
 When a test checks the Orchestration Cluster REST API contract, the skill keeps raw HTTP. (SHOULD)
 
-| Camunda 7 Engine REST call | CPT 8.9 replacement | Notes |
-|---|---|---|
-| `POST /deployment/create` | `@TestDeployment(resources = "converted-c8-<name>.bpmn")` or the application's `@Deployment` | Deploy the converted copy. |
-| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. |
-| `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and key from the converted copy's `zeebe:subscription`. |
-| `POST /signal` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | Keep the converted signal name. |
-| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(elementId, vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Pass completion variables. When the test calls the client directly, the skill uses the C8 user-task key. |
-| `POST /task/{id}/claim` or `/task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).send().join()` | Preserve the assignee. |
-| `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(type, vars)` | When the test needs a mock worker boundary, the skill uses `mockJobWorker(type).thenComplete(vars)`. |
-| `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(type, code, vars)` | Preserve the BPMN error code and variables. |
-| `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
-| `GET /history/activity-instance?processInstanceId=...` | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | Preserve required activity order. |
-| `GET /process-instance/{id}/variables` or `GET /history/variable-instance` | `hasVariable(name, value)` or `hasVariables(map)` | Compare plain JSON values. |
-| `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
-| `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | When the active path contains a timer catch event, assert that the timer catch event is active first. When the active path contains a boundary timer, assert that the attached activity is active instead. CPT does not expose a boundary timer as an active element. |
-| `POST /job/{id}/execute` for a non-timer job | No time-advancement mapping | The skill identifies the job type and why the test executes it. When the test controls a worker boundary, the skill uses the matching CPT worker command. The skill asserts the resulting process path for an engine-managed continuation. The skill does not advance time. |
+The code-conversion catalog owns exact Engine REST mappings. Fetch
+`40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md`.
+The `Test code` selector in `pattern-catalog-sources.md` selects this file for `remote-engine test` rows.
 
 Use the [Camunda 7 to Camunda 8 API mapping](https://camunda.github.io/camunda-7-to-8-migration-tooling/) for calls not listed here.
 

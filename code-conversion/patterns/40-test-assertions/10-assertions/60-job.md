@@ -2,6 +2,18 @@
 
 The CPT clock and job utilities in this pattern are available from Camunda 8.8.
 
+## Job and clock API mappings
+
+| Camunda 7 | CPT | Note |
+|---|---|---|
+| `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion for the next state. |
+| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first, or the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
+| `ClockUtil.setCurrentTime(date)` | `processTestContext.setTime(instant)` | Use before process creation when the test needs a specific start time. |
+| `ClockUtil.reset()` in `@After` or `@AfterEach` | Remove the reset. | CPT resets the clock after each test. |
+| `ClockUtil.reset()` during a test | `processTestContext.setTime(Instant.now())` | Restore the current system time before the test ends. |
+| Completing an external task with `complete(externalTask(), vars)` or `fetchAndLock(...)` followed by `complete(...)` | `processTestContext.completeJob(JobSelectors.byJobType(jobType).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), vars)` | Preserve the C7 fetch filters and assert that the selector matches exactly one job because CPT acts on the first match. Use an equivalent filtered search and the exact C8 job key, or use manual migration, when the selector is not unique or cannot preserve the filters. Use `throwBpmnErrorFromJob` with the same selector for `handleBpmnError`. |
+| An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | A failing Camunda 8 worker creates an incident after its retries instead of throwing into the test. |
+
 ## Camunda 7
 
 Camunda 7 provides control over job execution through the `managementService`, which is useful for timers, asynchronous continuations, or retries.
@@ -57,7 +69,7 @@ void testTimerTriggered() {
 }
 ```
 
-Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. If the process must start at a specific instant, call `setTime` before creating it. If `setTime` is used to trigger a timer, first wait until the timer event is active, for example with `assertThat(instance).hasActiveElements("TimerEvent")`. CPT resets the clock after each test.
+Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. Use `processTestContext.setTime(Instant.now())` to restore the current system time during a test. Remove `ClockUtil.reset()` from `@After` or `@AfterEach` because CPT resets the clock after each test. If `setTime` is used to trigger a timer, first wait until the timer event is active, for example with `assertThat(instance).hasActiveElements("TimerEvent")`.
 
 For an asynchronous continuation, omit `execute(job())` and assert the next process state with a waiting assertion:
 

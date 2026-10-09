@@ -12,6 +12,23 @@ REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+ENGINE_REST_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md"
+)
+JOB_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/60-job.md"
+)
+SPRING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/30-spring-boot-test.md"
+)
+DEPENDENCIES_PATTERN = REPO_ROOT / "code-conversion/patterns/10-general/dependencies.md"
+PATTERN_SOURCES = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 CHECKLIST = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/code-transform-checklist.md"
@@ -401,49 +418,315 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_reference_maps_engine_rest_and_cpt_behaviors(self):
         reference = REFERENCE.read_text(encoding="utf-8")
         normalized_reference = " ".join(reference.lower().split())
-        mapping = reference.split("## Engine REST mapping", 1)[1].split("\n## ", 1)[0]
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
         mapping_rows = [
             row.lower() for row in mapping.splitlines() if row.startswith("| `")
         ]
+        self.assertIn(
+            "40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md",
+            reference,
+        )
+        self.assertIn(
+            "Test kind `remote-engine test` | "
+            "`40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md`",
+            PATTERN_SOURCES.read_text(encoding="utf-8"),
+        )
         for source, target in (
             ("/deployment/create", "@testdeployment"),
             ("/process-definition/key/{key}/start", "newcreateinstancecommand"),
             ("/message", "newcorrelatemessagecommand"),
-            ("/signal", "newbroadcastsignalcommand"),
             ("/task/{id}/complete", "completeusertask"),
             ("/task/{id}/claim", "newassignusertaskcommand"),
+            ("/task/{id}/assignee", "newassignusertaskcommand"),
             ("/external-task/fetchandlock", "completejob"),
             ("/external-task/{id}/bpmnerror", "throwbpmnerrorfromjob"),
             ("/history/process-instance/{id}", "iscompleted"),
-            ("/history/activity-instance", "hascompletedelements"),
-            ("/history/variable-instance", "hasvariable"),
+            ("/process-instance/{id}/variables", "hasvariable"),
             ("/incident?processinstanceid", "hasactiveincidents"),
         ):
             with self.subTest(source=source):
                 matching_rows = [row for row in mapping_rows if source.lower() in row]
                 self.assertEqual(1, len(matching_rows), f"Expected one mapping row for {source}")
                 self.assertIn(target, matching_rows[0])
+        history_variable_rows = [
+            row for row in mapping_rows if "/history/variable-instance" in row
+        ]
+        self.assertEqual(1, len(history_variable_rows))
+        history_variable_row = history_variable_rows[0]
+        self.assertNotIn("hasvariable(", history_variable_row)
+        for required in (
+            "newvariablesearchrequest",
+            "processinstancekey",
+            "scopekey",
+            "name",
+            "eventually consistent",
+            "historic",
+            "manual migration",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, history_variable_row)
+        self.assertIn(
+            "eventually consistent query apis",
+            normalized_reference,
+        )
         self.assertIn(
             "cpt deletes all runtime data between tests, so the test needs a dedicated camunda 8 runtime.",
             normalized_reference,
         )
 
+    def test_fetch_and_lock_policy_points_to_catalog_mapping(self):
+        reference = REFERENCE.read_text(encoding="utf-8")
+        worker_behavior = reference.split("## Worker behavior", 1)[1].split(
+            "## Waiting, timers, and variables", 1
+        )[0]
+        normalized_worker_behavior = " ".join(worker_behavior.split()).lower()
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8").lower()
+        fetch_and_lock_row = next(
+            row
+            for row in mapping.splitlines()
+            if "/external-task/fetchandlock" in row
+        )
+        bpmn_error_row = next(
+            row
+            for row in mapping.splitlines()
+            if "/external-task/{id}/bpmnerror" in row
+        )
+
+        self.assertIn("test-controlled", normalized_worker_behavior)
+        self.assertIn("10-engine-rest-mapping.md", normalized_worker_behavior)
+        self.assertNotIn(
+            "processtestcontext.completejob(type, variables)",
+            normalized_worker_behavior,
+        )
+        self.assertNotIn(
+            "processtestcontext.mockjobworker(type).thencomplete(variables)",
+            normalized_worker_behavior,
+        )
+        selector = (
+            "jobselectors.byjobtype(type).and("
+            "jobselectors.byprocessinstancekey(processinstancekey))"
+        )
+        for row in (fetch_and_lock_row, bpmn_error_row):
+            with self.subTest(row=row):
+                self.assertIn(selector, row)
+        for rule in (
+            "first matching job",
+            "exactly one match",
+            "exact c8 job key",
+            "manual migration",
+        ):
+            with self.subTest(rule=rule):
+                self.assertIn(rule, mapping)
+
+        job_pattern = JOB_PATTERN.read_text(encoding="utf-8").lower()
+        self.assertIn(
+            "jobselectors.byjobtype(jobtype).and("
+            "jobselectors.byprocessinstancekey(processinstancekey))",
+            job_pattern,
+        )
+        self.assertIn("exactly one job", job_pattern)
+        self.assertIn("mockjobworker(type).thencomplete(vars)", fetch_and_lock_row)
+
+    def test_dependency_changes_keep_independent_rules_separate(self):
+        dependency_rules = " ".join(
+            REFERENCE.read_text(encoding="utf-8")
+            .split("### Dependency changes", 1)[1]
+            .split("### Recipe-assisted migration", 1)[0]
+            .split()
+        )
+
+        self.assertIn(
+            "The skill keeps dependencies with remaining production or test consumers.",
+            dependency_rules,
+        )
+        self.assertIn(
+            "The skill aligns AssertJ with the version required by CPT.",
+            dependency_rules,
+        )
+        self.assertNotIn("consumers and aligns AssertJ", dependency_rules)
+
+    def test_signal_mapping_preserves_request_fields_and_execution_scope(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        signal_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /signal`")
+        ]
+
+        self.assertEqual(2, len(signal_rows))
+        broadcast_row = next(
+            row for row in signal_rows if "without `executionid`" in row
+        )
+        self.assertIn("newbroadcastsignalcommand", broadcast_row)
+        self.assertIn("variables(vars)", broadcast_row)
+        self.assertIn("tenantid(tenantid)", broadcast_row)
+        self.assertIn("withouttenantid", broadcast_row)
+        self.assertIn("no equivalent", broadcast_row)
+        execution_row = next(
+            row for row in signal_rows if "with `executionid`" in row
+        )
+        self.assertIn("manual redesign", execution_row)
+        self.assertIn("all matching subscriptions", execution_row)
+
+    def test_start_mapping_preserves_optional_business_key(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        start_row = next(
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /process-definition/key/{key}/start`")
+        )
+
+        self.assertIn(".businessId(businessKey)", start_row)
+        self.assertIn("when the request includes", start_row.lower())
+        self.assertIn("8.9", start_row)
+        for request_field in (
+            "caseInstanceId",
+            "startInstructions",
+            "skipCustomListeners",
+            "skipIoMappings",
+            "withVariablesInReturn",
+        ):
+            with self.subTest(request_field=request_field):
+                self.assertIn(request_field.lower(), start_row.lower())
+        self.assertIn("manual migration", start_row.lower())
+        self.assertIn("create-with-result", start_row.lower())
+        self.assertIn(
+            "for c7 `startinstructions`, map only `startbeforeactivity` instructions without "
+            "instruction-local variables to the c8.9 `.startbeforeelement(elementid)` operation",
+            start_row.lower(),
+        )
+        self.assertIn("`startafteractivity`", start_row.lower())
+        self.assertIn("`starttransition`", start_row.lower())
+        self.assertIn("instruction-local variables", start_row.lower())
+        self.assertIn(
+            "no matching request options for `caseinstanceid`, "
+            "`skipcustomlisteners`, or `skipiomappings`",
+            start_row.lower(),
+        )
+        self.assertIn("only when this wait matches the test", start_row.lower())
+
+    def test_bpmn_error_mapping_preserves_optional_error_message(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        bpmn_error_row = next(
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /external-task/{id}/bpmnError`")
+        )
+
+        self.assertIn(
+            "throwBpmnErrorFromJob(JobSelectors.byJobType(type).and("
+            "JobSelectors.byProcessInstanceKey(processInstanceKey)), code, errorMessage, vars)",
+            bpmn_error_row,
+        )
+        self.assertIn(
+            "throwBpmnErrorFromJob(JobSelectors.byJobType(type).and("
+            "JobSelectors.byProcessInstanceKey(processInstanceKey)), code, vars)",
+            bpmn_error_row,
+        )
+        self.assertIn("when supplied", bpmn_error_row.lower())
+        self.assertIn("overload without `errormessage`", bpmn_error_row.lower())
+        self.assertIn("preserve", bpmn_error_row.lower())
+
+    def test_message_mapping_preserves_supported_fields_and_marks_gaps(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        message_rows = [
+            row
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /message`")
+        ]
+        normalized_mapping = " ".join(mapping.lower().split())
+        message_fields = normalized_mapping.split(
+            "### message request fields", 1
+        )[1]
+
+        self.assertEqual(1, len(message_rows))
+        self.assertIn("message request fields", message_rows[0].lower())
+        for supported_mapping in (
+            "`processvariables` | map to `.variables(vars)`",
+            "`tenantid` | map to `.tenantid(tenantid)`",
+            "`correlationkeys` | map to `.correlationkey(key)`",
+        ):
+            with self.subTest(supported_mapping=supported_mapping):
+                self.assertIn(supported_mapping, message_fields)
+        for unsupported_field in (
+            "`businesskey`",
+            "`localcorrelationkeys`",
+            "`processinstanceid`",
+            "`withouttenantid`",
+            "`processvariableslocal`",
+            "`processvariablestotriggeredscope`",
+            "`all`",
+            "`resultenabled`",
+            "`variablesinresultenabled`",
+        ):
+            with self.subTest(unsupported_field=unsupported_field):
+                self.assertIn(unsupported_field, message_fields)
+        self.assertIn("manual migration", message_fields)
+        self.assertIn("is not the c8 `correlationkey` or `businessid`", message_fields)
+        self.assertIn("at most once per process", message_fields)
+
+    def test_assignment_mapping_preserves_claim_reassignment_and_unassignment(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        assignment_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if row.startswith("| `POST /task/{id}/")
+            and ("claim`" in row or "assignee`" in row)
+        ]
+        claim_row = next(row for row in assignment_rows if "/claim`" in row)
+        assignee_row = next(row for row in assignment_rows if "/assignee`" in row)
+
+        self.assertEqual(2, len(assignment_rows))
+        self.assertIn(".allowoverride(false)", claim_row)
+        self.assertIn(".allowoverride(true)", assignee_row)
+        self.assertIn("userid: null", assignee_row)
+        self.assertIn(
+            "client.newunassignusertaskcommand(usertaskkey).send().join()",
+            assignee_row,
+        )
+        self.assertNotIn("manual migration", assignee_row)
+
+    def test_activity_history_mapping_preserves_requested_states_and_filters(self):
+        mapping = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        activity_rows = [
+            row.lower()
+            for row in mapping.splitlines()
+            if "/history/activity-instance" in row
+        ]
+
+        self.assertEqual(2, len(activity_rows))
+        completed_row = next(
+            row for row in activity_rows if "completed activity ids" in row
+        )
+        self.assertIn("hascompletedelements", completed_row)
+        self.assertIn("order", completed_row)
+        self.assertIn("canceled", completed_row)
+        self.assertIn("terminated", completed_row)
+
+        filtered_row = next(row for row in activity_rows if "unfinished" in row)
+        for filter_name in ("canceled", "assignee", "time", "count"):
+            with self.subTest(filter_name=filter_name):
+                self.assertIn(filter_name, filtered_row)
+        self.assertIn("newelementinstancesearchrequest", filtered_row)
+        self.assertIn("manual", filtered_row)
+
     def test_job_execute_mapping_distinguishes_timer_and_non_timer_jobs(self):
         reference_text = REFERENCE.read_text(encoding="utf-8")
-        rows = reference_text.splitlines()
+        rest_rows = ENGINE_REST_PATTERN.read_text(encoding="utf-8").splitlines()
+        process_rows = JOB_PATTERN.read_text(encoding="utf-8").splitlines()
         timer_row = next(
             row
-            for row in rows
+            for row in rest_rows
             if row.startswith("| `POST /job/{id}/execute` for a timer job")
         )
         non_timer_row = next(
             row
-            for row in rows
+            for row in rest_rows
             if row.startswith("| `POST /job/{id}/execute` for a non-timer job")
         )
         process_timer_row = next(
             row
-            for row in rows
+            for row in process_rows
             if row.startswith(
                 "| `execute(job())` or `managementService.executeJob(id)` for a timer"
             )
@@ -464,29 +747,31 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
                     "does not expose a boundary timer as an active element",
                     normalized_rule,
                 )
-        self.assertIn("The skill does not advance time", non_timer_row)
+        self.assertIn("do not advance time", non_timer_row.lower())
         self.assertIn("job type", non_timer_row)
 
     def test_cpt_artifacts_and_remote_runtime_configuration_match_target(self):
         reference = REFERENCE.read_text(encoding="utf-8")
+        spring_pattern = SPRING_PATTERN.read_text(encoding="utf-8")
+        dependencies = DEPENDENCIES_PATTERN.read_text(encoding="utf-8")
         self.assertIn(
             "| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | "
             "`io.camunda:camunda-process-test-spring-boot-3` |",
-            reference,
+            spring_pattern,
         )
         self.assertIn(
             "| Spring Boot 4.x with `camunda-spring-boot-starter` | "
             "`io.camunda:camunda-process-test-spring` |",
-            reference,
+            spring_pattern,
         )
         runtime_changes = reference.split("## Runtime and build changes", 1)[1].split(
             "## Worker behavior", 1
         )[0]
-        self.assertIn("[Spring harness table](#harness-and-dependencies)", runtime_changes)
+        self.assertIn("10-general/dependencies.md", runtime_changes)
         runtime_configuration = " ".join(reference.split())
         self.assertIn(
-            "Add `io.camunda:camunda-process-test-java` in test scope for non-Spring tests.",
-            runtime_configuration,
+            "camunda-process-test-java",
+            dependencies,
         )
         self.assertIn(
             "| No explicit request for remote mode | Spring or plain Java test | Use the default runtime. Never configure remote mode. |",
@@ -573,7 +858,17 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
         self.assertIn("@CamundaSpringProcessTest", c8_test)
         self.assertIn('@TestDeployment(resources = "converted-c8-payment.bpmn")', c8_test)
         self.assertIn("newCreateInstanceCommand()", c8_test)
-        self.assertIn('hasVariable("charged", true)', c8_test)
+        for required in (
+            "newVariableSearchRequest()",
+            "processInstanceKey(processInstance.getProcessInstanceKey())",
+            'name("charged")',
+            "withFullValues()",
+            "await().atMost(Duration.ofSeconds(10)).untilAsserted",
+            'getValue()).isEqualTo("true")',
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, c8_test)
+        self.assertNotIn('hasVariable("charged", true)', c8_test)
         self.assertIn('@JobWorker(type = "charge-payment")', c8_worker)
         self.assertIn('type="charge-payment"', c8_bpmn)
         self.assertIn("<artifactId>camunda-process-test-spring</artifactId>", c8_pom)
@@ -582,11 +877,20 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
 
     def test_mock_worker_guidance_configures_job_completion(self):
         reference = REFERENCE.read_text(encoding="utf-8")
+        engine_rest = ENGINE_REST_PATTERN.read_text(encoding="utf-8")
+        worker_guidance = reference.split("## Worker behavior", 1)[1].split(
+            "## Waiting, timers, and variables", 1
+        )[0]
         self.assertIn(
-            "processTestContext.mockJobWorker(type).thenComplete(variables)",
-            reference,
+            "10-engine-rest-mapping.md",
+            worker_guidance,
         )
-        self.assertIn("mockJobWorker(type).thenComplete(vars)", reference)
+        self.assertNotIn("processTestContext.completeJob(type, variables)", worker_guidance)
+        self.assertNotIn(
+            "processTestContext.mockJobWorker(type).thenComplete(variables)",
+            worker_guidance,
+        )
+        self.assertIn("mockJobWorker(type).thenComplete(vars)", engine_rest)
 
     def test_plain_java_workers_are_closed_after_each_test(self):
         worker_guidance = REFERENCE.read_text(encoding="utf-8").split(
@@ -604,7 +908,7 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
     def test_direct_user_task_completion_sends_variables(self):
         row = next(
             line
-            for line in REFERENCE.read_text(encoding="utf-8").splitlines()
+            for line in ENGINE_REST_PATTERN.read_text(encoding="utf-8").splitlines()
             if line.startswith(
                 "| `GET /task?processInstanceId=...` then `POST /task/{id}/complete`"
             )
@@ -614,6 +918,12 @@ class RemoteEngineTestMigrationTest(unittest.TestCase):
             "client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()",
             row,
         )
+        self.assertIn("poll", row.lower())
+        self.assertIn("eventually consistent", row.lower())
+        self.assertIn("UserTaskState.CREATED", row)
+        self.assertIn("processInstanceKey", row)
+        self.assertIn("elementId", row)
+        self.assertIn("exactly one", row.lower())
 
     def test_unavailable_baseline_keeps_shared_engine_verdict_manual(self):
         baseline_reporting = REFERENCE.read_text(encoding="utf-8").split(

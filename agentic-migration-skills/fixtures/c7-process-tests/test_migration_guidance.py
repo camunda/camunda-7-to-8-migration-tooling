@@ -25,6 +25,22 @@ TEST_MIGRATION_REFERENCE = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
 )
+SCENARIO_PATTERNS = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md"
+)
+JOB_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/60-job.md"
+)
+USER_TASK_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/40-user-task.md"
+)
+ASSERTION_MAPPING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/80-assertion-mapping.md"
+)
 INTERVIEW_QUESTIONS = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/interview-questions.md"
@@ -1343,7 +1359,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_linear_repeated_external_task_mapping_does_not_register_worker_mock(self):
         mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             [
                 "Camunda Platform Scenario",
                 "Camunda Process Test 8.9 or later",
@@ -1359,7 +1375,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
         self.assertEqual(1, len(linear_actions))
         self.assertIn(
-            "does not register a worker mock",
+            "do not register a worker mock",
             linear_actions[0]["Notes"].lower(),
         )
 
@@ -1752,6 +1768,34 @@ class MigrationGuidanceTest(unittest.TestCase):
                     normalized(payment_test["Notes"]),
                 )
 
+    def test_clockutil_reset_mapping_distinguishes_teardown_and_midtest(self):
+        job_pattern = " ".join(JOB_PATTERN.read_text(encoding="utf-8").split())
+        timer_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "| `ClockUtil.setCurrentTime(date)` | `processTestContext.setTime(instant)` |",
+            job_pattern,
+        )
+        self.assertIn(
+            "| `ClockUtil.reset()` in `@After` or `@AfterEach` | Remove the reset. | "
+            "CPT resets the clock after each test. |",
+            job_pattern,
+        )
+        self.assertIn(
+            "| `ClockUtil.reset()` during a test | "
+            "`processTestContext.setTime(Instant.now())` |",
+            job_pattern,
+        )
+        self.assertNotIn(
+            "ClockUtil.setCurrentTime(date) or `ClockUtil.reset()`",
+            job_pattern,
+        )
+        self.assertIn("@AfterEach", timer_source)
+        self.assertIn("ClockUtil.reset();", timer_source)
+
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
         reference = normalized(reference_text)
@@ -1855,7 +1899,7 @@ class MigrationGuidanceTest(unittest.TestCase):
 
     def test_scenario_mapping_removes_shared_setup_only_when_unused(self):
         scenario_mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             ["Camunda Platform Scenario", "Camunda Process Test 8.9 or later", "Notes"],
         )
         mock_mapping = [
@@ -1865,9 +1909,24 @@ class MigrationGuidanceTest(unittest.TestCase):
         ]
         self.assertEqual(1, len(mock_mapping))
         self.assertIn(
-            "when no retained method needs c7 scenario setup, the skill removes the "
-            "mock and scenario runner setup",
-            normalized(mock_mapping[0]["Camunda Process Test 8.9 or later"]),
+            "remove the c7 mock and scenario runner setup only when no retained method needs them",
+            normalized(mock_mapping[0]["Notes"]),
+        )
+        self.assertIn(
+            "map each verification to the matching assertion row below",
+            normalized(mock_mapping[0]["Notes"]),
+        )
+        self.assertIn(
+            "40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md",
+            TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8"),
+        )
+        sources = (
+            REPO_ROOT
+            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "Test kind `scenario test` | `40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md`",
+            sources,
         )
 
     def test_skill_scope_rules_use_ears_triggers(self):
@@ -2124,6 +2183,26 @@ class MigrationGuidanceTest(unittest.TestCase):
                 )
                 self.assertEqual(other["Handling"], "Report only")
                 self.assertIn(version_reason, normalized(other["Notes"]))
+
+    def test_deployment_mapping_is_catalog_owned(self):
+        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        inventory_deployment = reference.split("### Inventory and deployment", 1)[1].split(
+            "### Harness and API mappings", 1
+        )[0]
+        deployment_pattern = (
+            REPO_ROOT
+            / "code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("effective deployment resources", inventory_deployment)
+        self.assertIn("annotation scope", inventory_deployment)
+        self.assertNotIn("Replace every implicit Camunda 7 `@Deployment`", inventory_deployment)
+        self.assertNotIn(
+            "method-level `@TestDeployment` takes precedence",
+            inventory_deployment,
+        )
+        self.assertIn("20-test-setup/20-deployment.md", reference)
+        self.assertIn("Implicit `@Deployment`", deployment_pattern)
 
     def test_inventory_and_parity_match_supported_test_migration_rules(self):
         inventory = markdown_table(
@@ -2860,12 +2939,12 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertIn("CPT (`io.camunda.process.test.*`)", reference)
 
     def test_counted_completion_mapping_preserves_exact_count(self):
-        reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
+        scenario_pattern = SCENARIO_PATTERNS.read_text(encoding="utf-8")
         self.assertIn(
             '| `verify(process, times(n)).hasCompleted("E")` | '
             'Assert `hasCompletedElement("E", n)`. | '
-            'The skill preserves the exact completed-element count. |',
-            reference,
+            'Preserve the exact completed-element count. |',
+            scenario_pattern,
         )
         migrated = (
             EXPECTED_C8
@@ -2873,6 +2952,77 @@ class MigrationGuidanceTest(unittest.TestCase):
             "ScenarioMappingEdgeCasesTest.java"
         ).read_text(encoding="utf-8")
         self.assertIn('.hasCompletedElement("MixedWork", 2)', migrated)
+
+    def test_custom_process_starter_mapping_requires_manual_migration(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        custom_starter_mappings = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"] == "startBy(customProcessStarter)"
+        ]
+        self.assertEqual(1, len(custom_starter_mappings))
+        self.assertIn(
+            "Record `manual` in the parity ledger",
+            custom_starter_mappings[0]["Camunda Process Test 8.9 or later"],
+        )
+        self.assertIn(
+            "CPT has no direct mapping for a custom `ProcessStarter`",
+            custom_starter_mappings[0]["Notes"],
+        )
+
+    def test_unknown_finished_outcome_split_requires_manual_migration(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        finished_mappings = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"]
+            == 'verify(process, times(n)).hasFinished("E")'
+        ]
+        self.assertEqual(1, len(finished_mappings))
+        mapping = finished_mappings[0]["Camunda Process Test 8.9 or later"]
+        notes = finished_mappings[0]["Notes"]
+        self.assertIn("When mixed outcomes have known counts", mapping)
+        self.assertIn("When the completed-versus-terminated split is unknown", mapping)
+        self.assertIn("record `manual` in the parity ledger", mapping)
+        self.assertIn("Do not assert exact counts or their sum", mapping)
+        self.assertIn("counts must sum to `n`", notes)
+
+    def test_scenario_conditional_mapping_qualifies_the_context(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        wait_rows = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"]
+            == 'waitsAtUserTask("A").thenReturn(task -> task.complete(vars))'
+        ]
+
+        self.assertEqual(1, len(wait_rows))
+        self.assertTrue(
+            wait_rows[0]["Camunda Process Test 8.9 or later"].startswith(
+                "processTestContext.when("
+            )
+        )
 
     def test_scenario_user_task_wait_and_completion_share_instance_key(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
@@ -2886,7 +3036,7 @@ class MigrationGuidanceTest(unittest.TestCase):
         self.assertNotIn('completeUserTask("Review", variables)', wait_state_behavior)
 
         mappings = markdown_table(
-            TEST_MIGRATION_REFERENCE,
+            SCENARIO_PATTERNS,
             [
                 "Camunda Platform Scenario",
                 "Camunda Process Test 8.9 or later",
@@ -2896,12 +3046,150 @@ class MigrationGuidanceTest(unittest.TestCase):
         user_task_mappings = [
             row
             for row in mappings
-            if 'waitsAtUserTask("X")' in row["Camunda Platform Scenario"]
+            if 'waitsAtUserTask("A")' in row["Camunda Platform Scenario"]
         ]
         self.assertEqual(1, len(user_task_mappings))
         conversion = user_task_mappings[0]["Camunda Process Test 8.9 or later"]
         self.assertIn("byKey(processInstanceKey)", conversion)
-        self.assertIn('byElementId("X", processInstanceKey)', conversion)
+        self.assertIn('byElementId("A", processInstanceKey)', conversion)
+
+    def test_user_task_mapping_prefers_process_instance_scoped_selectors(self):
+        mappings = markdown_table(USER_TASK_PATTERN, ["Camunda 7", "CPT", "Note"])
+
+        unqualified_task_mapping = next(
+            row for row in mappings if row["Camunda 7"] == "task()"
+        )
+        self.assertEqual("No direct counterpart", unqualified_task_mapping["CPT"])
+        self.assertIn("UserTaskState.CREATED", unqualified_task_mapping["Note"])
+        self.assertIn(".hasSize(1)", unqualified_task_mapping["Note"])
+        self.assertIn("poll", unqualified_task_mapping["Note"].lower())
+        self.assertIn("userTaskKey", unqualified_task_mapping["Note"])
+
+        assertion_mappings = markdown_table(
+            ASSERTION_MAPPING_PATTERN, ["Camunda 7", "CPT", "Note"]
+        )
+        assignment_assertion = next(
+            row
+            for row in assertion_mappings
+            if row["Camunda 7"] == 'assertThat(task()).isAssignedTo("u")'
+        )
+        self.assertEqual("No direct counterpart", assignment_assertion["CPT"])
+        for required in (
+            "processInstanceKey",
+            "UserTaskState.CREATED",
+            ".hasSize(1)",
+            "poll",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required.lower(), assignment_assertion["Note"].lower())
+                self.assertIn(required.lower(), unqualified_task_mapping["Note"].lower())
+        self.assertNotIn('byElementId("A"', assignment_assertion["CPT"])
+
+        example = USER_TASK_PATTERN.read_text(encoding="utf-8")
+        self.assertIn("assertThat(userTasks).hasSize(1);", example)
+        self.assertIn(
+            "await().atMost(Duration.ofSeconds(10)).untilAsserted",
+            example,
+        )
+        self.assertIn(
+            "processInstanceKey(processInstance.getProcessInstanceKey())",
+            example,
+        )
+        self.assertIn(".state(UserTaskState.CREATED)", example)
+        self.assertIn(
+            "newCompleteUserTaskCommand(userTask.getUserTaskKey())",
+            example,
+        )
+
+        element_id_mapping = next(
+            row for row in mappings if row["Camunda 7"] == 'task("A")'
+        )
+        self.assertIn(
+            'UserTaskSelectors.byElementId("A", processInstanceKey)',
+            element_id_mapping["CPT"],
+        )
+        self.assertIn("poll", element_id_mapping["Note"].lower())
+
+        task_name_mapping = next(
+            row for row in mappings if row["Camunda 7"] == 'findId("Task name")'
+        )
+        self.assertIn(
+            'UserTaskSelectors.byTaskName("Task name", processInstanceKey)',
+            task_name_mapping["CPT"],
+        )
+        self.assertIn(".hasSize(1)", task_name_mapping["Note"])
+        self.assertIn("poll", task_name_mapping["Note"].lower())
+
+        unqualified_completion = next(
+            row
+            for row in mappings
+            if row["Camunda 7"] == "complete(task(), withVariables(vars))"
+        )
+        self.assertEqual("No direct counterpart", unqualified_completion["CPT"])
+        self.assertIn("UserTaskState.CREATED", unqualified_completion["Note"])
+        self.assertIn(".hasSize(1)", unqualified_completion["Note"])
+        self.assertIn("poll", unqualified_completion["Note"].lower())
+        self.assertIn("userTaskKey", unqualified_completion["Note"])
+
+        completion_mapping = next(
+            row
+            for row in mappings
+            if row["Camunda 7"] == 'complete(task("A"), withVariables(vars))'
+        )
+        self.assertIn(
+            'completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)',
+            completion_mapping["CPT"],
+        )
+        self.assertIn("poll", completion_mapping["Note"].lower())
+
+        claim_mapping = next(
+            row for row in mappings if "claim(task()" in row["Camunda 7"]
+        )
+        self.assertIn(".allowOverride(false)", claim_mapping["CPT"])
+        self.assertIn("poll", claim_mapping["Note"].lower())
+
+    def test_scenario_bpmn_error_mapping_preserves_user_task_condition(self):
+        mappings = markdown_table(
+            SCENARIO_PATTERNS,
+            [
+                "Camunda Platform Scenario",
+                "Camunda Process Test 8.9 or later",
+                "Notes",
+            ],
+        )
+        user_task_errors = [
+            row
+            for row in mappings
+            if "task.handleBpmnError" in row["Camunda Platform Scenario"]
+            and "task.handleEscalation" in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(user_task_errors))
+        self.assertIn("user-task", user_task_errors[0]["Camunda Platform Scenario"].lower())
+        self.assertEqual(
+            "No direct counterpart",
+            user_task_errors[0]["Camunda Process Test 8.9 or later"],
+        )
+
+        worker_errors = [
+            row
+            for row in mappings
+            if row["Camunda Platform Scenario"].startswith("Worker-backed wait states")
+        ]
+        self.assertEqual(1, len(worker_errors))
+        self.assertIn(
+            "mockJobWorker(type).thenThrowBpmnError",
+            worker_errors[0]["Camunda Process Test 8.9 or later"],
+        )
+        external_task_errors = [
+            row
+            for row in mappings
+            if "external-task stubs" in row["Camunda Platform Scenario"]
+        ]
+        self.assertEqual(1, len(external_task_errors))
+        self.assertIn(
+            "mockJobWorker(type).thenThrowBpmnError",
+            external_task_errors[0]["Camunda Process Test 8.9 or later"],
+        )
 
     def test_wait_state_targets_explain_instance_scope(self):
         reference = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
@@ -3253,6 +3541,12 @@ class MigrationGuidanceTest(unittest.TestCase):
                 "[C7 mock API mapping](#c7-mock-api-mapping)."
             ),
             normalized(section_lines[1]),
+        )
+        mock_mapping = reference.split("## C7 mock API mapping", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("40-test-assertions/30-mocks/10-delegate-mocks.md", mock_mapping)
+        self.assertIn(
+            "40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md",
+            mock_mapping,
         )
         self.assertEqual(1, reference.count("camunda.client.worker.override."))
         self.assertNotIn(

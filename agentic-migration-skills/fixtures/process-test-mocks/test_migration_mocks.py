@@ -9,6 +9,14 @@ from xml.etree import ElementTree as ET
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = Path(__file__).resolve().parent
+MOCK_PATTERNS = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/30-mocks/10-delegate-mocks.md"
+)
+PATTERN_SOURCES = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 VALIDATOR_PATH = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/scripts/validate_migration_evidence.py"
@@ -47,6 +55,15 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         ):
             with self.subTest(api=api):
                 self.assertIn(api, source)
+
+    def test_mock_catalog_files_are_selected_for_mocked_tests(self):
+        sources = PATTERN_SOURCES.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "| `mocks` modifier | `40-test-assertions/30-mocks/10-delegate-mocks.md` "
+            "and `40-test-assertions/30-mocks/20-call-activity-and-decision-mocks.md` |",
+            sources,
+        )
 
     def test_expected_cpt_fixture_preserves_c7_test_method_names(self):
         c7_test = (
@@ -97,6 +114,28 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn("@MockitoBean private InvoiceService invoiceService;", c8_test)
         self.assertIn('when(invoiceService.isValid("I-1")).thenReturn(true);', c8_method)
         self.assertIn('verify(invoiceService).isValid("I-1");', c8_method)
+
+    def test_catalog_preserves_expression_and_worker_collaborator_boundaries(self):
+        mapping_rows = [
+            line
+            for line in MOCK_PATTERNS.read_text(encoding="utf-8").splitlines()
+            if line.startswith('| `Mocks.register("service", mock)`')
+        ]
+        self.assertEqual(2, len(mapping_rows))
+
+        expression_row = next(
+            row for row in mapping_rows if "`camunda:expression` target" in row
+        )
+        collaborator_row = next(
+            row
+            for row in mapping_rows
+            if "collaborator called by a real delegate or worker" in row
+        )
+
+        self.assertIn("matching service used by the real worker", expression_row)
+        self.assertIn("real worker's collaborator", collaborator_row)
+        for row in mapping_rows:
+            self.assertIn("keep the real worker enabled", row.lower())
 
     def test_repeated_delegate_outputs_map_to_per_activation_cpt_results(self):
         c7_test = (
@@ -337,7 +376,8 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertNotIn("registerTaskListenerMock(", dmn_test)
 
     def test_listener_mappings_use_the_listener_job_type(self):
-        guidance = (
+        guidance = MOCK_PATTERNS.read_text(encoding="utf-8")
+        reference = (
             REPO_ROOT
             / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
         ).read_text(encoding="utf-8")
@@ -364,17 +404,14 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn('processTestContext.mockJobWorker("notify-start")', test_source)
         self.assertIn("zeebe:executionListener/@type", guidance)
         self.assertIn("zeebe:taskDefinition/@type", guidance)
-        self.assertIn("the skill records that mock in `mocks.c7`", guidance.lower())
+        self.assertIn("the skill records that mock in `mocks.c7`", reference.lower())
         self.assertIn(
             "the skill leaves `mocks.c8` without a corresponding mock",
-            guidance.lower(),
+            reference.lower(),
         )
 
     def test_verification_mappings_keep_invocation_counts_and_wait(self):
-        guidance = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
-        ).read_text(encoding="utf-8")
+        guidance = MOCK_PATTERNS.read_text(encoding="utf-8")
         test_source = (
             FIXTURE
             / "expected-c8/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"
@@ -395,10 +432,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertLess(waiting_assertion, listener_count)
 
     def test_task_listener_verification_preserves_each_invocation_count(self):
-        guidance = (
-            REPO_ROOT
-            / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/test-migration.md"
-        ).read_text(encoding="utf-8")
+        guidance = MOCK_PATTERNS.read_text(encoding="utf-8")
         c7_test = (
             FIXTURE
             / "c7-source/src/test/java/org/camunda/example/processmock/InvoiceProcessTest.java"

@@ -35,6 +35,7 @@ public class HandleUserTasks {
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
         return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
+                .allowOverride(false)
                 .send()
                 .join();
     }

@@ -16,6 +16,11 @@ public class OrderProcessTest {
 
 `@Deployment` without `resources` implicitly deploys a model named after the test class or method. `repositoryService.createDeployment().addClasspathResource(...)` also deploys a classpath model.
 
+| Camunda 7 deployment | CPT deployment | Note |
+|---|---|---|
+| Class- or method-level `@Deployment(resources = {...})` | Class- or method-level `@TestDeployment(resources = {...})` | Use converted-copy paths. A method-level annotation takes precedence. |
+| Implicit `@Deployment` | Explicit `@TestDeployment(resources = "<resolved converted-copy path>")` | Resolve the path from the Test Inventory. |
+
 ## Camunda 8
 
 ```java

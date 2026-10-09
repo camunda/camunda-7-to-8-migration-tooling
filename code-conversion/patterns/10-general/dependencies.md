@@ -103,8 +103,11 @@ For Camunda 8.9 or later, replace the temporary `camunda-process-test-spring-4` 
 | `camunda-process-test-coverage` platform 7 modules | No extra dependency | CPT writes its own coverage report from 8.8. |
 | `camunda-bpm-assert-scenario`, `camunda-platform-scenario-runner` | `io.camunda:camunda-process-test-java` | Conditional behavior requires 8.9. |
 | Test-scoped `camunda-engine` used only by process tests | `io.camunda:camunda-process-test-java` | Remove the embedded engine only after confirming no other required use remains. |
+| Test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` or `org.camunda.bpm.dmn:camunda-engine-feel-*` used only by decision tests | Remove the Camunda 7 DMN engine and FEEL artifacts. | Add the selected CPT Java or Spring artifact in test scope. Keep an artifact that production code or a remaining test uses. |
 | H2 used only by the embedded test engine | No replacement | Remove H2 only when the application does not use it. CPT runs against the Camunda runtime. |
 | JUnit 4 tests that remain in the module but are not process tests | `org.junit.vintage:junit-vintage-engine` | Add it in test scope so the remaining JUnit 4 tests still run. |
+
+Align AssertJ to the version supported by the selected Camunda Process Test release.
 
 **Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 
