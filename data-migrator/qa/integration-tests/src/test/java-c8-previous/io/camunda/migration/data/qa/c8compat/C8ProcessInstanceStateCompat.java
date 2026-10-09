@@ -15,6 +15,6 @@ public final class C8ProcessInstanceStateCompat {
   private C8ProcessInstanceStateCompat() {}
 
   public static boolean isActiveOrSuspended(ProcessInstanceState state) {
-    return state == ProcessInstanceState.ACTIVE;
+    return state == ProcessInstanceState.ACTIVE || state == ProcessInstanceState.SUSPENDED;
   }
 }
