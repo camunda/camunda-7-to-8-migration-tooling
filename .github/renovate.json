@@ -5,6 +5,7 @@
     "main",
     "maintenance/0.2",
     "maintenance/0.3",
+    "maintenance/8.10",
   ],
   "ignorePaths": [
     "agentic-migration-skills/fixtures/**"
