@@ -63,7 +63,7 @@ class OrderProcessTest {
 | `@SpringBootTest` that injects `DecisionService` | `@SpringBootTest @CamundaSpringProcessTest` with injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
 | `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` | |
 | `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | Remove the engine rule and initialization. | |
-| `camunda.bpm.*` test-engine properties | Remove them. | When a migrated test needs `camunda.process-test.*` properties, add them. |
+| `camunda.bpm.*` engine properties | Review each property before removal. | Migrate required behavior to a C8 setting or flag unsupported behavior for manual migration before removing the C7 property. |
 | A C7 test transaction that reverts engine and application state | Keep `@Transactional` only for application database state. | |
 
 Use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. See [dependencies](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/10-general/dependencies.md) for the Camunda 8.8 artifact names.

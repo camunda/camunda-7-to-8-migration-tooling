@@ -618,6 +618,22 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         )
         self.assertNotIn("delete the file", camunda_cfg_cleanup.lower())
 
+    def test_engine_property_mapping_reviews_behavior_before_removal(self):
+        spring_pattern = SPRING_PATTERN.read_text(encoding="utf-8")
+        engine_property_mapping = next(
+            line
+            for line in spring_pattern.splitlines()
+            if line.startswith("| `camunda.bpm.*` engine properties |")
+        )
+
+        self.assertIn("Review each property before removal.", engine_property_mapping)
+        self.assertIn(
+            "Migrate required behavior to a C8 setting or flag unsupported behavior "
+            "for manual migration before removing the C7 property.",
+            engine_property_mapping,
+        )
+        self.assertNotIn("Remove them.", engine_property_mapping)
+
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())
         source = STANDALONE_TASK_TEST.read_text()

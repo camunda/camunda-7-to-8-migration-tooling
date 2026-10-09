@@ -29,6 +29,10 @@ SCENARIO_PATTERNS = (
     REPO_ROOT
     / "code-conversion/patterns/40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md"
 )
+JOB_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/10-assertions/60-job.md"
+)
 USER_TASK_PATTERN = (
     REPO_ROOT
     / "code-conversion/patterns/40-test-assertions/10-assertions/40-user-task.md"
@@ -1763,6 +1767,34 @@ class MigrationGuidanceTest(unittest.TestCase):
                     "test migration needs camunda 8.9 or later",
                     normalized(payment_test["Notes"]),
                 )
+
+    def test_clockutil_reset_mapping_distinguishes_teardown_and_midtest(self):
+        job_pattern = " ".join(JOB_PATTERN.read_text(encoding="utf-8").split())
+        timer_source = (
+            C7_SOURCE
+            / "engine-tests/src/test/java/com/camunda/fixture/order/OrderTimerTest.java"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "| `ClockUtil.setCurrentTime(date)` | `processTestContext.setTime(instant)` |",
+            job_pattern,
+        )
+        self.assertIn(
+            "| `ClockUtil.reset()` in `@After` or `@AfterEach` | Remove the reset. | "
+            "CPT resets the clock after each test. |",
+            job_pattern,
+        )
+        self.assertIn(
+            "| `ClockUtil.reset()` during a test | "
+            "`processTestContext.setTime(Instant.now())` |",
+            job_pattern,
+        )
+        self.assertNotIn(
+            "ClockUtil.setCurrentTime(date) or `ClockUtil.reset()`",
+            job_pattern,
+        )
+        self.assertIn("@AfterEach", timer_source)
+        self.assertIn("ClockUtil.reset();", timer_source)
 
     def test_clockutil_timer_utility_does_not_trigger_manual_redesign(self):
         reference_text = TEST_MIGRATION_REFERENCE.read_text(encoding="utf-8")
