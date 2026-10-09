@@ -9,18 +9,14 @@ package io.camunda.migration.data.qa.c8compat;
 
 import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
+import java.util.Arrays;
 
 /**
  * Version-specific test query helpers for the previous Camunda 8 version.
  *
  * <p>Lives under {@code src/test/java-c8-previous} and is added to the test source set by the
- * {@code c8-previous-api} Maven profile (activated when {@code -Dversion.camunda-8} matches the
- * previous version pin). A parallel implementation exists under {@code src/test/java-c8-current}
- * for the current Camunda 8 version.
- *
- * <p>In 8.9 {@code ProcessDefinitionQuery.Builder} has no {@code resultConfig} — BPMN XML is
- * included by default. {@code FlowNodeInstanceFilter.Builder.flowNodeIds} accepts a varargs
- * {@code String[]} directly.
+ * {@code c8-previous-api} Maven profile. A parallel implementation exists under
+ * {@code src/test/java-c8-current} for the current Camunda 8 version.
  */
 public final class C8QueryCompat {
 
@@ -30,16 +26,19 @@ public final class C8QueryCompat {
       final String prefixedProcessDefinitionId) {
     return ProcessDefinitionQuery.of(
         queryBuilder ->
-            queryBuilder.filter(
-                filterBuilder -> filterBuilder.processDefinitionIds(prefixedProcessDefinitionId)));
+            queryBuilder
+                .filter(filterBuilder -> filterBuilder.processDefinitionIds(prefixedProcessDefinitionId))
+                .resultConfig(b -> b.includeXml(true)));
   }
 
   public static FlowNodeInstanceQuery flowNodeInstanceQueryByIds(final String... flowNodeIds) {
     if (flowNodeIds.length == 0) {
       throw new IllegalArgumentException("At least one flowNodeId is required");
     }
+    final String first = flowNodeIds[0];
+    final String[] rest = Arrays.copyOfRange(flowNodeIds, 1, flowNodeIds.length);
     return FlowNodeInstanceQuery.of(
         queryBuilder ->
-            queryBuilder.filter(filterBuilder -> filterBuilder.flowNodeIds(flowNodeIds)));
+            queryBuilder.filter(filterBuilder -> filterBuilder.flowNodeIds(first, rest)));
   }
 }

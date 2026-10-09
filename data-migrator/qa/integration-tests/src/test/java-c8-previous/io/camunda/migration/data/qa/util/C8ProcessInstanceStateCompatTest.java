@@ -19,6 +19,8 @@ class C8ProcessInstanceStateCompatTest {
   void shouldRecognizeCancellableProcessInstanceStates() {
     assertThat(C8ProcessInstanceStateCompat.isActiveOrSuspended(ProcessInstanceState.ACTIVE))
         .isTrue();
+    assertThat(C8ProcessInstanceStateCompat.isActiveOrSuspended(ProcessInstanceState.SUSPENDED))
+        .isTrue();
     assertThat(C8ProcessInstanceStateCompat.isActiveOrSuspended(ProcessInstanceState.COMPLETED))
         .isFalse();
   }
