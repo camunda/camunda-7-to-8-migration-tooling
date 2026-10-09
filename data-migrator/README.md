@@ -29,7 +29,7 @@ Please see the official documentation for more details: [Camunda 7 to 8 Migratio
 
 ## Supported Camunda 8 Versions
 
-The Data Migrator's current development target is **Camunda 8.10.0-SNAPSHOT**, with **Camunda 8.9.0** as its previous compatibility version. CI checks compatibility against both versions.
+The Data Migrator's target is **Camunda 8.10.2**, with **Camunda 8.9.0** as its previous compatibility version. CI checks compatibility against both versions.
 
 ## Prerequisites
 

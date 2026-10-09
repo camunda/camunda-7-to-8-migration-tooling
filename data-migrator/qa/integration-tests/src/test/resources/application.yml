@@ -18,7 +18,7 @@ camunda:
         password: sa
         driver-class-name: org.h2.Driver
   process-test:
-    camunda-docker-image-version: SNAPSHOT
+    camunda-docker-image-version: 8.10.2
 
 logging:
   level.io.camunda.migration.data: INFO

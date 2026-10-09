@@ -1099,14 +1099,16 @@ describe("target platform version", () => {
     const versionOptions = within(versionGroup).getAllByRole("radio");
 
     expect(versionOptions.map((option) => option.getAttribute("aria-label"))).toEqual([
-      "8.8 Earlier stable",
-      "8.9 Latest stable",
-      "8.10 Next version",
+      "8.8 Oldest supported",
+      "8.9 Earlier stable",
+      "8.10 Latest stable",
+      "8.11 Next version",
     ]);
-    ["Earlier stable", "Latest stable", "Next version"].forEach((hint, index) => {
+    ["Oldest supported", "Earlier stable", "Latest stable", "Next version"].forEach((hint, index) => {
       expect(within(versionOptions[index]).getByText(hint)).toBeDefined();
     });
     expect(versionOptions.map((option) => option.getAttribute("aria-checked"))).toEqual([
+      "false",
       "false",
       "true",
       "false",
