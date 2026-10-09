@@ -22,7 +22,7 @@ public class ConverterPropertiesTest {
     assertThat(properties.getScriptJobType()).isEqualTo("script");
     assertThat(properties.getResourceHeader()).isEqualTo("resource");
     assertThat(properties.getScriptFormatHeader()).isEqualTo("language");
-    assertThat(properties.getPlatformVersion()).isEqualTo("8.9");
+    assertThat(properties.getPlatformVersion()).isEqualTo("8.10");
     assertThat(properties.getKeepJobTypeBlank()).isFalse();
     assertThat(properties.getAlwaysUseDefaultJobType()).isFalse();
     assertThat(properties.getAddDataMigrationExecutionListener()).isFalse();
@@ -60,6 +60,6 @@ public class ConverterPropertiesTest {
   void shouldRejectAConfiguredDefaultThatIsNotLatestStable() {
     assertThatThrownBy(() -> TargetPlatformVersionPolicy.verifyConfiguredDefault("8.8"))
         .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("must be 8.9");
+        .hasMessageContaining("must be 8.10");
   }
 }
