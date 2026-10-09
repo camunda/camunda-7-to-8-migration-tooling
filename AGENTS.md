@@ -188,10 +188,12 @@ Use this release-line mapping for backports:
 | --- | --- |
 | `maintenance/0.2` | Camunda 8.8 |
 | `maintenance/0.3` | Camunda 8.9 |
+| `maintenance/8.10` | Camunda 8.10 |
 
 For pull requests targeting `main`, inspect the complete changed-file list. If any
-changed path is outside `agentic-migration-skills/`, add both backport labels
-`bot:backport:maintenance/0.2` and `bot:backport:maintenance/0.3` to the PR. Do
+changed path is outside `agentic-migration-skills/`, add all three backport labels
+`bot:backport:maintenance/0.2`, `bot:backport:maintenance/0.3`, and
+`bot:backport:maintenance/8.10` to the PR. Do
 not add these labels when all changed paths are within `agentic-migration-skills/`.
 
 For diagram-converter, the target version is an input independent of the libraries used to build a release line. Camunda 8.10 is the current stable/default target, with 8.11 as the next version; keep the webapp selector, backend default, and regression tests aligned when changing that policy.
