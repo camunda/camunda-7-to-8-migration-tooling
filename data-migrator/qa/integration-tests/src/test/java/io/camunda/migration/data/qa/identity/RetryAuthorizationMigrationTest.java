@@ -23,12 +23,11 @@ import io.camunda.client.api.search.enums.ResourceType;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.camunda.bpm.engine.authorization.Permissions;
 import org.camunda.bpm.engine.authorization.Resources;
 import org.camunda.bpm.engine.identity.User;
@@ -187,13 +186,10 @@ public class RetryAuthorizationMigrationTest extends IdentityMigrationAbstractTe
     identityMigrator.start();
 
     // then all skipped authorizations were listed
-    String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.AUTHORIZATION.getDisplayName() + "s\\]:";
-    String regex = expectedHeader + "\\R((?:.+\\R){9}.+)";
-    assertThat(output.getOut()).containsPattern(regex);
-    Pattern pattern = Pattern.compile(regex);
-    Matcher matcher = pattern.matcher(output.getOut());
-    final String capturedIds = matcher.find() ? matcher.group(1) : "";
-    authIds.forEach(id -> assertThat(capturedIds).contains(id));
+    var skippedEntities = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+    String entityType = IdKeyMapper.TYPE.AUTHORIZATION.getDisplayName();
+    assertThat(skippedEntities).containsKey(entityType);
+    assertThat(skippedEntities.get(entityType)).containsAll(authIds);
   }
 
 }

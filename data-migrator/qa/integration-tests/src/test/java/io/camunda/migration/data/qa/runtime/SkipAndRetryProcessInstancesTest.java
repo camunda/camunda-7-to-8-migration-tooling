@@ -22,13 +22,12 @@ import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.query.ProcessInstanceQuery;
 import io.github.netmikey.logunit.api.LogCapturer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.assertj.core.api.Assertions;
 import org.awaitility.Awaitility;
 import org.camunda.bpm.engine.RuntimeService;
@@ -238,14 +237,10 @@ class SkipAndRetryProcessInstancesTest extends RuntimeMigrationAbstractTest {
     runtimeMigrator.start();
 
     // then all skipped process instances were listed
-    String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE.getDisplayName() + "s\\]:";
-    String regex = expectedHeader + "\\R((?:.+\\R){9}.+)";
-    assertThat(output.getOut()).containsPattern(regex);
-    Pattern pattern = Pattern.compile(regex);
-    Matcher matcher = pattern.matcher(output.getOut());
-
-    final String capturedIds = matcher.find() ? matcher.group(1) : "";
-    processInstancesIds.forEach(processInstanceId -> assertThat(capturedIds).contains(processInstanceId));
+    var skippedEntities = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+    String entityType = IdKeyMapper.TYPE.RUNTIME_PROCESS_INSTANCE.getDisplayName();
+    assertThat(skippedEntities).containsKey(entityType);
+    assertThat(skippedEntities.get(entityType)).containsAll(processInstancesIds);
   }
 
   @Test

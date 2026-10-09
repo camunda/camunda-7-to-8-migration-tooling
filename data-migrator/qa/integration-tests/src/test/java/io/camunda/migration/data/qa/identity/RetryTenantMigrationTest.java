@@ -15,11 +15,10 @@ import io.camunda.client.api.search.response.Tenant;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.persistence.IdKeyDbModel;
 import io.camunda.migration.data.impl.persistence.IdKeyMapper;
+import io.camunda.migration.data.qa.util.EntitiesLogParserUtils;
 import io.camunda.migration.data.qa.util.WhiteBox;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -156,13 +155,10 @@ public class RetryTenantMigrationTest extends IdentityMigrationAbstractTest {
     identityMigrator.start();
 
     // then all skipped tenants were listed
-    String expectedHeader = "Previously skipped \\[" + IdKeyMapper.TYPE.TENANT.getDisplayName() + "s\\]:";
-    String regex = expectedHeader + "\\R((?:.+\\R){9}.+)";
-    assertThat(output.getOut()).containsPattern(regex);
-    Pattern pattern = Pattern.compile(regex);
-    Matcher matcher = pattern.matcher(output.getOut());
-    final String capturedIds = matcher.find() ? matcher.group(1) : "";
-    tenantIds.forEach(id -> assertThat(capturedIds).contains(id));
+    var skippedEntities = EntitiesLogParserUtils.parseSkippedEntitiesOutput(output.getOut());
+    String entityType = IdKeyMapper.TYPE.TENANT.getDisplayName();
+    assertThat(skippedEntities).containsKey(entityType);
+    assertThat(skippedEntities.get(entityType)).containsAll(tenantIds);
   }
 
   @Test
