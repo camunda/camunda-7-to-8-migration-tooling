@@ -6,6 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 const VERSION_HINTS = Object.freeze({
+  OLDEST_SUPPORTED: "Oldest supported",
   EARLIER_STABLE: "Earlier stable",
   LATEST_STABLE: "Latest stable",
   NEXT: "Next version",
@@ -14,9 +15,10 @@ const VERSION_HINTS = Object.freeze({
 // Keep this list independent of the Camunda libraries used to build a release
 // line. The converter accepts the target platform version as an input.
 export const SUPPORTED_PLATFORM_VERSIONS = Object.freeze([
-  { value: "8.8", label: "8.8", hint: VERSION_HINTS.EARLIER_STABLE },
-  { value: "8.9", label: "8.9", hint: VERSION_HINTS.LATEST_STABLE },
-  { value: "8.10", label: "8.10", hint: VERSION_HINTS.NEXT },
+  { value: "8.8", label: "8.8", hint: VERSION_HINTS.OLDEST_SUPPORTED },
+  { value: "8.9", label: "8.9", hint: VERSION_HINTS.EARLIER_STABLE },
+  { value: "8.10", label: "8.10", hint: VERSION_HINTS.LATEST_STABLE },
+  { value: "8.11", label: "8.11", hint: VERSION_HINTS.NEXT },
 ]);
 
 export const getPlatformVersionAriaLabel = ({ label, hint }) =>
