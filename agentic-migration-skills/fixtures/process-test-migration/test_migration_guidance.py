@@ -445,9 +445,13 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("No form metadata", report)
         self.assertIn("User decision", report)
         self.assertIn("Keep form-free", report)
-        for process_id, task_id in FORM_FREE_TASK_SCOPES:
-            with self.subTest(process_id=process_id, task_id=task_id):
-                self.assertIn(f"| `{process_id}` | `{task_id}` |", report)
+        scoped_exceptions = report.split(
+            "## Scoped form-free user-task lint exceptions\n", maxsplit=1
+        )[1].split("\n## ", maxsplit=1)[0]
+        reported_scopes = re.findall(
+            r"(?m)^\| `([^`]+)` \| `([^`]+)` \|", scoped_exceptions
+        )
+        self.assertCountEqual(FORM_FREE_TASK_SCOPES, reported_scopes)
 
     def test_reported_form_free_tasks_have_no_form_metadata(self):
         source = ET.parse(
