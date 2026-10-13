@@ -12,7 +12,9 @@ The Camunda 7 `camunda.cfg.xml` enables full history and disables its job execut
 not query history. The expected project removes that engine-only configuration and records the
 setting in `expected-c8/MIGRATION_REPORT.md`.
 The expected project keeps every lint rule enabled. `expected-c8/MIGRATION_REPORT.md` accepts the
-missing-form finding only for the user tasks that the user keeps form-free.
+missing-form finding only for the user tasks that the user keeps form-free. CPT reaches and
+completes each task through the process-test API, then asserts its expected end event and process
+completion.
 
 ## Run the fixture
 

@@ -45,7 +45,7 @@ class OrderProcessTest {
     assertThatUserTask(UserTaskSelectors.byElementId("Task_Approve")).hasAssignee("demo");
     processTestContext.completeUserTask("Task_Approve", Map.of("approved", true));
     assertThat(processInstance)
-        .hasCompletedElements("Task_Approve")
+        .hasCompletedElements("Task_Approve", "End_Approved")
         .isCompleted()
         .hasVariable("approved", true);
   }
@@ -65,6 +65,10 @@ class OrderProcessTest {
     assertThat(processInstance)
         .hasActiveElements("Task_Escalate")
         .hasNoActiveElements("Task_Approve");
+    processTestContext.completeUserTask("Task_Escalate");
+    assertThat(processInstance)
+        .hasCompletedElements("Task_Escalate", "End_Timeout")
+        .isCompleted();
   }
 
   @Test
@@ -80,6 +84,10 @@ class OrderProcessTest {
             .join();
 
     assertThat(processInstance).hasActiveElements("Task_AfterAsync");
+    processTestContext.completeUserTask("Task_AfterAsync");
+    assertThat(processInstance)
+        .hasCompletedElements("Task_AfterAsync", "End_Async")
+        .isCompleted();
   }
 
   @Test

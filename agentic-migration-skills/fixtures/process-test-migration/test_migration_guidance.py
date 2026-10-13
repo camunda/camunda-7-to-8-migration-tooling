@@ -45,6 +45,11 @@ EXPECTED_PROCESS_TEST_IDS = {
     "OrderProcessTest#failsWhenDelegateThrows",
     "MessageProcessTest#correlatesMessage",
 }
+FORM_FREE_TASK_RUNTIME_EVIDENCE = {
+    ("order-process", "Task_Approve"): ("approvesOrder", "End_Approved"),
+    ("order-process", "Task_Escalate"): ("escalatesAfterOneDay", "End_Timeout"),
+    ("async-process", "Task_AfterAsync"): ("continuesAfterAsync", "End_Async"),
+}
 MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 
@@ -423,13 +428,53 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
 
         self.assertNotIn("rules", lint_config)
         self.assertCountEqual(
-            [
-                ("order-process", "Task_Approve"),
-                ("order-process", "Task_Escalate"),
-                ("async-process", "Task_AfterAsync"),
-            ],
-            re.findall(r"(?m)^\| `([^`]+)` \| `([^`]+)` \| Keep form-free \|$", report),
+            FORM_FREE_TASK_RUNTIME_EVIDENCE.keys(),
+            re.findall(
+                r"(?m)^\| `([^`]+)` \| `([^`]+)` \| Keep form-free \|",
+                report,
+            ),
         )
+
+    def test_form_free_exceptions_have_cpt_completion_and_end_evidence(self):
+        order_test = (C8_TESTS / "OrderProcessTest.java").read_text()
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        runtime_evidence = report.split(
+            "## Accepted form-free lint findings\n", maxsplit=1
+        )[1].split("\n## ", maxsplit=1)[0]
+
+        for (process_id, task_id), (method_name, end_event_id) in (
+            FORM_FREE_TASK_RUNTIME_EVIDENCE.items()
+        ):
+            with self.subTest(process_id=process_id, task_id=task_id):
+                method = re.search(
+                    rf"void {re.escape(method_name)}\(\) \{{(.*?)\n  \}}",
+                    order_test,
+                    re.DOTALL,
+                )
+                self.assertIsNotNone(method)
+                body = method.group(1)
+                self.assertIn(f'.bpmnProcessId("{process_id}")', body)
+                self.assertIn(f'.hasActiveElements("{task_id}")', body)
+                self.assertIn(
+                    f'processTestContext.completeUserTask("{task_id}"', body
+                )
+                self.assertIn(
+                    f'.hasCompletedElements("{task_id}", "{end_event_id}")',
+                    body,
+                )
+                self.assertIn(".isCompleted()", body)
+                report_row = next(
+                    (
+                        line
+                        for line in runtime_evidence.splitlines()
+                        if line.startswith(f"| `{process_id}` | `{task_id}` |")
+                    ),
+                    None,
+                )
+                self.assertIsNotNone(report_row)
+                self.assertIn(f"`OrderProcessTest#{method_name}`", report_row)
+                self.assertIn(f"`{end_event_id}`", report_row)
+                self.assertIn("process completion", report_row)
 
     def test_legacy_junit4_test_remains_on_both_projects(self):
         c7_test = (C7_TESTS / "LegacyFormatterTest.java").read_text()

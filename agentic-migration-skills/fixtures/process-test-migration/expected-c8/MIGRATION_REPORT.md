@@ -9,9 +9,9 @@ The expected project removes this engine-only file and does not add a CPT histor
 | Camunda 7 test | CPT 8.9 test | Mapping and behavior |
 |---|---|---|
 | `ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess` | `ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess` | Uses JUnit 5 and explicitly deploys the converted copy. The test starts `implicit-process` and asserts completion. |
-| `OrderProcessTest#approvesOrder` | `OrderProcessTest#approvesOrder` | `completeUserTask` receives BPMN element ID `Task_Approve`, not the task name. |
-| `OrderProcessTest#escalatesAfterOneDay` | `OrderProcessTest#escalatesAfterOneDay` | Replaces manual timer-job execution with `increaseTime(Duration.ofDays(1))`. The test waits for `Task_Escalate` and asserts that `Task_Approve` is inactive. |
-| `OrderProcessTest#continuesAfterAsync` | `OrderProcessTest#continuesAfterAsync` | CPT completes the `noopDelegate` job with a test handler. Camunda 7 manually executes the `NoopDelegate` job. |
+| `OrderProcessTest#approvesOrder` | `OrderProcessTest#approvesOrder` | `completeUserTask` receives BPMN element ID `Task_Approve`, not the task name. The test asserts `End_Approved` and process completion. |
+| `OrderProcessTest#escalatesAfterOneDay` | `OrderProcessTest#escalatesAfterOneDay` | Replaces manual timer-job execution with `increaseTime(Duration.ofDays(1))`. The test reaches and completes `Task_Escalate`, then asserts `End_Timeout` and process completion. |
+| `OrderProcessTest#continuesAfterAsync` | `OrderProcessTest#continuesAfterAsync` | CPT completes the `noopDelegate` job with a test handler, then completes `Task_AfterAsync` and asserts `End_Async` and process completion. Camunda 7 manually executes the `NoopDelegate` job. |
 | `OrderProcessTest#failsWhenDelegateThrows` | `OrderProcessTest#failsWhenDelegateThrows` | CPT fails the `failingDelegate` job with zero retries and asserts an incident. Camunda 7 expects `IllegalStateException` from `FailingDelegate`. |
 | `MessageProcessTest#correlatesMessage` | `MessageProcessTest#correlatesMessage` | Camunda 7 `businessKey` `legacy-business-key` becomes C8 `businessId`. The message subscription separately uses `orderId` value `subscription-key`. |
 
@@ -26,11 +26,11 @@ The Camunda 7 source has no form metadata on these user tasks, and the user chos
 form-free. The `camunda-compat/user-task-definition` missing-form finding is accepted only for these
 tasks. The `.bpmnlintrc` keeps the rule enabled.
 
-| Process ID | User-task ID | User decision |
-|---|---|---|
-| `order-process` | `Task_Approve` | Keep form-free |
-| `order-process` | `Task_Escalate` | Keep form-free |
-| `async-process` | `Task_AfterAsync` | Keep form-free |
+| Process ID | User-task ID | User decision | CPT runtime evidence |
+|---|---|---|---|
+| `order-process` | `Task_Approve` | Keep form-free | `OrderProcessTest#approvesOrder` reaches and completes the task, then asserts `End_Approved` and process completion. |
+| `order-process` | `Task_Escalate` | Keep form-free | `OrderProcessTest#escalatesAfterOneDay` reaches and completes the task, then asserts `End_Timeout` and process completion. |
+| `async-process` | `Task_AfterAsync` | Keep form-free | `OrderProcessTest#continuesAfterAsync` reaches and completes the task, then asserts `End_Async` and process completion. |
 
 ## Converted models
 
