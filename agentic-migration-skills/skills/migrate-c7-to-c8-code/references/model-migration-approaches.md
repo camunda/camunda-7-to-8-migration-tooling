@@ -709,7 +709,10 @@ readiness.
 
 ## Linting Converted BPMN (M1 and M2)
 
-After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version. Missing DI, overlaps, and disconnected flows are cheapest to catch at edit time.
+After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version.
+When the original source is DI-less, or the user keeps a form-free user task, follow
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) before classifying target lint
+findings.
 
 ```sh
 npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once
@@ -721,7 +724,9 @@ npx bpmnlint <converted-file>.bpmn
 ## Model validation (Step 4)
 
 Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
-skill edited. After every manual BPMN edit, lint the converted copy again.
+skill edited. When the original source is DI-less, or the user keeps a form-free user task, follow
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) to classify target lint findings
+and require graph and runtime evidence. After every manual BPMN edit, lint the converted copy again.
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.

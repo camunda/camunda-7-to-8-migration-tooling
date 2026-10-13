@@ -345,7 +345,8 @@ Convert BPMN/DMN from the `camunda:` namespace to `zeebe:` with the approach cho
 See `references/model-migration-approaches.md` for all four.
 
 - **M1. Diagram Converter CLI + AI** (recommended) — download and run the CLI, then handle the
-  findings.
+  findings. When the original source is DI-less, follow
+  `references/model-lint-and-connectivity.md` before classifying target lint findings.
 - **M2. Agentic AI** — rewrite the XML directly, without the CLI.
 - **M3. Online Converter** — the user uploads the diagrams at the hosted service.
 - **E1. Camunda 7 engine source** — fetch the definitions from the Camunda 7 REST API when no local
@@ -354,6 +355,8 @@ See `references/model-migration-approaches.md` for all four.
 When the skill pairs each original BPMN with its converted copy, run
 `references/form-migration.md` for the Generated Task Forms, then
 `references/form-reference-migration.md` for the referenced forms and the form-free owners.
+When the user chooses to keep a form-free user task, follow
+`references/model-lint-and-connectivity.md` for its scoped lint exception.
 
 #### Part C - Project Documentation and CI
 
@@ -441,6 +444,7 @@ repeat-run, and coverage checks.
 #### Model checks, when models were migrated
 
 Run every check in "Model validation" in `references/model-migration-approaches.md`.
+For M1, follow `references/model-lint-and-connectivity.md` for DI-less sources and form-free user tasks.
 
 #### Process behavior
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:modeler="http://camunda.org/schema/modeler/1.0"
+                  targetNamespace="https://camunda.com/migration-fixtures"
+                  exporter="Camunda Modeler"
+                  exporterVersion="5.31.0"
+                  modeler:executionPlatform="Camunda Cloud"
+                  modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="orderProcess" isExecutable="true">
+    <bpmn:startEvent id="StartOrder" name="Start order" />
+    <bpmn:userTask id="ReviewOrder" name="Review order">
+      <bpmn:extensionElements>
+        <zeebe:userTask />
+      </bpmn:extensionElements>
+    </bpmn:userTask>
+    <bpmn:endEvent id="OrderComplete" name="Order complete" />
+    <bpmn:sequenceFlow id="Flow_Start_Review" sourceRef="StartOrder" targetRef="ReviewOrder" />
+    <bpmn:sequenceFlow id="Flow_Review_End" sourceRef="ReviewOrder" targetRef="OrderComplete" />
+  </bpmn:process>
+</bpmn:definitions>

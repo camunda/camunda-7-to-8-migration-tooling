@@ -254,6 +254,11 @@ that source provenance in `MIGRATION_REPORT.md`. The
 [`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
 both cases.
 
+The [`fixtures/model-lint-readiness`](fixtures/model-lint-readiness) fixture checks
+the M1 path for a DI-less source, a form-free user task, and a disconnected-flow
+regression. Its namespace-aware verifier checks sequence-flow references and
+start-to-end connectivity.
+
 The [`fixtures/grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks
 BOM resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
 `MIGRATION_REPORT.md`.
@@ -265,13 +270,13 @@ request engine access. REST supports optional Basic authentication. It can fetch
 definitions or multiple named definitions. Database-only access and OIDC access need a separately
 supported extractor.
 
-At run time the skill fetches only the [pattern-catalog files required by the code
+At run time, the skill fetches only the [pattern-catalog files required by the code
 inventory](skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md), with `ALL_IN_ONE.md`
-as a fallback. It also fetches the diagram-converter docs and resolves the latest Diagram Converter
-CLI release automatically. It checks the selected JAR against source start listeners, verifies
-`@Deployment` entries in the packaged application, and blocks model readiness until every converted
-model deploys to the declared target. It describes what the agent must inspect, download, and run,
-instead of prescribing one shell dialect.
+as a fallback. The skill also fetches the diagram-converter docs and resolves the latest CLI release.
+The skill checks the selected JAR against source start listeners. It verifies `@Deployment` entries
+in the packaged application. It blocks model readiness until connectivity, target deployment, and
+process behavior pass. The skill describes the required inspections and commands without requiring
+a shell dialect.
 
 ## Structure
 
