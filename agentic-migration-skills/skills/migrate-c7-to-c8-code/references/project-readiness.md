@@ -66,7 +66,7 @@ The project-specific gate must cover each applicable check:
 |---|---|
 | Packaging | The Maven package command succeeds for each migrated Maven module. Use the project's package task for Gradle modules. |
 | Configuration | The project's configuration-binding test or validator passes for each documented profile. |
-| BPMN lint | Every in-scope converted BPMN file passes lint for the selected target version, or every remaining finding has a valid scoped exception under [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) with required graph and runtime evidence. Every in-scope converted DMN file passes lint for the selected target version. |
+| BPMN lint | Every in-scope converted BPMN or DMN file passes lint for the selected target version, or each BPMN finding is accepted under [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md). |
 | Process tests | Relevant process tests pass with a working target-compatible C8 runtime and required Docker services. |
 
 When no configuration-binding test or validator exists, add a check for each migrated profile.
@@ -105,8 +105,6 @@ List every workflow that builds, tests, packages, publishes, or deploys migrated
 
 Use a table with these columns: Check, Command or workflow, Runtime, Result, Evidence.
 Record every applicable packaging, configuration, BPMN lint, and process-test result.
-Record the effective lint configuration and raw findings for every BPMN lint check.
-Link scoped exception evidence, graph results, and target runtime evidence in the `Evidence` column.
 Record a CI run link only when it does not expose private endpoints or credentials.
 While the user selects assessment-only or analyze-only, record checks as `not run`.
 Set the readiness verdict to `not assessed`.

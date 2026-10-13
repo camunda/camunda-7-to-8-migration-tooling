@@ -709,30 +709,21 @@ readiness.
 
 ## Linting Converted BPMN (M1 and M2)
 
-After any manual BPMN edit (findings follow-up, form wiring, expression fixes), run `c8ctl bpmn lint` immediately with the target-compatible ruleset.
-Before accepting BPMN lint output, follow the effective-configuration check in
-[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md). When the original source is
-DI-less, or the user keeps a form-free user task, follow the same reference for scoped exceptions,
-graph checks, and runtime evidence.
-
-In c8ctl 4.2.0, `c8ctl bpmn lint` bundles bpmnlint, Zeebe moddle, and the Camunda compatibility
-rules. Do not install separate npm packages for this command.
+After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version. Missing DI, overlaps, and disconnected flows are cheapest to catch at edit time.
 
 ```sh
-c8ctl bpmn lint <converted-file>.bpmn
+npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once
+npx bpmnlint <converted-file>.bpmn
 ```
 
-`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
+`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Never disable a rule in `.bpmnlintrc`. Fix or record every lint error before continuing.
 
 ## Model validation (Step 4)
 
 Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
-skill edited. Before every BPMN lint run, follow the effective-configuration check in
-[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md), regardless of source DI, form
-choice, or conversion approach.
-When the original source is DI-less, or the user keeps a form-free user task, also follow the
-reference to classify target lint findings and require graph and runtime evidence.
-After every manual BPMN edit, lint the converted copy again.
+skill edited. After every manual BPMN edit, lint the converted copy again.
+When the original source is DI-less, or the user keeps a user task form-free, classify lint findings
+with [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md).
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.

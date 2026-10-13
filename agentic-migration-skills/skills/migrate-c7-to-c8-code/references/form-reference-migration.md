@@ -318,15 +318,15 @@ Keep the category verdict at `needs fix` until the application owner confirms th
 
 Inventory every form-free owner: a user task or process-level none start event with **no** form
 metadata, no `formKey`, no `formRef`, and no `formData`/`formProperty`. Camunda 7 Tasklist rendered
-an ad-hoc form from user-task variables. Camunda 8 does not add a form automatically.
+an ad-hoc form from whatever variables existed. Camunda 8 shows no form at all, so the behavior
+silently changes.
 
 Record them in the same inventory with category `c7-generic-task-form` and reference `none`. Present
 them as an explicit user choice: build a Camunda Form, keep the task form-free, or handle it in a
 custom application. Offer the rebuild procedure above if they choose a form. Do not generate anything
 without an explicit request. Never present the category as "no action".
-For a user task the user chooses to keep form-free, follow
-[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) for its targeted lint exception.
-Record this choice as an accepted UX difference, not a missing form migration.
+When the user keeps a user task form-free, classify its lint finding with
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md).
 
 ## Report and verdict lifecycle
 

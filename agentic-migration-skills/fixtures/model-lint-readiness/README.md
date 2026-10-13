@@ -1,46 +1,21 @@
 # M1 model lint readiness fixture
 
-The Camunda 7 source has valid sequence-flow references and no BPMN DI. It has no
-`bpmn:incoming` or `bpmn:outgoing` children. Its `ReviewOrder` user task has no form metadata. The
-converted copy preserves these absences. The expected user decision is `keep form-free`. A second
-converted copy has a disconnected user task. The connectivity check must reject it.
-`order-c7-form-ref-bearing.bpmn` exercises `camunda:formRef` as a user-task attribute.
+`order-c7-no-di-form-free.bpmn` is a Camunda 7 source with valid sequence-flow references, no BPMN
+DI, and no `bpmn:incoming` or `bpmn:outgoing` children. Its `ReviewOrder` user task has no form
+metadata, and the expected user decision is to keep it form-free.
+`converted-c8-order-no-di-form-free.bpmn` preserves these absences.
+`converted-c8-order-disconnected.bpmn` adds a disconnected user task that the graph check must reject.
 
-Run the namespace-aware fixture checks from the repository root:
-
-```sh
-python3 -m unittest discover \
-  -s agentic-migration-skills/fixtures/model-lint-readiness \
-  -p 'test_*.py'
-```
-
-The verifier checks the BPMN namespace, flow endpoints, optional incoming/outgoing references, and
-explicit start-to-end reachability. It supports only the simple processes in these fixtures. It
-fails closed for subprocesses, boundary events, and transactions. Use BPMN semantics for those
-constructs in a migration run. Do not use this fixture verifier as a general BPMN validator.
-
-The test suite checks `camunda:formKey` and `camunda:formRef` attribute examples and checks that the
-form-free source has no form metadata. It does not run `c8ctl bpmn lint`, inspect the effective
-`.bpmnlintrc`, or contact a Camunda cluster.
-`../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md` defines the lint,
-exception, and runtime gate.
-
-The raw target lint remains visible. On c8ctl 4.2.0, this command exits with 12 errors and one
-warning. It reports missing BPMN DI, disconnection, implicit starts and ends, and a missing-form
-warning. The connected model still passes the namespace-aware graph check.
+Run the fixture checks from the repository root:
 
 ```sh
-c8ctl bpmn lint \
-  agentic-migration-skills/fixtures/model-lint-readiness/converted-c8-order-no-di-form-free.bpmn
+python3 -m unittest discover -s agentic-migration-skills/fixtures/model-lint-readiness -p 'test_*.py'
 ```
 
-Before accepting any BPMN lint output, inspect the effective `.bpmnlintrc` regardless of source DI
-or form choice. Do not disable those rules in a project-wide `.bpmnlintrc`.
+`verify_bpmn_connectivity.py` supports only these single-process fixtures. It rejects subprocesses,
+transactions, and boundary events, and it is not a general BPMN validator.
 
-Before marking an actual migration ready, deploy the exact converted copy to the selected target
-version. This fixture uses the form-free exception, so its runtime check must complete `ReviewOrder`.
-For a DI-less process without that exception, verify its expected path and end event without
-requiring a user task. Start `orderProcess`. Confirm that the instance reaches `ReviewOrder`.
-Complete the user task through the target API or the application's real completion path. Confirm
-that the instance completes. Record this runtime evidence as described in
-`../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md`.
+`c8ctl bpmn lint converted-c8-order-no-di-form-free.bpmn` still reports DI, connectivity, implicit
+start and end, label, and missing-form findings. The skill accepts them only as described in
+[`model-lint-and-connectivity.md`](../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md),
+after the graph check and a target runtime check that completes `ReviewOrder`.

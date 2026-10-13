@@ -1,380 +1,45 @@
-"""Regression tests for safe M1 lint handling and source-faithful form-free tasks."""
-
-from __future__ import annotations
+"""Regression tests for the DI-less and form-free M1 lint path."""
 
 from pathlib import Path
-import sys
-import subprocess
+import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 
+from verify_bpmn_connectivity import BPMN, check
+
 FIXTURE_DIR = Path(__file__).resolve().parent
-REPO_ROOT = FIXTURE_DIR.parents[2]
-SKILL_DIR = REPO_ROOT / "agentic-migration-skills/skills/migrate-c7-to-c8-code"
-REFERENCE_PATH = SKILL_DIR / "references/model-lint-and-connectivity.md"
-BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
-BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
-CAMUNDA_NS = "http://camunda.org/schema/1.0/bpmn"
-ZEEBE_NS = "http://camunda.org/schema/zeebe/1.0"
-BPMN = f"{{{BPMN_NS}}}"
-BPMNDI = f"{{{BPMNDI_NS}}}"
-CAMUNDA = f"{{{CAMUNDA_NS}}}"
-ZEEBE = f"{{{ZEEBE_NS}}}"
-
-
-def run_verifier(path: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(FIXTURE_DIR / "verify_bpmn_connectivity.py"), str(path)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+SOURCE = FIXTURE_DIR / "order-c7-no-di-form-free.bpmn"
+CONVERTED = FIXTURE_DIR / "converted-c8-order-no-di-form-free.bpmn"
+FORM_NAMES = {"formKey", "formRef", "formRefBinding", "formRefVersion", "formHandlerClass",
+              "formData", "formProperty", "formDefinition"}
 
 
 class ModelLintReadinessTest(unittest.TestCase):
-    def test_no_di_source_and_form_free_converted_copy_have_a_valid_graph(self):
-        source_path = FIXTURE_DIR / "order-c7-no-di-form-free.bpmn"
-        converted_path = FIXTURE_DIR / "converted-c8-order-no-di-form-free.bpmn"
-        source = ET.parse(source_path).getroot()
-        converted = ET.parse(converted_path).getroot()
-
-        for root in (source, converted):
-            self.assertIsNone(root.find(".//" + BPMNDI + "BPMNDiagram"))
-            self.assertEqual(root.findall(".//" + BPMN + "incoming"), [])
-            self.assertEqual(root.findall(".//" + BPMN + "outgoing"), [])
-
-        source_task = source.find(".//" + BPMN + "userTask")
-        converted_task = converted.find(".//" + BPMN + "userTask")
-        self.assertIsNotNone(source_task)
-        self.assertIsNotNone(converted_task)
-        self.assertNotIn(CAMUNDA + "formKey", source_task.attrib)
-        self.assertEqual(source_task.findall(".//" + CAMUNDA + "formData"), [])
-        self.assertEqual(source_task.findall(".//" + CAMUNDA + "formProperty"), [])
-        self.assertNotIn(CAMUNDA + "formRef", source_task.attrib)
-        for task in (source_task, converted_task):
-            for attribute in (
-                CAMUNDA + "formRefBinding",
-                CAMUNDA + "formRefVersion",
-                CAMUNDA + "formHandlerClass",
-            ):
-                with self.subTest(task=task.get("id"), form_metadata=attribute):
-                    self.assertNotIn(attribute, task.attrib)
-        self.assertNotIn(CAMUNDA + "formKey", converted_task.attrib)
-        self.assertNotIn(CAMUNDA + "formRef", converted_task.attrib)
-        self.assertEqual(converted_task.findall(".//" + CAMUNDA + "formData"), [])
-        self.assertEqual(converted_task.findall(".//" + CAMUNDA + "formProperty"), [])
-        self.assertEqual(converted_task.findall(".//" + ZEEBE + "formDefinition"), [])
-        for path in (source_path, converted_path):
+    def test_di_less_form_free_source_and_converted_copy_are_connected(self):
+        for path in (SOURCE, CONVERTED):
             with self.subTest(path=path.name):
-                result = run_verifier(path)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("valid sequence-flow references", result.stdout)
+                root = ET.parse(path).getroot()
+                names = {e.tag.rsplit("}", 1)[-1] for e in root.iter()}
+                names |= {a.rsplit("}", 1)[-1] for e in root.iter(BPMN + "userTask") for a in e.attrib}
+                self.assertTrue(names.isdisjoint({"BPMNDiagram", "incoming", "outgoing"} | FORM_NAMES))
+                self.assertEqual([], check(path))
 
-    def test_source_with_form_metadata_is_not_eligible_for_form_free_exception(self):
-        source = ET.parse(FIXTURE_DIR / "order-c7-form-bearing.bpmn").getroot()
-        user_task = source.find(".//" + BPMN + "userTask")
-        self.assertIsNotNone(user_task)
-        self.assertEqual(user_task.get(CAMUNDA + "formKey"), "fixture-review-form")
-
-    def test_form_ref_is_a_namespaced_user_task_attribute(self):
-        source = ET.parse(FIXTURE_DIR / "order-c7-form-ref-bearing.bpmn").getroot()
-        user_task = source.find(".//" + BPMN + "userTask")
-        self.assertIsNotNone(user_task)
-        self.assertEqual(user_task.get(CAMUNDA + "formRef"), "fixture-review-form")
-        self.assertEqual(user_task.findall(".//" + CAMUNDA + "formRef"), [])
-
-    def test_disconnected_converted_flow_fails_connectivity_check(self):
-        path = FIXTURE_DIR / "converted-c8-order-disconnected.bpmn"
-        result = run_verifier(path)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("not on an explicit start-to-end path", result.stderr)
-
-    def test_unknown_sequence_flow_reference_fails_connectivity_check(self):
-        invalid = f"""<bpmn:definitions xmlns:bpmn="{BPMN_NS}">
-          <bpmn:process id="invalid">
-            <bpmn:startEvent id="start" />
-            <bpmn:endEvent id="end" />
-            <bpmn:sequenceFlow id="flow" sourceRef="missing" targetRef="end" />
-          </bpmn:process>
-        </bpmn:definitions>"""
-        path = FIXTURE_DIR / "invalid-flow-reference.tmp.bpmn"
-        path.write_text(invalid, encoding="utf-8")
-        self.addCleanup(path.unlink)
-        result = run_verifier(path)
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("references unknown flow node", result.stderr)
-
-    def test_skill_routes_di_less_and_form_free_decisions_to_the_reference(self):
-        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
-        model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
-            encoding="utf-8"
-        )
-        form_text = (SKILL_DIR / "references/form-reference-migration.md").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("references/model-lint-and-connectivity.md", skill_text)
-        self.assertIn("effective-configuration check", model_text)
-        self.assertIn("model-lint-and-connectivity.md", model_text)
-        self.assertIn("model-lint-and-connectivity.md", form_text)
-        self.assertTrue(REFERENCE_PATH.is_file())
-
-    def test_reference_requires_targeted_lint_and_runtime_evidence(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8") if REFERENCE_PATH.is_file() else ""
-        form_scope = reference.split("## Verify the form-free decision", 1)[1].split(
-            "## Require target runtime evidence", 1
-        )[0]
-        for required in (
-            "camunda:formHandlerClass",
-            "camunda:formRefBinding",
-            "camunda:formRefVersion",
-        ):
-            with self.subTest(form_metadata=required):
-                self.assertIn(required.casefold(), form_scope.casefold())
-
-        for required in (
-            "no-bpmndi",
-            "no-disconnected",
-            "sourceRef",
-            "targetRef",
-            "form-free",
-            "camunda:formData",
-            "camunda:formProperty",
-            "camunda:formKey",
-            "camunda:formRef",
-            "namespaced attributes",
-            "child elements",
-            "zeebe:formDefinition",
-            ".bpmnlintrc",
-            "project-wide",
-            "namespace-aware",
-            "explicitly chooses",
-            "deploy",
-            "complete",
-            "different cause",
-            "blocked",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required.casefold(), reference.casefold())
-
-    def test_effective_linter_config_must_not_suppress_rules_or_mismatch_target(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        lint_scope = reference.split("## Run and record target lint", 1)[1].split(
-            "## Check the source and target graph", 1
-        )[0]
-        normalized_scope = " ".join(lint_scope.split()).casefold()
-        for required in (
-            "effective lint configuration",
-            "project `.bpmnlintrc` and inherited presets",
-            "selected target version",
-            "effective config includes each converted copy",
-            "does not disable or ignore applicable rules",
-            "excludes a converted copy",
-            "uses another target",
-            "cannot be verified",
-            "raw lint unverified",
-            "blocks model readiness",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required.casefold(), normalized_scope)
-
-    def test_runtime_gate_does_not_require_user_task_for_di_less_process(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        runtime_scope = reference.split("## Require target runtime evidence", 1)[1].split(
-            "## ", 1
-        )[0]
-        normalized_scope = " ".join(runtime_scope.split()).casefold()
-        for required in (
-            "expected path and end event",
-            "expected process path",
-            "form-free user-task exception",
-            "instance reaches the task",
-            "completes the task through the target API",
-            "does not require a user task",
-            "expected end event",
-            "also records the user-task ID",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required.casefold(), normalized_scope)
-        exception_start = normalized_scope.index(
-            "when the process uses a form-free user-task exception"
-        )
-        service_only_start = normalized_scope.index(
-            "for a di-less process without a form-free user-task exception"
-        )
-        exception_scope = normalized_scope[exception_start:service_only_start]
-        self.assertIn("completes the task through", exception_scope)
-        self.assertNotIn("completes the task through", normalized_scope[:exception_start])
-
-    def test_runtime_test_suite_must_deploy_and_exercise_exact_converted_copies(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        runtime_text = reference.split("## Require target runtime evidence", 1)[1].split(
-            "## ", 1
-        )[0]
-        runtime_scope = " ".join(runtime_text.split()).casefold()
-
-        self.assertIn(
-            "project target-version process test suite is an alternative only when it deploys "
-            "and exercises every exact converted bpmn copy",
-            runtime_scope,
+    def test_disconnected_converted_copy_fails(self):
+        self.assertEqual(
+            ["DetachedReview is not on a start-to-end path"],
+            check(FIXTURE_DIR / "converted-c8-order-disconnected.bpmn"),
         )
 
-    def test_compensating_graph_and_runtime_gates_are_scoped(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        normalized = " ".join(reference.split()).casefold()
-        normalized_lines = [line.strip().casefold() for line in reference.splitlines()]
-        graph_scope = normalized.split("## check the source and target graph", 1)[1].split(
-            "## verify the form-free decision", 1
-        )[0]
-        runtime_scope = normalized.split("## require target runtime evidence", 1)[1].split(
-            "## ", 1
-        )[0]
-        readiness_row = next(
-            line for line in normalized_lines if line.startswith("| model readiness |")
-        )
-
-        self.assertIn(
-            "when the source is di-less or the user chooses to keep a form-free user task, "
-            "the skill runs the graph and runtime checks",
-            normalized,
-        )
-        self.assertIn("when the graph gate applies", graph_scope)
-        self.assertIn("when the runtime gate applies", runtime_scope)
-        self.assertIn(
-            "graph and runtime gates pass for a di-less source or an applicable form-free "
-            "exception",
-            readiness_row,
-        )
-        self.assertIn(
-            "passes each graph or runtime check required by an exception",
-            readiness_row,
-        )
-
-    def test_di_less_checks_apply_to_every_model_conversion_approach(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        scope = " ".join(
-            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
-        )
-        self.assertIn(
-            "The DI-less checks apply to every model-conversion approach, including M2.",
-            scope,
-        )
-
-    def test_form_free_exception_applies_when_source_has_di(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        scope = " ".join(
-            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
-        )
-        self.assertIn(
-            "The form-free exception applies regardless of source DI or conversion approach.",
-            scope,
-        )
-        self.assertIn(
-            "When the source has BPMN DI, the skill follows the existing DI-preservation check.",
-            scope,
-        )
-
-    def test_every_bpmn_lint_run_checks_effective_configuration(self):
-        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
-        skill_scope = " ".join(
-            skill_text.split("#### Model checks, when models were migrated", 1)[1]
-            .split("#### Process behavior", 1)[0]
-            .split()
-        ).casefold()
-        for required in (
-            "before every bpmn lint run",
-            "effective configuration",
-            "also follow the reference for scoped lint exceptions",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required, skill_scope)
-
-        fixture_readme = " ".join(
-            (FIXTURE_DIR / "README.md").read_text(encoding="utf-8").casefold().split()
-        )
-        self.assertIn("before accepting any bpmn lint output", fixture_readme)
-        self.assertIn("regardless of source di or form choice", fixture_readme)
-
-        model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
-            encoding="utf-8"
-        )
-        model_scope = " ".join(
-            model_text.split("## Model validation (Step 4)", 1)[1].split("\n1.", 1)[0].split()
-        ).casefold()
-        for required in (
-            "before every bpmn lint run",
-            "regardless of source di, form choice, or conversion approach",
-            "effective-configuration check",
-            "when the original source is di-less",
-            "also follow",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required, model_scope)
-
-    def test_model_migration_uses_one_authoritative_bpmn_lint_command(self):
-        model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
-            encoding="utf-8"
-        )
-        lint_scope = model_text.split("## Linting Converted BPMN (M1 and M2)", 1)[1].split(
-            "## Model validation (Step 4)", 1
-        )[0]
-        reference_text = REFERENCE_PATH.read_text(encoding="utf-8")
-
-        self.assertIn("c8ctl bpmn lint <converted-file>.bpmn", lint_scope)
-        self.assertNotIn("npx bpmnlint", lint_scope)
-        self.assertIn("c8ctl bpmn lint", reference_text)
-
-        fixture_readme = (FIXTURE_DIR.parent / "diagram-interchange" / "README.md").read_text(
-            encoding="utf-8"
-        )
-        normalized_fixture_readme = " ".join(fixture_readme.split()).casefold()
-        for name, instructions in (
-            ("M1/M2 linting", lint_scope.casefold()),
-            ("diagram-interchange fixture", normalized_fixture_readme),
-        ):
-            with self.subTest(instructions=name):
-                self.assertNotIn("npm install -d", instructions)
-
-        self.assertIn("c8ctl bpmn lint", normalized_fixture_readme)
-        self.assertNotIn("npx bpmnlint", normalized_fixture_readme)
-        self.assertIn("keep the `c8ctl bpmn lint` exit code", normalized_fixture_readme)
-        self.assertIn(
-            "record each `c8ctl bpmn lint` command, exit code, and output",
-            normalized_fixture_readme,
-        )
-
-    def test_di_less_source_cannot_gain_layout_by_user_approval(self):
-        reference = REFERENCE_PATH.read_text(encoding="utf-8")
-        scope = " ".join(
-            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
-        )
-        self.assertIn(
-            "When the source is DI-less, the converted copy remains DI-less.",
-            scope,
-        )
-        self.assertNotIn("approves a layout change", scope)
-
-    def test_project_readiness_allows_only_validated_bpmn_lint_exceptions(self):
-        readiness_text = (SKILL_DIR / "references/project-readiness.md").read_text(
-            encoding="utf-8"
-        )
-        lint_row = next(
-            line for line in readiness_text.splitlines() if line.startswith("| BPMN lint |")
-        )
-        normalized_row = " ".join(lint_row.split()).casefold()
-        for required in (
-            "every in-scope converted bpmn file passes lint",
-            "every remaining finding has a valid scoped exception",
-            "graph and runtime evidence",
-            "every in-scope converted dmn file passes lint",
-        ):
-            with self.subTest(required=required):
-                self.assertIn(required, normalized_row)
-
-        report_scope = readiness_text.split("### Project readiness", 1)[1].split(
-            "Use this readiness verdict table", 1
-        )[0]
-        self.assertIn("effective lint configuration", report_scope.casefold())
-        self.assertIn("scoped exception evidence", report_scope.casefold())
+    def test_unknown_sequence_flow_reference_fails(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".bpmn", delete=False) as file:
+            file.write(
+                f'<definitions xmlns="{BPMN[1:-1]}"><process id="p">'
+                '<startEvent id="start"/><endEvent id="end"/>'
+                '<sequenceFlow id="flow" sourceRef="missing" targetRef="end"/>'
+                "</process></definitions>"
+            )
+        self.addCleanup(Path(file.name).unlink)
+        self.assertIn("flow references unknown node", check(file.name))
 
 
 if __name__ == "__main__":

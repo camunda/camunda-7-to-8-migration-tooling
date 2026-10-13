@@ -20,21 +20,17 @@ runs through `NoopDelegate` and `FailingDelegate`. Approval is pending for these
 changes. The fixture does not claim parity for either delegate until the project records its
 approval.
 
-## Scoped form-free user-task lint exceptions
+## Accepted form-free lint findings
 
-The Camunda 7 source inventory finds no form metadata on these user tasks. The converted copies
-have no `zeebe:formDefinition` on the listed tasks. The inventory checks `camunda:formKey`,
-`camunda:formRef`, `camunda:formRefBinding`, `camunda:formRefVersion`, `camunda:formHandlerClass`,
-`camunda:formData`, and `camunda:formProperty`.
-The fixture records the user decision to keep each task form-free. The expected project keeps
-`camunda-compat/user-task-definition` enabled. The exception covers only its missing-form finding
-for these process and task IDs.
+The Camunda 7 source has no form metadata on these user tasks, and the user chose to keep them
+form-free. The `camunda-compat/user-task-definition` missing-form finding is accepted only for these
+tasks. The `.bpmnlintrc` keeps the rule enabled.
 
-| Process ID | User-task ID | Source inventory | Converted copy | User decision |
-|---|---|---|---|---|
-| `order-process` | `Task_Approve` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
-| `order-process` | `Task_Escalate` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
-| `async-process` | `Task_AfterAsync` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
+| Process ID | User-task ID | User decision |
+|---|---|---|
+| `order-process` | `Task_Approve` | Keep form-free |
+| `order-process` | `Task_Escalate` | Keep form-free |
+| `async-process` | `Task_AfterAsync` | Keep form-free |
 
 ## Converted models
 

@@ -11,10 +11,8 @@ test disables every real worker whose job type it mocks. The real-DMN test uses 
 configuration but calls no mock API. The repeated-delegate test uses a CPT handler to preserve the
 output order across both activations.
 The listener fixtures keep their user tasks form-free because the Camunda 7 sources have no form
-metadata. The expected project keeps `camunda-compat/user-task-definition` enabled.
-`expected-c8/MIGRATION_REPORT.md` records the fixture's user decision. It scopes the missing-form
-exception to each exact process and task ID. The CPT tests complete each tested task through the
-process-test API.
+metadata. The expected project keeps every lint rule enabled. `expected-c8/MIGRATION_REPORT.md`
+accepts the missing-form finding only for those user tasks.
 
 ## Evaluate the fixture
 
