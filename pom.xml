@@ -31,8 +31,8 @@
     <version.camunda-7>7.24.11-ee</version.camunda-7>
     <version.camunda-8>8.11.0-SNAPSHOT</version.camunda-8>
     <version.camunda-8.previous>8.9.0</version.camunda-8.previous>
-    <!-- Keep the E2E server image independent from Maven snapshot versions. -->
-    <version.camunda-8.docker>8.10.3</version.camunda-8.docker>
+    <!-- Docker Hub publishes the matching 8.11 snapshot image without the patch component. -->
+    <version.camunda-8.docker>8.11-SNAPSHOT</version.camunda-8.docker>
     <camunda8.docker.image>camunda/camunda:${version.camunda-8.docker}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.1</version.spring-boot>
