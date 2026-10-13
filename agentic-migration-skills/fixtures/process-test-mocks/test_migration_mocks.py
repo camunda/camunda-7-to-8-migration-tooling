@@ -343,14 +343,19 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertIn("No form metadata", report)
         self.assertIn("User decision", report)
         self.assertIn("Keep form-free", report)
-        for process_id, task_id in (
+        expected_scopes = (
             ("task-listener", "Task_Review"),
             ("task-listener-never", "Task_Review"),
             ("task-listener-twice", "Task_Review_One"),
             ("task-listener-twice", "Task_Review_Two"),
-        ):
-            with self.subTest(process_id=process_id, task_id=task_id):
-                self.assertIn(f"| `{process_id}` | `{task_id}` |", report)
+        )
+        scoped_exceptions = report.split(
+            "# Scoped form-free user-task lint exceptions\n", maxsplit=1
+        )[1]
+        reported_scopes = re.findall(
+            r"(?m)^\| `([^`]+)` \| `([^`]+)` \|", scoped_exceptions
+        )
+        self.assertCountEqual(expected_scopes, reported_scopes)
 
     def test_delegate_answer_preserves_inputs_outputs_and_verification(self):
         c7_test = (
