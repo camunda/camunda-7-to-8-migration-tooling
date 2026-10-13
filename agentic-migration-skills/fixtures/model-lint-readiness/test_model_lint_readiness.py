@@ -51,6 +51,14 @@ class ModelLintReadinessTest(unittest.TestCase):
         self.assertEqual(source_task.findall(".//" + CAMUNDA + "formData"), [])
         self.assertEqual(source_task.findall(".//" + CAMUNDA + "formProperty"), [])
         self.assertNotIn(CAMUNDA + "formRef", source_task.attrib)
+        for task in (source_task, converted_task):
+            for attribute in (
+                CAMUNDA + "formRefBinding",
+                CAMUNDA + "formRefVersion",
+                CAMUNDA + "formHandlerClass",
+            ):
+                with self.subTest(task=task.get("id"), form_metadata=attribute):
+                    self.assertNotIn(attribute, task.attrib)
         self.assertNotIn(CAMUNDA + "formKey", converted_task.attrib)
         self.assertNotIn(CAMUNDA + "formRef", converted_task.attrib)
         self.assertEqual(converted_task.findall(".//" + CAMUNDA + "formData"), [])

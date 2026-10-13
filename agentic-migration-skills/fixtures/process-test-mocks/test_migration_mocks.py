@@ -273,21 +273,20 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         self.assertNotIn('mockJobWorker("review-created-listener")', c8_test)
 
     def test_task_listener_conversion_does_not_invent_form_metadata(self):
-        c7_model = ET.parse(
-            FIXTURE / "c7-source/src/test/resources/task-listener.bpmn"
-        ).getroot()
-        c8_model = ET.parse(
-            FIXTURE
-            / "expected-c8/src/main/resources/processes/converted-c8-task-listener.bpmn"
-        ).getroot()
         namespaces = {"bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL"}
-        c7_task = c7_model.find(".//bpmn:userTask[@id='Task_Review']", namespaces)
-        c8_task = c8_model.find(".//bpmn:userTask[@id='Task_Review']", namespaces)
-        self.assertIsNotNone(c7_task)
-        self.assertIsNotNone(c8_task)
 
         def has_form_metadata(task):
-            form_names = {"formData", "formDefinition", "formKey", "formId", "externalReference"}
+            form_names = {
+                "formData",
+                "formDefinition",
+                "formHandlerClass",
+                "formId",
+                "formKey",
+                "formRef",
+                "formRefBinding",
+                "formRefVersion",
+                "externalReference",
+            }
             for element in task.iter():
                 if element.tag.rsplit("}", 1)[-1] in form_names:
                     return True
@@ -297,10 +296,32 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
                     return True
             return False
 
-        self.assertFalse(has_form_metadata(c7_task))
-        self.assertFalse(has_form_metadata(c8_task))
+        for process_id, task_id in (
+            ("task-listener", "Task_Review"),
+            ("task-listener-never", "Task_Review"),
+            ("task-listener-twice", "Task_Review_One"),
+            ("task-listener-twice", "Task_Review_Two"),
+        ):
+            with self.subTest(process_id=process_id, task_id=task_id):
+                c7_model = ET.parse(
+                    FIXTURE / f"c7-source/src/test/resources/{process_id}.bpmn"
+                ).getroot()
+                c8_model = ET.parse(
+                    FIXTURE
+                    / f"expected-c8/src/main/resources/processes/converted-c8-{process_id}.bpmn"
+                ).getroot()
+                c7_task = c7_model.find(
+                    f".//bpmn:userTask[@id='{task_id}']", namespaces
+                )
+                c8_task = c8_model.find(
+                    f".//bpmn:userTask[@id='{task_id}']", namespaces
+                )
+                self.assertIsNotNone(c7_task)
+                self.assertIsNotNone(c8_task)
+                self.assertFalse(has_form_metadata(c7_task))
+                self.assertFalse(has_form_metadata(c8_task))
 
-    def test_form_free_listener_lint_suppresses_only_the_missing_form_rule(self):
+    def test_form_free_listener_lint_keeps_exceptions_task_scoped(self):
         lint_config = json.loads(
             (FIXTURE / "expected-c8/.bpmnlintrc").read_text(encoding="utf-8")
         )
@@ -311,10 +332,25 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
             ],
             lint_config["extends"],
         )
-        self.assertEqual(
-            {"camunda-compat/user-task-definition": "off"},
-            lint_config["rules"],
+        self.assertNotIn(
+            "camunda-compat/user-task-definition",
+            lint_config.get("rules", {}),
         )
+        report = (FIXTURE / "expected-c8/MIGRATION_REPORT.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("camunda-compat/user-task-definition", report)
+        self.assertIn("No form metadata", report)
+        self.assertIn("User decision", report)
+        self.assertIn("Keep form-free", report)
+        for process_id, task_id in (
+            ("task-listener", "Task_Review"),
+            ("task-listener-never", "Task_Review"),
+            ("task-listener-twice", "Task_Review_One"),
+            ("task-listener-twice", "Task_Review_Two"),
+        ):
+            with self.subTest(process_id=process_id, task_id=task_id):
+                self.assertIn(f"| `{process_id}` | `{task_id}` |", report)
 
     def test_delegate_answer_preserves_inputs_outputs_and_verification(self):
         c7_test = (

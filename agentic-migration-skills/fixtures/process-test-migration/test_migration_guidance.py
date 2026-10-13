@@ -46,6 +46,11 @@ EXPECTED_PROCESS_TEST_IDS = {
     "MessageProcessTest#correlatesMessage",
 }
 MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
+BPMN_NAMESPACES = {
+    "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+    "camunda": "http://camunda.org/schema/1.0/bpmn",
+    "zeebe": "http://camunda.org/schema/zeebe/1.0",
+}
 
 
 def test_method_names(source):
@@ -417,13 +422,65 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn('<zeebe:header key="class" value="com.camunda.fixture.tests.NoopDelegate"/>', converted)
         self.assertIn('<zeebe:subscription correlationKey="= orderId"/>', converted)
 
-    def test_bpmn_lint_suppresses_only_form_free_user_tasks(self):
+    def test_bpmn_lint_keeps_form_free_exceptions_task_scoped(self):
         lint_config = json.loads((FIXTURE_ROOT / "expected-c8/.bpmnlintrc").read_text())
-
         self.assertEqual(
-            {"camunda-compat/user-task-definition": "off"},
-            lint_config["rules"],
+            [
+                "bpmnlint:recommended",
+                "plugin:camunda-compat/camunda-cloud-8-9",
+            ],
+            lint_config["extends"],
         )
+        self.assertNotIn(
+            "camunda-compat/user-task-definition",
+            lint_config.get("rules", {}),
+        )
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        self.assertIn("camunda-compat/user-task-definition", report)
+        self.assertIn("No form metadata", report)
+        self.assertIn("User decision", report)
+        self.assertIn("Keep form-free", report)
+        for task_id in ("Task_Approve", "Task_Escalate", "Task_AfterAsync"):
+            with self.subTest(task_id=task_id):
+                self.assertIn(f"| `order-process` | `{task_id}` |", report)
+
+    def test_reported_form_free_tasks_have_no_form_metadata(self):
+        source = ET.parse(
+            C7_RESOURCES / "com/camunda/fixture/tests/process-test-cases.bpmn"
+        ).getroot()
+        converted = ET.parse(
+            C8_RESOURCES / "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn"
+        ).getroot()
+        form_attributes = (
+            "{http://camunda.org/schema/1.0/bpmn}formKey",
+            "{http://camunda.org/schema/1.0/bpmn}formRef",
+            "{http://camunda.org/schema/1.0/bpmn}formRefBinding",
+            "{http://camunda.org/schema/1.0/bpmn}formRefVersion",
+            "{http://camunda.org/schema/1.0/bpmn}formHandlerClass",
+        )
+
+        for task_id in ("Task_Approve", "Task_Escalate", "Task_AfterAsync"):
+            with self.subTest(task_id=task_id):
+                source_task = source.find(
+                    f".//bpmn:userTask[@id='{task_id}']", BPMN_NAMESPACES
+                )
+                converted_task = converted.find(
+                    f".//bpmn:userTask[@id='{task_id}']", BPMN_NAMESPACES
+                )
+                self.assertIsNotNone(source_task)
+                self.assertIsNotNone(converted_task)
+                for task in (source_task, converted_task):
+                    for attribute in form_attributes:
+                        self.assertNotIn(attribute, task.attrib)
+                    for child in ("formData", "formProperty"):
+                        self.assertEqual(
+                            [],
+                            task.findall(f".//camunda:{child}", BPMN_NAMESPACES),
+                        )
+                self.assertEqual(
+                    [],
+                    converted_task.findall(".//zeebe:formDefinition", BPMN_NAMESPACES),
+                )
 
     def test_legacy_junit4_test_remains_on_both_projects(self):
         c7_test = (C7_TESTS / "LegacyFormatterTest.java").read_text()

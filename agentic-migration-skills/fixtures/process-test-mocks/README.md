@@ -10,8 +10,11 @@ job types, executes the converted DMN, and uses `mockChildProcess` for the calle
 test disables every real worker whose job type it mocks. The real-DMN test uses the shared engine
 configuration but calls no mock API. The repeated-delegate test uses a CPT handler to preserve the
 output order across both activations.
-The listener fixture keeps its user task form-free because the C7 source has no form metadata. Its
-local lint configuration disables the missing-form warning and keeps the other Camunda 8.9 checks.
+The listener fixtures keep their user tasks form-free because the Camunda 7 sources have no form
+metadata. The expected project keeps `camunda-compat/user-task-definition` enabled.
+`expected-c8/MIGRATION_REPORT.md` records the fixture's user decision. It scopes the missing-form
+exception to each exact process and task ID. The CPT tests complete each tested task through the
+process-test API.
 
 ## Evaluate the fixture
 

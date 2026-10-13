@@ -20,6 +20,22 @@ runs through `NoopDelegate` and `FailingDelegate`. Approval is pending for these
 changes. The fixture does not claim parity for either delegate until the project records its
 approval.
 
+## Scoped form-free user-task lint exceptions
+
+The Camunda 7 source inventory finds no form metadata on these user tasks. The converted copies
+have no `zeebe:formDefinition` on the listed tasks. The inventory checks `camunda:formKey`,
+`camunda:formRef`, `camunda:formRefBinding`, `camunda:formRefVersion`, `camunda:formHandlerClass`,
+`camunda:formData`, and `camunda:formProperty`.
+The fixture records the user decision to keep each task form-free. The expected project keeps
+`camunda-compat/user-task-definition` enabled. The exception covers only its missing-form finding
+for these process and task IDs.
+
+| Process ID | User-task ID | Source inventory | Converted copy | User decision |
+|---|---|---|---|---|
+| `order-process` | `Task_Approve` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
+| `order-process` | `Task_Escalate` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
+| `order-process` | `Task_AfterAsync` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
+
 ## Converted models
 
 The Diagram Converter CLI 0.3.6-SNAPSHOT created both converted copies with
