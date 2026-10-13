@@ -12,7 +12,7 @@ configuration but calls no mock API. The repeated-delegate test uses a CPT handl
 output order across both activations.
 The listener fixtures keep their user tasks form-free because the Camunda 7 sources have no form
 metadata. The expected project keeps every lint rule enabled. `expected-c8/MIGRATION_REPORT.md`
-accepts the missing-form finding only for those user tasks.
+records the keep-form-free decision for each user task. Its missing-form finding stays blocking.
 
 ## Evaluate the fixture
 

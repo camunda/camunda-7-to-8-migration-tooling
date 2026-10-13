@@ -722,6 +722,9 @@ npx bpmnlint <converted-file>.bpmn
 
 Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
 skill edited. After every manual BPMN edit, lint the converted copy again.
+Before accepting lint output, inspect the effective configuration, including presets, `rules`, and
+ignore patterns. If it uses another target ruleset, disables an applicable rule, or excludes a
+converted copy, then record lint as unverified and block model readiness.
 When the original source is DI-less, or the user keeps a user task form-free, classify lint findings
 with [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md).
 

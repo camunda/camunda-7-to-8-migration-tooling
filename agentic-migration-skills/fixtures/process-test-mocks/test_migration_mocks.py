@@ -313,6 +313,7 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
         )
         self.assertNotIn("rules", lint_config)
         report = (FIXTURE / "expected-c8/MIGRATION_REPORT.md").read_text(encoding="utf-8")
+        pairs = re.findall(r"(?m)^\| `([^`]+)` \| `([^`]+)` \| Keep form-free \|$", report)
         self.assertCountEqual(
             [
                 ("task-listener", "Task_Review"),
@@ -320,8 +321,18 @@ class ProcessTestMocksFixtureTest(unittest.TestCase):
                 ("task-listener-twice", "Task_Review_One"),
                 ("task-listener-twice", "Task_Review_Two"),
             ],
-            re.findall(r"(?m)^\| `([^`]+)` \| `([^`]+)` \| Keep form-free \|$", report),
+            pairs,
         )
+        for process_id, task_id in pairs:
+            for path in (
+                FIXTURE / f"c7-source/src/test/resources/{process_id}.bpmn",
+                FIXTURE / f"expected-c8/src/main/resources/processes/converted-c8-{process_id}.bpmn",
+            ):
+                with self.subTest(path=path.name, task=task_id):
+                    process = ET.parse(path).getroot().find(f".//{{*}}process[@id='{process_id}']")
+                    task = process.find(f".//{{*}}userTask[@id='{task_id}']")
+                    names = [n.rsplit("}", 1)[-1] for e in task.iter() for n in (e.tag, *e.attrib)]
+                    self.assertFalse([n for n in names if n.startswith("form") or n == "externalReference"])
 
     def test_delegate_answer_preserves_inputs_outputs_and_verification(self):
         c7_test = (

@@ -20,11 +20,12 @@ runs through `NoopDelegate` and `FailingDelegate`. Approval is pending for these
 changes. The fixture does not claim parity for either delegate until the project records its
 approval.
 
-## Accepted form-free lint findings
+## Form-free user-task decisions
 
 The Camunda 7 source has no form metadata on these user tasks, and the user chose to keep them
-form-free. The `camunda-compat/user-task-definition` missing-form finding is accepted only for these
-tasks. The `.bpmnlintrc` keeps the rule enabled.
+form-free. The `.bpmnlintrc` keeps `camunda-compat/user-task-definition` enabled. Each missing-form
+finding stays blocking until the lint and runtime evidence in `model-lint-and-connectivity.md` is
+recorded.
 
 | Process ID | User-task ID | User decision |
 |---|---|---|
