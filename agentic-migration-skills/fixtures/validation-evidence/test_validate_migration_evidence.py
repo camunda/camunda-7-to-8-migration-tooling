@@ -5474,6 +5474,24 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(0, self.audit())
         self.assertEqual("READY", self.summary()["gate"])
 
+    def test_root_documentation_text_files_do_not_stale_command_evidence(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        documentation = []
+        for name in ("README.txt", "CHANGELOG.TXT", "CONTRIBUTING.txt"):
+            path = self.root / name
+            path.write_text("Initial project documentation.\n", encoding="utf-8")
+            documentation.append(path)
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+        for path in documentation:
+            with self.subTest(path=path.name):
+                path.write_text("Updated project documentation.\n", encoding="utf-8")
+                self.assertEqual(0, self.audit())
+                self.assertEqual("READY", self.summary()["gate"])
+
     def test_c7_baseline_snapshot_ignores_readme_edits(self):
         readme = self.root / "app" / "README.md"
         readme.write_text("Initial project instructions.\n", encoding="utf-8")
@@ -5497,6 +5515,10 @@ class ValidationEvidenceTest(unittest.TestCase):
         test_resource = self.root / "src" / "test" / "resources" / "README.md"
         test_resource.parent.mkdir(parents=True)
         test_resource.write_text("fixture version 1\n", encoding="utf-8")
+        text_test_resource = self.root / "src" / "test" / "resources" / "README.txt"
+        text_test_resource.write_text("fixture version 1\n", encoding="utf-8")
+        text_configuration = self.root / "requirements.txt"
+        text_configuration.write_text("example==1\n", encoding="utf-8")
         self.write_scope()
         self.complete_required_checks()
         self.assertEqual(0, self.audit())
@@ -5509,6 +5531,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             (pom, "<project><version>2</version></project>\n"),
             (test_source, "class OrderTest { int version = 2; }\n"),
             (test_resource, "fixture version 2\n"),
+            (text_test_resource, "fixture version 2\n"),
+            (text_configuration, "example==2\n"),
             (model, updated_model),
         ):
             with self.subTest(path=path.relative_to(self.root)):

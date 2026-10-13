@@ -44,6 +44,7 @@ SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     ".venv", ".worktree", ".worktrees", "__pycache__",
                     "build", "dist", "node_modules", "target"}
 DOCUMENTATION_DIRS = {"doc", "docs", "documentation"}
+DOCUMENTATION_BASENAMES = {"changelog", "contributing", "readme"}
 DOCUMENTATION_SUFFIXES = {".adoc", ".asciidoc", ".markdown", ".md", ".mdx", ".rst"}
 CI_DIRS = {".buildkite", ".circleci", ".github", ".gitlab", ".teamcity", ".woodpecker"}
 CI_FILES = {
@@ -652,9 +653,12 @@ def command_input_file(relative):
         source_or_test_index is None or documentation_index < source_or_test_index
     ):
         return False
+    documentation_basename = name in DOCUMENTATION_BASENAMES or (
+        path.suffix.casefold() == ".txt"
+        and path.stem.casefold() in DOCUMENTATION_BASENAMES
+    )
     if not source_or_test_path and (
-        name in {"changelog", "contributing", "readme"}
-        or path.suffix.casefold() in DOCUMENTATION_SUFFIXES
+        documentation_basename or path.suffix.casefold() in DOCUMENTATION_SUFFIXES
     ):
         return False
     return True
