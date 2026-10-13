@@ -725,9 +725,12 @@ npx bpmnlint <converted-file>.bpmn
 ## Model validation (Step 4)
 
 Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
-skill edited. When the original source is DI-less, or the user keeps a form-free user task, follow
-[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) to classify target lint findings
-and require graph and runtime evidence. After every manual BPMN edit, lint the converted copy again.
+skill edited. Before every BPMN lint run, follow the effective-configuration check in
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md), regardless of source DI, form
+choice, or conversion approach.
+When the original source is DI-less, or the user keeps a form-free user task, also follow the
+reference to classify target lint findings and require graph and runtime evidence.
+After every manual BPMN edit, lint the converted copy again.
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.

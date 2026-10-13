@@ -210,6 +210,77 @@ class ModelLintReadinessTest(unittest.TestCase):
             scope,
         )
 
+    def test_every_bpmn_lint_run_checks_effective_configuration(self):
+        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        skill_scope = " ".join(
+            skill_text.split("#### Model checks, when models were migrated", 1)[1]
+            .split("#### Process behavior", 1)[0]
+            .split()
+        ).casefold()
+        for required in (
+            "before every bpmn lint run",
+            "effective configuration",
+            "also follow the reference for scoped lint exceptions",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, skill_scope)
+
+        fixture_readme = " ".join(
+            (FIXTURE_DIR / "README.md").read_text(encoding="utf-8").casefold().split()
+        )
+        self.assertIn("before accepting any bpmn lint output", fixture_readme)
+        self.assertIn("regardless of source di or form choice", fixture_readme)
+
+        model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
+            encoding="utf-8"
+        )
+        model_scope = " ".join(
+            model_text.split("## Model validation (Step 4)", 1)[1].split("\n1.", 1)[0].split()
+        ).casefold()
+        for required in (
+            "before every bpmn lint run",
+            "regardless of source di, form choice, or conversion approach",
+            "effective-configuration check",
+            "when the original source is di-less",
+            "also follow",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, model_scope)
+
+    def test_di_less_source_cannot_gain_layout_by_user_approval(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        scope = " ".join(
+            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
+        )
+        self.assertIn(
+            "When the source is DI-less, the converted copy remains DI-less.",
+            scope,
+        )
+        self.assertNotIn("approves a layout change", scope)
+
+    def test_project_readiness_allows_only_validated_bpmn_lint_exceptions(self):
+        readiness_text = (SKILL_DIR / "references/project-readiness.md").read_text(
+            encoding="utf-8"
+        )
+        lint_row = next(
+            line for line in readiness_text.splitlines() if line.startswith("| BPMN lint |")
+        )
+        normalized_row = " ".join(lint_row.split()).casefold()
+        for required in (
+            "every in-scope converted bpmn file passes lint",
+            "every remaining finding has a valid scoped exception",
+            "graph and runtime evidence",
+            "every in-scope converted dmn file passes lint",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, normalized_row)
+
+        report_scope = readiness_text.split("### Project readiness", 1)[1].split(
+            "Use this readiness verdict table", 1
+        )[0]
+        self.assertIn("effective lint configuration", report_scope.casefold())
+        self.assertIn("scoped exception evidence", report_scope.casefold())
+
 
 if __name__ == "__main__":
     unittest.main()

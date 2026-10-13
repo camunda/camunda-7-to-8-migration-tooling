@@ -444,8 +444,10 @@ repeat-run, and coverage checks.
 #### Model checks, when models were migrated
 
 Run every check in "Model validation" in `references/model-migration-approaches.md`.
-For every model-conversion approach, follow `references/model-lint-and-connectivity.md` when the
-original source is DI-less or the user chooses to keep a form-free user task.
+Before every BPMN lint run, follow `references/model-lint-and-connectivity.md` to verify the
+effective configuration.
+When the original source is DI-less or the user chooses to keep a form-free user task, also follow
+the reference for scoped lint exceptions, graph checks, and runtime evidence.
 
 #### Process behavior
 

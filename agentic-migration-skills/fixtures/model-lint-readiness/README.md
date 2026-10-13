@@ -34,8 +34,8 @@ c8ctl bpmn lint \
   agentic-migration-skills/fixtures/model-lint-readiness/converted-c8-order-no-di-form-free.bpmn
 ```
 
-Inspect the effective `.bpmnlintrc` before accepting lint output. Do not disable those rules in a
-project-wide `.bpmnlintrc`.
+Before accepting any BPMN lint output, inspect the effective `.bpmnlintrc` regardless of source DI
+or form choice. Do not disable those rules in a project-wide `.bpmnlintrc`.
 
 Before marking an actual migration ready, deploy the exact converted copy to the selected target
 version. This fixture uses the form-free exception, so its runtime check must complete `ReviewOrder`.
