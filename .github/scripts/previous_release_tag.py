@@ -6,12 +6,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
+_NUMERIC_IDENTIFIER = r"(?:0|[1-9][0-9]*)"
+_NON_NUMERIC_IDENTIFIER = r"[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*"
+_PRERELEASE_IDENTIFIER = (
+    rf"(?:{_NUMERIC_IDENTIFIER}|{_NON_NUMERIC_IDENTIFIER})"
+)
+_BUILD_IDENTIFIER = r"[0-9A-Za-z-]+"
 _SEMVER = re.compile(
-    r"^v?(?P<major>0|[1-9]\d*)\."
-    r"(?P<minor>0|[1-9]\d*)\."
-    r"(?P<patch>0|[1-9]\d*)"
-    r"(?:-(?P<prerelease>[0-9A-Za-z.-]+))?"
-    r"(?:\+[0-9A-Za-z.-]+)?$"
+    r"^v?(?P<major>0|[1-9][0-9]*)\."
+    r"(?P<minor>0|[1-9][0-9]*)\."
+    r"(?P<patch>0|[1-9][0-9]*)"
+    rf"(?:-(?P<prerelease>{_PRERELEASE_IDENTIFIER}(?:\.{_PRERELEASE_IDENTIFIER})*))?"
+    rf"(?:\+(?:{_BUILD_IDENTIFIER})(?:\.{_BUILD_IDENTIFIER})*)?$"
 )
 _VersionKey = tuple[int, int, int, tuple[int, tuple[tuple[int, int | str], ...]]]
 

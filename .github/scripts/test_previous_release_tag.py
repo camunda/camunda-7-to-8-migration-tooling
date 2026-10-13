@@ -70,9 +70,28 @@ class PreviousReleaseTagTest(unittest.TestCase):
             "0.3.0-rc.2", latest_previous_release_tag(releases, "0.3.0")
         )
 
+    def test_valid_v_prefix_and_build_metadata_are_supported(self) -> None:
+        releases = [release("v0.3.11+build.7"), release("0.3.10")]
+
+        self.assertEqual(
+            "v0.3.11+build.7", latest_previous_release_tag(releases, "0.3.12")
+        )
+
     def test_first_release_has_no_previous_tag(self) -> None:
         self.assertEqual(
             "", latest_previous_release_tag([], "1.0.0")
+        )
+
+    def test_malformed_semver_tags_are_not_candidates(self) -> None:
+        releases = [
+            release("1.0.0-01"),
+            release("1.0.0-alpha..1"),
+            release("1.0.0+build..1"),
+            release("0.9.9"),
+        ]
+
+        self.assertEqual(
+            "0.9.9", latest_previous_release_tag(releases, "1.0.1")
         )
 
 
