@@ -134,7 +134,8 @@ copies. It reads repeating timer starts directly under each process, not inside 
 Include every executable process ID in its model's `processes` array. Use an empty array for DMN.
 
 For each standalone process, list `normal` and every missing-worker-input scenario in `scenarios`.
-Record its worker-input review before starting it. For a non-standalone process, set
+Record its `worker_input_inventory` review before starting the process. Pass `--environment local`
+or `--environment non-production` to the review command. For a non-standalone process, set
 `standalone: false`, `scenarios: []`, and `covering_test` to the parent process test name.
 Run that test as the process-path check. Document the reason it is not a standalone entry point in
 `MIGRATION_REPORT.md`.
@@ -673,9 +674,10 @@ a message started the downstream process.
 Run additional assertion checks when code or source-form metadata makes them relevant. The gate
 derives the minimum set from the converted BPMN. It cannot infer every behavior from XML alone.
 
-Before any deployment, inspect the configured connection for a local or non-production
-cluster. Supply `--environment local` or `--environment non-production` to deployment and process
-commands. The flag records the selected environment. It does not inspect the remote cluster.
+When preparing a deployment or process command, the skill checks the configured connection for a
+local or non-production cluster. The skill supplies `--environment local` or
+`--environment non-production` to deployment and process commands. The flag records the selected
+environment. It does not inspect the remote cluster.
 Use the user-authorized profile and selected target version from
 `model-migration-approaches.md`. Include accepted forms with their owning BPMN in
 the deployment request. Block resources whose deployment names collide.

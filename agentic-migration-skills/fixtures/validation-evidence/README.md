@@ -19,6 +19,8 @@ New regressions also reject duplicate C7-to-CPT mappings and source changes duri
 They reject tampered freeze snapshots, worker mocks outside auto-mocked models, and coverage parity
 when a covered process ID appears in multiple converted models. They verify approved retirement
 when no migrated or added CPT tests remain.
+The tests also verify that process input reviews require a safe environment and that a corrected
+review replaces a legacy unsafe record.
 
 The `live-timer-fixture/` Maven reactor runs both deployment-set and active-timer acceptance
 scenarios against a disposable Camunda 8.9.21 container. One Process Test deploys both `Sample`

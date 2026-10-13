@@ -4152,7 +4152,7 @@ def require_prerequisites(root, plan, checks, key, before=None):
             raise EvidenceError(f"{key}: {dependency[2]} must pass before execution")
 
 
-def load_checks(root, evidence, plan, issues):
+def load_checks(root, evidence, plan, issues, replace_unsafe_key=None):
     checks = {}
     references = evidence.get("checks", [])
     if not isinstance(references, list):
@@ -4192,6 +4192,13 @@ def load_checks(root, evidence, plan, issues):
                 and check.get("source_digest") == inventory.get("source_snapshot_sha256")
             ):
                 raise EvidenceError(f"{key}: check belongs to another migration run")
+            if (
+                key == replace_unsafe_key
+                and check.get("result") == "passed"
+                and needs_safe_environment(key)
+                and check.get("environment") not in SAFE_ENVIRONMENTS
+            ):
+                continue
             if (
                 mapping is not None
                 and key not in plan.allowed
@@ -4817,8 +4824,18 @@ def record(root, args):
     elif args.action == "run" and needs_safe_environment(key):
         if args.environment not in SAFE_ENVIRONMENTS:
             raise EvidenceError("Runtime and deployment checks require a local or non-production target")
+    elif args.action == "review" and needs_safe_environment(key):
+        if args.environment not in SAFE_ENVIRONMENTS:
+            raise EvidenceError(f"{key}: a passing check requires a local or non-production target")
     previous_issues = []
-    previous = load_checks(root, evidence, plan, previous_issues)
+    replace_unsafe_key = (
+        key
+        if args.action == "review"
+        and needs_safe_environment(key)
+        and args.environment in SAFE_ENVIRONMENTS
+        else None
+    )
+    previous = load_checks(root, evidence, plan, previous_issues, replace_unsafe_key)
     if previous_issues:
         raise EvidenceError("; ".join(previous_issues))
     if args.action == "run":
@@ -4992,6 +5009,12 @@ def record(root, args):
             check["failure_class"] = "unclassified"
     else:
         check["failure_class"] = None
+    if (
+        needs_safe_environment(key)
+        and result == "passed"
+        and check.get("environment") not in SAFE_ENVIRONMENTS
+    ):
+        raise EvidenceError(f"{key}: a passing check requires a local or non-production target")
     reference = write_check_log(root, key, check)
     evidence["checks"] = [path for path in evidence["checks"] if path != reference] + [reference]
     write_json(root, EVIDENCE, evidence)
