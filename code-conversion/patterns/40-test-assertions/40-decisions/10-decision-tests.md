@@ -22,6 +22,9 @@ public void evaluatesTheDecision() {
 ## Camunda 8
 
 ```java
+import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.assertions.DecisionSelectors;
+
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-dish.dmn")
 class DishDecisionTest {
@@ -35,7 +38,8 @@ class DishDecisionTest {
     EvaluateDecisionResponse response = client.newEvaluateDecisionCommand()
         .decisionId("dish").variables(variables).send().join();
 
-    assertThat(response).isEvaluated().hasOutput("Water");
+    CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response))
+        .isEvaluated().hasOutput("Water");
   }
 }
 ```
@@ -44,17 +48,18 @@ CPT's DMN evaluation and assertion APIs shown here are available from Camunda 8.
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `@Rule DmnEngineRule`, `DmnEngineConfiguration.createDefaultDmnEngineConfiguration().buildEngine()` | `@CamundaProcessTest` with `CamundaClient` | Camunda 7 evaluates DMN in process. CPT uses a Camunda runtime, with Testcontainers by default. |
+| `@Rule DmnEngineRule`, `DmnEngineConfiguration.createDefaultDmnEngineConfiguration().buildEngine()`, or a `DmnEngine` built from `DmnEngineConfiguration` | `@CamundaProcessTest` with `CamundaClient` | Camunda 7 evaluates DMN in process. CPT uses a Camunda runtime, with Testcontainers by default. |
 | `parseDecision(...)`, `parseDecisions(...)`, `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | A DRD deploys as one resource. |
-| `DecisionService.evaluateDecisionByKey(...)`, `DmnEngine.evaluateDecisionTable(...)`, `evaluateDecision(...)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | |
-| `Variables.putValue(...)` | `Map<String, Object>` | Keep values in JSON-compatible form and check how the converted DMN reads them. |
-| `getSingleResult().getSingleEntry()`, `getSingleEntry()` | `assertThat(response).hasOutput(value)` | For one output column and a single-result hit policy. |
-| `getSingleResult().getEntry("a")`, `getEntryMap()` | `assertThat(response).hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected fields. |
-| `collectEntries("x")` with hit policy `COLLECT` | Parse `response.getDecisionOutput()` and assert with `containsExactlyInAnyOrder` | Camunda 8 returns `COLLECT` results in arbitrary order. Do not use `hasOutput(List)` for `COLLECT`. |
-| `collectEntries("x")` with `RULE ORDER` or `OUTPUT ORDER` | `assertThat(response).hasOutput(List.of(...))` | These hit policies define result order. |
-| `result.isEmpty()`, `getSingleResult()` is `null` | `assertThat(response).hasNoMatchedRules()` | |
-| Historic decision rule checks | `hasMatchedRules(int...)`, `hasNotMatchedRules(int...)` | `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
-| Expected `DmnEngineException`, such as a `UNIQUE` hit-policy violation | Assert `response.getFailureMessage()` is not null | Failed evaluations return failure details instead of throwing. `isEvaluated()` fails for a failed evaluation. |
+| `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, `DmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
+| `Variables.putValue(...)` | `Map<String, Object>` | Keep values in JSON-compatible form. When a Camunda 7 value is a `Date` or typed value, check that the converted DMN reads its JSON representation as intended. Do not assume the Java type survives serialization. |
+| `getSingleResult().getSingleEntry()`, `getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and a single-result hit policy. |
+| `getSingleResult().getEntry("a")`, `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected fields. |
+| `collectEntries("x")` with hit policy `COLLECT` | Parse `response.getDecisionOutput()` as a list of scalar values for one output column or maps keyed by output name for multiple columns. | Select values by output name and compare rows without relying on their order. Do not use `hasOutput(List)` for `COLLECT`. |
+| `collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | `RULE ORDER` defines result order. |
+| `collectEntries("x")` with hit policy `OUTPUT ORDER` | Manual redesign | Camunda 8.9 does not support `OUTPUT ORDER`. |
+| `result.isEmpty()`, `getSingleResult()` is `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNoMatchedRules()` | A failed evaluation must not be treated as an empty result. |
+| Matched-rule checks through `HistoricDecisionInstance` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasMatchedRules(int...)` or `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNotMatchedRules(int...)` | Call `isEvaluated()` before each matched-rule assertion so a failed evaluation cannot appear to have no matches. `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
+| An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | Check `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for a failed evaluation. |
 
 Keep null inputs. Build variables with a `HashMap` or another map that accepts null values. Do not use `Map.of` when the Camunda 7 test passed a null value.
 
