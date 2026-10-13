@@ -177,10 +177,20 @@ Examples (with the `related to #<issue-number>` body line shown inline for brevi
 
 ## Pull Request Guidelines
 
+### Backport release lines
+
+| Maintenance branch | Camunda release line |
+| --- | --- |
+| `maintenance/0.2` | Camunda 8.8 |
+| `maintenance/0.3` | Camunda 8.9 |
+| `maintenance/8.10` | Camunda 8.10 |
+
 - Use conventional commits format for PR titles
 - Reference issues with `related to #<issue-number>` (not `closes`)
 - Keep PRs focused on a single feature or fix
-- For PRs targeting `main`, inspect the complete changed-file list. If any changed path is outside `agentic-migration-skills/`, add both `bot:backport:maintenance/0.2` and `bot:backport:maintenance/0.3` labels; omit them for PRs whose changes are entirely within `agentic-migration-skills/`.
+- For PRs targeting `main`, inspect the complete changed-file list. If any changed path is outside `agentic-migration-skills/`, add all three
+  `bot:backport:maintenance/0.2`, `bot:backport:maintenance/0.3`, and
+  `bot:backport:maintenance/8.10` labels; omit them for PRs whose changes are entirely within `agentic-migration-skills/`.
 - Wait for CI checks to complete (H2, PostgreSQL, Oracle, Windows)
 - A human reviewer will merge - do not merge PRs
 
