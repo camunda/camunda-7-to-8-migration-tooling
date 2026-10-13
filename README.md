@@ -135,29 +135,50 @@ Every source file must contain the license header. See [license header template]
 
 ## Releasing
 
-The `Release` GitHub Actions workflow is the supported way to publish release artifacts.
+The `Release` GitHub Actions workflow is the supported way to publish release artifacts. For a
+full release, always create a `release/<version>` branch from the maintenance branch for the
+release line, then run the workflow from the release branch.
 
-### Standard release
+### Full release
 
-1. Create a `release/<version>` branch from the commit you want to release, or run from the relevant `maintenance/<line>` branch when releasing an existing maintenance line.
-2. Run the `Release` workflow from that `release/<version>` or `maintenance/<line>` branch with:
-   - `RELEASE_VERSION=<version>`
-   - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT`
-   - `IS_DRY_RUN=false`
-   - `ONLY_PUSH_TO_MAVEN_CENTRAL=false`
-3. The workflow now auto-publishes the validated Sonatype Central deployment, so no manual "Publish" step is required in the Central UI.
-4. The workflow waits until the deployment is published and verifies that all Maven Central artifacts are available before the release succeeds.
-5. After Maven Central verification, the workflow creates a draft GitHub Release with generated notes for the tag when needed, uploads and verifies these release assets, then publishes the release:
+1. Before branching, confirm the maintenance branch is up to date and its CI is green. The release workflow skips tests, so run CI on the release branch too if you add any release-specific changes. Check the Camunda dependency versions in the root `pom.xml` (`version.camunda-7`, `version.camunda-8`, and `version.camunda-8.previous`) and confirm they are the intended current versions for this release line.
+2. Create the release branch from the maintenance branch:
+
+   ```bash
+   git fetch origin
+   git switch -c release/<version> origin/maintenance/<line>
+   git push -u origin release/<version>
+   ```
+
+3. In **Actions > Release**, run the workflow from `release/<version>`. Set the inputs as follows for a full release:
+
+   | Input | Value | Notes |
+   | --- | --- | --- |
+   | `RELEASE_VERSION` | `<version>` | Version to release and tag, for example `0.3.0`; use the same version as the branch name. |
+   | `DEVELOPMENT_VERSION` | `<next-version>-SNAPSHOT` | Next development version to set in the Maven project files after tagging. |
+   | `IS_DRY_RUN` | `false` | Required for a real release; the workflow default is `true`. |
+   | `ONLY_PUSH_TO_MAVEN_CENTRAL` | `false` | Set to `true` only for the Maven Central backfill procedure below. |
+   | `ONLY_PUBLISH_DOCKER_IMAGE` | `false` | Set to `true` only to publish an image from an earlier release workflow run. |
+   | `SOURCE_RELEASE_RUN_ID` | Leave empty | Required only when `ONLY_PUBLISH_DOCKER_IMAGE` is `true`. |
+   | `DEPLOY_DIAGRAM_CONVERTER` | `false` | Set to `true` only when this release should also deploy the Diagram Converter to production. |
+
+   Do not enable every option. The `ONLY_*` inputs select separate recovery paths, and
+   `DEPLOY_DIAGRAM_CONVERTER` triggers an additional deployment.
+4. The Maven Release job changes the Maven project files to `RELEASE_VERSION`, creates and pushes a Git tag with that version, then changes the project files to `DEVELOPMENT_VERSION` and pushes that commit to the release branch. Do not create the tag manually.
+5. The `Maven Release` job publishes artifacts to the configured Camunda repository and automatically publishes the validated Sonatype Central deployment. It waits for Maven Central artifacts to become available and verifies them; no manual **Publish** step in the Central UI is needed.
+6. After Maven Central verification, the `Publish GitHub Release Assets` job creates a draft GitHub Release with generated notes, uploads and verifies these release assets, then publishes the release:
    - Data Migrator `.tar.gz` and `.zip` distributions
    - Data Migrator Cockpit plugin `.jar`
    - Code Conversion recipes `.jar`
    - Diagram Converter core, webapp, and CLI `.jar` files
 
-   If publication fails because an expected asset is missing or differs from the built artifact, the workflow fails and any newly created release remains a draft. Customers therefore never see a published release with an incomplete asset set. A failed job can be rerun safely; it uploads only missing assets and refuses to overwrite a file with a different digest.
+   The `Build and Publish Docker Image` job also publishes the Data Migrator Docker image. The optional `Deploy Diagram Converter` job runs only when `DEPLOY_DIAGRAM_CONVERTER` is `true`. If an expected GitHub release asset is missing or differs from the built artifact, the job fails and a newly created release remains a draft. A failed asset-publishing job can be rerun safely; it uploads only missing assets and refuses to overwrite a file with a different digest.
+7. After the workflow succeeds, open a pull request from `release/<version>` back to the maintenance branch it was created from. Merge it so the release commit and the next `-SNAPSHOT` version are present on the maintenance branch.
 
 ### Backfill Maven Central for an existing tag
 
-If a GitHub release/tag already exists but Maven Central is missing the artifacts, rerun the `Release` workflow with:
+If a GitHub release/tag already exists but Maven Central is missing the artifacts, use this
+recovery path instead of running a full release. Rerun the `Release` workflow with:
 
 - `RELEASE_VERSION=<existing-tag>`
 - `DEVELOPMENT_VERSION=<next-version>-SNAPSHOT` (required workflow input; ignored in backfill mode)
@@ -179,4 +200,3 @@ The source files in this repository are made available under the [Camunda Licens
 - **[Migration Analyzer & Diagram Converter](https://diagram-converter.camunda.io/)** - Tool for migrating BPMN models and analyzing migration effort
 - **[Community Forum](https://forum.camunda.io/)** - Get help from the community
 - **[GitHub Issues](https://github.com/camunda/camunda-7-to-8-migration-tooling/issues)** - Report bugs and request features in the issue tracker
-
