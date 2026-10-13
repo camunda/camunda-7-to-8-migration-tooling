@@ -107,10 +107,11 @@ The following patterns focus on various methods to start process instances in Ca
 ### CamundaClient (Camunda 8)
 
 ```java
-    public CorrelateMessageResponse startProcessByMessage(String messageName, String correlationKey, Map<String, Object> variableMap, String tenantId) {
+    public CorrelateMessageResponse startProcessByMessage(
+            String messageName, Map<String, Object> variableMap, String tenantId) {
         return camundaClient.newCorrelateMessageCommand()
                 .messageName(messageName)
-                .correlationKey(correlationKey)
+                .withoutCorrelationKey()
                 .variables(variableMap)
                 .tenantId(tenantId)
                 .send()
@@ -121,6 +122,9 @@ The following patterns focus on various methods to start process instances in Ca
 -   no specific method to start a process instance by message
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
+-   when the C7 `businessKey` is null, use `.withoutCorrelationKey()` to start a new process instance through the matching message start event
+-   when the C7 `businessKey` is non-null, mark this mapping for manual redesign
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
+-   C8 message correlation cannot set a `businessId`
 -   no business key in Camunda 8.8
 -   it is also possible to publish a message with a time to live
