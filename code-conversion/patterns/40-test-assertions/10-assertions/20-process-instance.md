@@ -45,6 +45,13 @@ void testProcessInstanceIsWaitingAtUserTask() {
 
 [List of supported assertions](https://docs.camunda.io/docs/apis-tools/testing/assertions/).
 
+## Process instance API mappings
+
+| Camunda 7 | Camunda 8 | Note |
+|---|---|---|
+| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns a `ProcessInstanceEvent`. Apply the business-key pattern when the test sets a business key. |
+| `historyService` or `runtimeService` queries used as assertions | CPT assertions or client search requests | CPT assertions wait for asynchronous behavior. Client search requests are eventually consistent. |
+
 ## Negative assertions
 
 Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the current process state.
