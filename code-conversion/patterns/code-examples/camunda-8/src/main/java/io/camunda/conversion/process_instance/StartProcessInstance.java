@@ -40,10 +40,10 @@ public class StartProcessInstance {
                 .join(); // add reactive response and error handling instead of join()
     }
 
-    public CorrelateMessageResponse startProcessByMessage(String messageName, String correlationKey, Map<String, Object> variableMap, String tenantId) {
+    public CorrelateMessageResponse startProcessByMessage(String messageName, Map<String, Object> variableMap, String tenantId) {
         return camundaClient.newCorrelateMessageCommand()
                 .messageName(messageName)
-                .correlationKey(correlationKey)
+                .withoutCorrelationKey()
                 .variables(variableMap)
                 .tenantId(tenantId)
                 .send()
