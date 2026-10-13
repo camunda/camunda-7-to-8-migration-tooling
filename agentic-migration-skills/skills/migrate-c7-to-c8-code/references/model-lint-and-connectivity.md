@@ -93,10 +93,13 @@ general BPMN validator.
 ## Verify the form-free decision
 
 A **form-free owner** has no form metadata in the original BPMN source. For a user task, the skill
-reads `camunda:formKey` and `camunda:formRef` from its namespaced attributes. The skill checks
-`camunda:formData` and `camunda:formProperty` among its child elements. The skill checks other
-source form references before it treats the owner as form-free. The skill also checks the converted
-copy for `zeebe:formDefinition`.
+reads `camunda:formKey`, `camunda:formRef`, `camunda:formRefBinding`, `camunda:formRefVersion`, and
+`camunda:formHandlerClass` from its namespaced attributes. The skill treats `camunda:formRefBinding`,
+`camunda:formRefVersion`, and `camunda:formHandlerClass` as form metadata, even without
+`camunda:formKey` or `camunda:formRef`. The skill checks `camunda:formData` and
+`camunda:formProperty` among its child elements. The skill checks other source form references before
+it treats the owner as form-free. The skill also checks the converted copy for
+`zeebe:formDefinition`.
 
 The skill asks the user whether to keep a form-free user task form-free. The skill applies the lint
 exception only to that user task after the user chooses this option. The skill records the process

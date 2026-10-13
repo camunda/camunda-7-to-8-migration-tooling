@@ -715,8 +715,10 @@ Before accepting BPMN lint output, follow the effective-configuration check in
 DI-less, or the user keeps a form-free user task, follow the same reference for scoped exceptions,
 graph checks, and runtime evidence.
 
+In c8ctl 4.2.0, `c8ctl bpmn lint` bundles bpmnlint, Zeebe moddle, and the Camunda compatibility
+rules. Do not install separate npm packages for this command.
+
 ```sh
-npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once
 c8ctl bpmn lint <converted-file>.bpmn
 ```
 

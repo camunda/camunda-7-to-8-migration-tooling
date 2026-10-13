@@ -42,9 +42,7 @@ skill must not invent a layout for that source.
    py -3 verify_di_preservation.py --no-source-di --report MIGRATION_REPORT.md no-di-c7.bpmn converted-c8-no-di-c7.bpmn
    ```
 
-6. Install the BPMN lint dependencies once.
-   Run `npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat`.
-7. Create a `.bpmnlintrc` file with this JSON content:
+6. Create a `.bpmnlintrc` file with this JSON content:
 
    ```json
    {
@@ -58,7 +56,10 @@ skill must not invent a layout for that source.
    }
    ```
 
-8. Capture the DI-copy lint output in `bpmn-di-lint.log` and keep the
+   In c8ctl 4.2.0, `c8ctl bpmn lint` bundles bpmnlint, Zeebe moddle, and the
+   Camunda compatibility rules. Do not install separate npm packages for this command.
+
+7. Capture the DI-copy lint output in `bpmn-di-lint.log` and keep the
    `c8ctl bpmn lint` exit code.
 
    On macOS or Linux, run:
@@ -75,16 +76,16 @@ skill must not invent a layout for that source.
    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
    ```
 
-9. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
+8. Confirm that `bpmn-di-lint.log` contains no `no-bpmndi` finding.
 
    Use the target-compatible Camunda compatibility ruleset described in the
    skill reference. The DI copy must introduce no `no-bpmndi` finding.
 
-10. Lint the no-DI control with `c8ctl bpmn lint` and the same ruleset. Use the
+9. Lint the no-DI control with `c8ctl bpmn lint` and the same ruleset. Use the
    same command pattern to capture output and keep the exit code. Record any
    `no-bpmndi` finding as inherited source quality only when the converted copy
    still has no DI. Do not add a layout to silence that finding.
-11. Record the source and converted DI counts, reference checks, complete
+10. Record the source and converted DI counts, reference checks, complete
    per-element DI comparisons, namespace bindings, and no-DI provenance in
    `MIGRATION_REPORT.md`. Record each `c8ctl bpmn lint` command, exit code, and
    output there. Include the control filename and an explicit statement that its

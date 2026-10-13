@@ -112,6 +112,17 @@ class ModelLintReadinessTest(unittest.TestCase):
 
     def test_reference_requires_targeted_lint_and_runtime_evidence(self):
         reference = REFERENCE_PATH.read_text(encoding="utf-8") if REFERENCE_PATH.is_file() else ""
+        form_scope = reference.split("## Verify the form-free decision", 1)[1].split(
+            "## Require target runtime evidence", 1
+        )[0]
+        for required in (
+            "camunda:formHandlerClass",
+            "camunda:formRefBinding",
+            "camunda:formRefVersion",
+        ):
+            with self.subTest(form_metadata=required):
+                self.assertIn(required.casefold(), form_scope.casefold())
+
         for required in (
             "no-bpmndi",
             "no-disconnected",
@@ -308,6 +319,13 @@ class ModelLintReadinessTest(unittest.TestCase):
             encoding="utf-8"
         )
         normalized_fixture_readme = " ".join(fixture_readme.split()).casefold()
+        for name, instructions in (
+            ("M1/M2 linting", lint_scope.casefold()),
+            ("diagram-interchange fixture", normalized_fixture_readme),
+        ):
+            with self.subTest(instructions=name):
+                self.assertNotIn("npm install -d", instructions)
+
         self.assertIn("c8ctl bpmn lint", normalized_fixture_readme)
         self.assertNotIn("npx bpmnlint", normalized_fixture_readme)
         self.assertIn("keep the `c8ctl bpmn lint` exit code", normalized_fixture_readme)
