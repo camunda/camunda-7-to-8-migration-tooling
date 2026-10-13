@@ -8,9 +8,11 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 A **DI-less source** is a Camunda 7 BPMN file with no `bpmndi:BPMNDiagram`, no `bpmn:incoming`
 children, and no `bpmn:outgoing` children.
 
-Use this reference when the original BPMN source is DI-less or the user chooses to keep a form-free
-user task. The DI-less checks apply to every model-conversion approach, including M2. The form-free
-exception applies regardless of source DI or conversion approach.
+Use this reference to check effective lint configuration whenever the skill runs a BPMN linter.
+Apply the DI-less checks when the original source meets the definition above. Apply the form-free
+exception when the user chooses to keep a form-free user task. The DI-less checks apply to every
+model-conversion approach, including M2. The form-free exception applies regardless of source DI or
+conversion approach.
 
 The skill parses both the original source and the converted copy with a namespace-aware XML parser.
 The skill records DI and incoming/outgoing presence for each file before it evaluates lint findings.
@@ -25,8 +27,18 @@ approves a layout change. The skill does not treat the source's missing DI as a 
 ## Run and record target lint
 
 The skill runs `c8ctl bpmn lint` on each converted copy with the selected Camunda target version.
-The skill records the CLI version, target version, command, exit code, and complete lint output in
-`MIGRATION_REPORT.md` or `.camunda-migration/validation/`.
+The skill records the CLI version and target version in `MIGRATION_REPORT.md` or
+`.camunda-migration/validation/`. The skill records the effective config source and active
+compatibility ruleset there. The skill records the command, exit code, and complete lint output
+there.
+
+Before the skill accepts lint output, it inspects the effective lint configuration, including the
+project `.bpmnlintrc` and inherited presets. The skill confirms that the Camunda compatibility
+ruleset matches the selected target version. The skill confirms that the effective config includes
+each converted copy and does not disable or ignore applicable rules. If the config excludes a
+converted copy or suppresses an applicable rule, the skill marks raw lint unverified. If the config
+uses another target or cannot be verified, the skill marks raw lint unverified. The skill blocks
+model readiness.
 
 The raw lint result passes only when the CLI reports zero errors and zero warnings. The skill never
 describes a raw lint result with findings as clean.
@@ -77,9 +89,10 @@ general BPMN validator.
 ## Verify the form-free decision
 
 A **form-free owner** has no form metadata in the original BPMN source. For a user task, the skill
-checks the owner for `camunda:formData`, `camunda:formProperty`, `camunda:formKey`, `camunda:formRef`,
-and other source form references. The skill also checks the converted copy for
-`zeebe:formDefinition`.
+reads `camunda:formKey` and `camunda:formRef` from its namespaced attributes. The skill checks
+`camunda:formData` and `camunda:formProperty` among its child elements. The skill checks other
+source form references before it treats the owner as form-free. The skill also checks the converted
+copy for `zeebe:formDefinition`.
 
 The skill asks the user whether to keep a form-free user task form-free. The skill applies the lint
 exception only to that user task after the user chooses this option. The skill records the process
@@ -100,14 +113,21 @@ The skill deploys the exact converted copies to a Camunda 8 target that matches 
 version, or runs the project's target-version process test suite.
 
 For each affected executable process, the skill starts an instance with the expected inputs. The
-skill verifies that the instance reaches the affected user task, completes the task through the
-target API or the application's real task-completion path, and reaches the expected process end.
-For a form-free user task, the skill does not create or attach a substitute form. The skill tests
-the selected API or application path that completes the task.
+skill verifies the expected path and end event.
 
-The skill records the target version, deployment or test command, process ID, user-task ID, and
-observed outcome in `.camunda-migration/validation/`. The skill summarizes the evidence in
-`MIGRATION_REPORT.md`.
+When the process uses a form-free user-task exception, the skill verifies the exact affected user
+task. The skill verifies that the instance reaches the task. The skill completes the task through
+the target API or the application's real task-completion path. The skill does not create or attach
+a substitute form.
+
+For a DI-less process without a form-free user-task exception, the skill passes this gate when the
+expected path reaches the expected end event. The skill does not require a user task.
+
+The skill records the target version, deployment or test command, process ID, and expected process
+path in `.camunda-migration/validation/`. The skill records the expected end event and observed
+outcome there.
+When the form-free exception applies, the skill also records the user-task ID. The skill summarizes
+the evidence in `MIGRATION_REPORT.md`.
 
 | Gate | Passing condition | Otherwise |
 |---|---|---|

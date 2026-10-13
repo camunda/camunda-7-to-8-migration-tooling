@@ -710,9 +710,10 @@ readiness.
 ## Linting Converted BPMN (M1 and M2)
 
 After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version.
-When the original source is DI-less, or the user keeps a form-free user task, follow
-[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md) before classifying target lint
-findings.
+Before accepting BPMN lint output, follow the effective-configuration check in
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md). When the original source is
+DI-less, or the user keeps a form-free user task, follow the same reference for scoped exceptions,
+graph checks, and runtime evidence.
 
 ```sh
 npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once

@@ -4,6 +4,7 @@ The Camunda 7 source has valid sequence-flow references and no BPMN DI. It has n
 `bpmn:incoming` or `bpmn:outgoing` children. Its `ReviewOrder` user task has no form metadata. The
 converted copy preserves these absences. The expected user decision is `keep form-free`. A second
 converted copy has a disconnected user task. The connectivity check must reject it.
+`order-c7-form-ref-bearing.bpmn` exercises `camunda:formRef` as a user-task attribute.
 
 Run the namespace-aware fixture checks from the repository root:
 
@@ -18,8 +19,9 @@ explicit start-to-end reachability. It supports only the simple processes in the
 fails closed for subprocesses, boundary events, and transactions. Use BPMN semantics for those
 constructs in a migration run. Do not use this fixture verifier as a general BPMN validator.
 
-The test suite verifies that a user task with Camunda form metadata is not eligible for the
-form-free lint exception. It does not run `c8ctl bpmn lint` or contact a Camunda cluster.
+The test suite checks `camunda:formKey` and `camunda:formRef` attribute examples and checks that the
+form-free source has no form metadata. It does not run `c8ctl bpmn lint`, inspect the effective
+`.bpmnlintrc`, or contact a Camunda cluster.
 `../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md` defines the lint,
 exception, and runtime gate.
 
@@ -32,9 +34,13 @@ c8ctl bpmn lint \
   agentic-migration-skills/fixtures/model-lint-readiness/converted-c8-order-no-di-form-free.bpmn
 ```
 
-Do not disable those rules in a project-wide `.bpmnlintrc`.
+Inspect the effective `.bpmnlintrc` before accepting lint output. Do not disable those rules in a
+project-wide `.bpmnlintrc`.
 
 Before marking an actual migration ready, deploy the exact converted copy to the selected target
-version. Start `orderProcess`. Confirm that the instance reaches `ReviewOrder`. Complete the user task through the target API or the application's real completion path. Confirm
+version. This fixture uses the form-free exception, so its runtime check must complete `ReviewOrder`.
+For a DI-less process without that exception, verify its expected path and end event without
+requiring a user task. Start `orderProcess`. Confirm that the instance reaches `ReviewOrder`.
+Complete the user task through the target API or the application's real completion path. Confirm
 that the instance completes. Record this runtime evidence as described in
 `../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md`.

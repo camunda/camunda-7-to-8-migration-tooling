@@ -50,7 +50,11 @@ class ModelLintReadinessTest(unittest.TestCase):
         self.assertNotIn(CAMUNDA + "formKey", source_task.attrib)
         self.assertEqual(source_task.findall(".//" + CAMUNDA + "formData"), [])
         self.assertEqual(source_task.findall(".//" + CAMUNDA + "formProperty"), [])
-        self.assertEqual(source_task.findall(".//" + CAMUNDA + "formRef"), [])
+        self.assertNotIn(CAMUNDA + "formRef", source_task.attrib)
+        self.assertNotIn(CAMUNDA + "formKey", converted_task.attrib)
+        self.assertNotIn(CAMUNDA + "formRef", converted_task.attrib)
+        self.assertEqual(converted_task.findall(".//" + CAMUNDA + "formData"), [])
+        self.assertEqual(converted_task.findall(".//" + CAMUNDA + "formProperty"), [])
         self.assertEqual(converted_task.findall(".//" + ZEEBE + "formDefinition"), [])
         for path in (source_path, converted_path):
             with self.subTest(path=path.name):
@@ -63,6 +67,13 @@ class ModelLintReadinessTest(unittest.TestCase):
         user_task = source.find(".//" + BPMN + "userTask")
         self.assertIsNotNone(user_task)
         self.assertEqual(user_task.get(CAMUNDA + "formKey"), "fixture-review-form")
+
+    def test_form_ref_is_a_namespaced_user_task_attribute(self):
+        source = ET.parse(FIXTURE_DIR / "order-c7-form-ref-bearing.bpmn").getroot()
+        user_task = source.find(".//" + BPMN + "userTask")
+        self.assertIsNotNone(user_task)
+        self.assertEqual(user_task.get(CAMUNDA + "formRef"), "fixture-review-form")
+        self.assertEqual(user_task.findall(".//" + CAMUNDA + "formRef"), [])
 
     def test_disconnected_converted_flow_fails_connectivity_check(self):
         path = FIXTURE_DIR / "converted-c8-order-disconnected.bpmn"
@@ -94,6 +105,7 @@ class ModelLintReadinessTest(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("references/model-lint-and-connectivity.md", skill_text)
+        self.assertIn("effective-configuration check", model_text)
         self.assertIn("model-lint-and-connectivity.md", model_text)
         self.assertIn("model-lint-and-connectivity.md", form_text)
         self.assertTrue(REFERENCE_PATH.is_file())
@@ -110,6 +122,8 @@ class ModelLintReadinessTest(unittest.TestCase):
             "camunda:formProperty",
             "camunda:formKey",
             "camunda:formRef",
+            "namespaced attributes",
+            "child elements",
             "zeebe:formDefinition",
             ".bpmnlintrc",
             "project-wide",
@@ -122,6 +136,55 @@ class ModelLintReadinessTest(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required.casefold(), reference.casefold())
+
+    def test_effective_linter_config_must_not_suppress_rules_or_mismatch_target(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        lint_scope = reference.split("## Run and record target lint", 1)[1].split(
+            "## Check the source and target graph", 1
+        )[0]
+        normalized_scope = " ".join(lint_scope.split()).casefold()
+        for required in (
+            "effective lint configuration",
+            "project `.bpmnlintrc` and inherited presets",
+            "selected target version",
+            "effective config includes each converted copy",
+            "does not disable or ignore applicable rules",
+            "excludes a converted copy",
+            "uses another target",
+            "cannot be verified",
+            "raw lint unverified",
+            "blocks model readiness",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required.casefold(), normalized_scope)
+
+    def test_runtime_gate_does_not_require_user_task_for_di_less_process(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        runtime_scope = reference.split("## Require target runtime evidence", 1)[1].split(
+            "## ", 1
+        )[0]
+        normalized_scope = " ".join(runtime_scope.split()).casefold()
+        for required in (
+            "expected path and end event",
+            "expected process path",
+            "form-free user-task exception",
+            "instance reaches the task",
+            "completes the task through the target API",
+            "does not require a user task",
+            "expected end event",
+            "also records the user-task ID",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required.casefold(), normalized_scope)
+        exception_start = normalized_scope.index(
+            "when the process uses a form-free user-task exception"
+        )
+        service_only_start = normalized_scope.index(
+            "for a di-less process without a form-free user-task exception"
+        )
+        exception_scope = normalized_scope[exception_start:service_only_start]
+        self.assertIn("completes the task through", exception_scope)
+        self.assertNotIn("completes the task through", normalized_scope[:exception_start])
 
     def test_di_less_checks_apply_to_every_model_conversion_approach(self):
         reference = REFERENCE_PATH.read_text(encoding="utf-8")
