@@ -66,7 +66,7 @@ The project-specific gate must cover each applicable check:
 |---|---|
 | Packaging | The Maven package command succeeds for each migrated Maven module. Use the project's package task for Gradle modules. |
 | Configuration | The project's configuration-binding test or validator passes for each documented profile. |
-| BPMN lint | Every in-scope converted BPMN or DMN file passes lint for the selected target version. |
+| BPMN lint | Every in-scope converted DMN file passes lint for the selected target version. Every in-scope converted BPMN file passes lint for that version, or each of its findings is accepted under [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md). |
 | Process tests | Relevant process tests pass with a working target-compatible C8 runtime and required Docker services. |
 
 When no configuration-binding test or validator exists, add a check for each migrated profile.

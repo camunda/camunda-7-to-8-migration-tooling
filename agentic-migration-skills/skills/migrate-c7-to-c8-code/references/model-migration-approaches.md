@@ -716,12 +716,17 @@ npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # onc
 npx bpmnlint <converted-file>.bpmn
 ```
 
-`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
+`.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Never disable a rule in `.bpmnlintrc`. Fix or record every lint error before continuing.
 
 ## Model validation (Step 4)
 
 Lint every in-scope BPMN and DMN model with the target-compatible ruleset, not only models that the
 skill edited. After every manual BPMN edit, lint the converted copy again.
+Before accepting lint output, inspect the effective configuration, including presets, `rules`, and
+ignore patterns. If it uses another target ruleset, disables an applicable rule, or excludes a
+converted copy, then record lint as unverified and block model readiness.
+When the original source is DI-less, or the user keeps a user task form-free, classify lint findings
+with [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md).
 
 1. A `converted-c8-*` file exists for every in-scope diagram, unless the run is analyze-only.
 2. Every original file is intact and was never overwritten.

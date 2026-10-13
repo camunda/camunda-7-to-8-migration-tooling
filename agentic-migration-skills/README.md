@@ -254,6 +254,9 @@ that source provenance in `MIGRATION_REPORT.md`. The
 [`fixtures/diagram-interchange`](fixtures/diagram-interchange) fixture checks
 both cases.
 
+The [`fixtures/model-lint-readiness`](fixtures/model-lint-readiness) fixture checks the M1 lint path
+for a DI-less source, a form-free user task, and a disconnected converted copy.
+
 The [`fixtures/grpc-dependency-alignment`](fixtures/grpc-dependency-alignment) walkthrough checks
 BOM resolution, gRPC family alignment, real `CamundaClient` startup, and dependency evidence in
 `MIGRATION_REPORT.md`.

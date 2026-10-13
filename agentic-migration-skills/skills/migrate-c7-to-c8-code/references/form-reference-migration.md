@@ -325,6 +325,8 @@ Record them in the same inventory with category `c7-generic-task-form` and refer
 them as an explicit user choice: build a Camunda Form, keep the task form-free, or handle it in a
 custom application. Offer the rebuild procedure above if they choose a form. Do not generate anything
 without an explicit request. Never present the category as "no action".
+When the user keeps a user task form-free, classify its lint finding with
+[`model-lint-and-connectivity.md`](model-lint-and-connectivity.md).
 
 ## Report and verdict lifecycle
 

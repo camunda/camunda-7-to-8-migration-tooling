@@ -11,8 +11,8 @@ The process-test classes keep their names and method names. The expected tests d
 The Camunda 7 `camunda.cfg.xml` enables full history and disables its job executor. The tests do
 not query history. The expected project removes that engine-only configuration and records the
 setting in `expected-c8/MIGRATION_REPORT.md`.
-The expected project disables only `camunda-compat/user-task-definition` because these tests
-complete form-free user tasks through CPT. It does not suppress other BPMN rules.
+The expected project keeps every lint rule enabled. `expected-c8/MIGRATION_REPORT.md` records the
+user decision to keep each listed user task form-free. Its missing-form finding stays blocking.
 
 ## Run the fixture
 

@@ -417,13 +417,31 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn('<zeebe:header key="class" value="com.camunda.fixture.tests.NoopDelegate"/>', converted)
         self.assertIn('<zeebe:subscription correlationKey="= orderId"/>', converted)
 
-    def test_bpmn_lint_suppresses_only_form_free_user_tasks(self):
+    def test_form_free_lint_exceptions_are_task_scoped(self):
         lint_config = json.loads((FIXTURE_ROOT / "expected-c8/.bpmnlintrc").read_text())
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
 
-        self.assertEqual(
-            {"camunda-compat/user-task-definition": "off"},
-            lint_config["rules"],
+        pairs = re.findall(r"(?m)^\| `([^`]+)` \| `([^`]+)` \| Keep form-free \|$", report)
+
+        self.assertNotIn("rules", lint_config)
+        self.assertCountEqual(
+            [
+                ("order-process", "Task_Approve"),
+                ("order-process", "Task_Escalate"),
+                ("async-process", "Task_AfterAsync"),
+            ],
+            pairs,
         )
+        for process_id, task_id in pairs:
+            for path in (
+                C7_RESOURCES / "com/camunda/fixture/tests/process-test-cases.bpmn",
+                C8_RESOURCES / "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn",
+            ):
+                with self.subTest(path=path.name, task=task_id):
+                    process = ET.parse(path).getroot().find(f".//{{*}}process[@id='{process_id}']")
+                    task = process.find(f".//{{*}}userTask[@id='{task_id}']")
+                    names = [n.rsplit("}", 1)[-1] for e in task.iter() for n in (e.tag, *e.attrib)]
+                    self.assertFalse([n for n in names if n.startswith("form") or n == "externalReference"])
 
     def test_legacy_junit4_test_remains_on_both_projects(self):
         c7_test = (C7_TESTS / "LegacyFormatterTest.java").read_text()
