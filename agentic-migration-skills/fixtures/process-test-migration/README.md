@@ -13,8 +13,9 @@ not query history. The expected project removes that engine-only configuration a
 setting in `expected-c8/MIGRATION_REPORT.md`.
 The expected project keeps `camunda-compat/user-task-definition` enabled. Its
 `MIGRATION_REPORT.md` records the fixture's user decision to keep the `order-process` user tasks
-`Task_Approve`, `Task_Escalate`, and `Task_AfterAsync` form-free. It scopes the missing-form
-exception to those process and task IDs. CPT completes `Task_Approve` through the process-test API.
+`Task_Approve` and `Task_Escalate`, and the `async-process` task `Task_AfterAsync`, form-free. It
+scopes the missing-form exception to those process and task IDs. CPT completes `Task_Approve`
+through the process-test API.
 
 ## Run the fixture
 

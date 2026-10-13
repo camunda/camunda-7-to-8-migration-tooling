@@ -34,7 +34,7 @@ for these process and task IDs.
 |---|---|---|---|---|
 | `order-process` | `Task_Approve` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
 | `order-process` | `Task_Escalate` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
-| `order-process` | `Task_AfterAsync` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
+| `async-process` | `Task_AfterAsync` | No form metadata | No `zeebe:formDefinition` | Keep form-free |
 
 ## Converted models
 

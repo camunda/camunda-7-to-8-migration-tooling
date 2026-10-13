@@ -45,6 +45,11 @@ EXPECTED_PROCESS_TEST_IDS = {
     "OrderProcessTest#failsWhenDelegateThrows",
     "MessageProcessTest#correlatesMessage",
 }
+FORM_FREE_TASK_SCOPES = (
+    ("order-process", "Task_Approve"),
+    ("order-process", "Task_Escalate"),
+    ("async-process", "Task_AfterAsync"),
+)
 MAVEN_NAMESPACE = {"m": "http://maven.apache.org/POM/4.0.0"}
 BPMN_NAMESPACES = {
     "bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
@@ -440,9 +445,9 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("No form metadata", report)
         self.assertIn("User decision", report)
         self.assertIn("Keep form-free", report)
-        for task_id in ("Task_Approve", "Task_Escalate", "Task_AfterAsync"):
-            with self.subTest(task_id=task_id):
-                self.assertIn(f"| `order-process` | `{task_id}` |", report)
+        for process_id, task_id in FORM_FREE_TASK_SCOPES:
+            with self.subTest(process_id=process_id, task_id=task_id):
+                self.assertIn(f"| `{process_id}` | `{task_id}` |", report)
 
     def test_reported_form_free_tasks_have_no_form_metadata(self):
         source = ET.parse(
@@ -459,13 +464,15 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
             "{http://camunda.org/schema/1.0/bpmn}formHandlerClass",
         )
 
-        for task_id in ("Task_Approve", "Task_Escalate", "Task_AfterAsync"):
-            with self.subTest(task_id=task_id):
+        for process_id, task_id in FORM_FREE_TASK_SCOPES:
+            with self.subTest(process_id=process_id, task_id=task_id):
                 source_task = source.find(
-                    f".//bpmn:userTask[@id='{task_id}']", BPMN_NAMESPACES
+                    f".//bpmn:process[@id='{process_id}']//bpmn:userTask[@id='{task_id}']",
+                    BPMN_NAMESPACES,
                 )
                 converted_task = converted.find(
-                    f".//bpmn:userTask[@id='{task_id}']", BPMN_NAMESPACES
+                    f".//bpmn:process[@id='{process_id}']//bpmn:userTask[@id='{task_id}']",
+                    BPMN_NAMESPACES,
                 )
                 self.assertIsNotNone(source_task)
                 self.assertIsNotNone(converted_task)
