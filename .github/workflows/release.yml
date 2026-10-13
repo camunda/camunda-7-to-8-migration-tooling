@@ -296,6 +296,14 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Test previous release tag selection
+        run: python3 .github/scripts/test_previous_release_tag.py
+
       - name: Download Release Artifacts
         uses: actions/download-artifact@v8
         with:
@@ -311,8 +319,10 @@ jobs:
 
           release_json=$(mktemp)
           releases_json=$(mktemp)
+          release_notes_json=$(mktemp)
+          release_payload=$(mktemp)
           tag_error=$(mktemp)
-          trap 'rm -f "${release_json}" "${releases_json}" "${tag_error}"' EXIT
+          trap 'rm -f "${release_json}" "${releases_json}" "${release_notes_json}" "${release_payload}" "${tag_error}"' EXIT
 
           expected_prerelease=false
           if [[ "${RELEASE_VERSION}" == *-* ]]; then
@@ -325,6 +335,13 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/releases?per_page=100" > "${releases_json}"
           release_count=$(jq --arg tag "${RELEASE_VERSION}" \
             '[.[][] | select(.tag_name == $tag)] | length' "${releases_json}")
+          previous_tag_name=$(python3 .github/scripts/previous_release_tag.py \
+            "${RELEASE_VERSION}" "${releases_json}")
+          if [[ -n "${previous_tag_name}" ]]; then
+            echo "Using previous published tag '${previous_tag_name}' for release notes."
+          else
+            echo "No earlier published SemVer tag found; using GitHub's default release notes range."
+          fi
           created_release=false
 
           case "${release_count}" in
@@ -340,12 +357,23 @@ jobs:
                 exit 1
               fi
 
+              if [[ -n "${previous_tag_name}" ]]; then
+                gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                  --raw-field "tag_name=${RELEASE_VERSION}" \
+                  --raw-field "previous_tag_name=${previous_tag_name}" > "${release_notes_json}"
+              else
+                gh api --method POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                  --raw-field "tag_name=${RELEASE_VERSION}" > "${release_notes_json}"
+              fi
+
+              jq --null-input \
+                --arg tag "${RELEASE_VERSION}" \
+                --argjson prerelease "${expected_prerelease}" \
+                --slurpfile notes "${release_notes_json}" \
+                '{tag_name: $tag, name: $tag, body: $notes[0].body, draft: true, prerelease: $prerelease}' \
+                > "${release_payload}"
               gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
-                --raw-field "tag_name=${RELEASE_VERSION}" \
-                --raw-field "name=${RELEASE_VERSION}" \
-                --field draft=true \
-                --field "prerelease=${expected_prerelease}" \
-                --field generate_release_notes=true > "${release_json}"
+                --input "${release_payload}" > "${release_json}"
               created_release=true
               ;;
             1)
