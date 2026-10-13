@@ -5,10 +5,46 @@ import xml.etree.ElementTree as ET
 
 
 FIXTURE = Path(__file__).resolve().parent
+REPO_ROOT = FIXTURE.parents[2]
 SKILL_ROOT = FIXTURE.parents[1] / "skills/migrate-c7-to-c8-code"
 SKILL = SKILL_ROOT / "SKILL.md"
 REFERENCE = SKILL_ROOT / "references/test-migration.md"
 CODE_CHECKLIST = SKILL_ROOT / "references/code-transform-checklist.md"
+SPRING_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/30-spring-boot-test.md"
+)
+JUNIT_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/10-junit-harness.md"
+)
+DEPLOYMENT_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/40-test-assertions/20-test-setup/20-deployment.md"
+)
+DEPENDENCIES_PATTERN = REPO_ROOT / "code-conversion/patterns/10-general/dependencies.md"
+STARTING_PROCESS_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/starting-process-instances.md"
+)
+USER_TASKS_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/handle-user-tasks.md"
+)
+MESSAGE_CORRELATION_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/correlate-messages.md"
+)
+CAMUNDA_8_PROCESS_EXAMPLES = (
+    REPO_ROOT
+    / "code-conversion/patterns/code-examples/camunda-8/src/main/java/io/camunda/conversion/process_instance"
+)
+START_PROCESS_EXAMPLE = CAMUNDA_8_PROCESS_EXAMPLES / "StartProcessInstance.java"
+HANDLE_USER_TASKS_EXAMPLE = CAMUNDA_8_PROCESS_EXAMPLES / "HandleUserTasks.java"
+PATTERN_SOURCES = (
+    REPO_ROOT
+    / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
+)
 PACKAGE_README = SKILL_ROOT.parents[1] / "README.md"
 EXPECTED_POM = FIXTURE / "expected-c8/pom.xml"
 SOURCE_TEST = (
@@ -135,6 +171,18 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_reference_covers_boot_variants_and_deployment_rules(self):
         reference = " ".join(REFERENCE.read_text().split())
+        pattern_sources = PATTERN_SOURCES.read_text()
+        catalog = " ".join(
+            " ".join(
+                path.read_text()
+                for path in (
+                    SPRING_PATTERN,
+                    JUNIT_PATTERN,
+                    DEPLOYMENT_PATTERN,
+                    DEPENDENCIES_PATTERN,
+                )
+            ).split()
+        )
         package_readme = PACKAGE_README.read_text()
 
         for required in (
@@ -146,12 +194,20 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "@ExtendWith(SpringExtension.class)",
             "@MockitoBean",
             "@TestDeployment",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, catalog, msg=f"Missing {required!r}")
+        for required in (
             "CPT 8.9 or later",
             "camunda.client.worker.override.",
             "manual migration",
         ):
-            with self.subTest(required=required):
-                self.assertIn(required, reference, msg=f"Missing {required!r}")
+            with self.subTest(policy=required):
+                self.assertIn(required, reference)
+        self.assertIn(
+            "40-test-assertions/20-test-setup/30-spring-boot-test.md",
+            pattern_sources,
+        )
         self.assertIn(
             "process-test migration to Camunda Process Test (CPT)", package_readme
         )
@@ -370,25 +426,23 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
     def test_non_boot_spring_migration_replaces_junit4_runner_and_annotations(self):
         reference = " ".join(REFERENCE.read_text().split())
+        junit_pattern = JUNIT_PATTERN.read_text()
 
         self.assertIn(
-            "When the skill migrates a non-Boot Spring test that uses JUnit 4, it replaces its runner with `@ExtendWith(SpringExtension.class)`.",
+            "The catalog's `40-test-assertions/20-test-setup/10-junit-harness.md` owns JUnit runner, lifecycle, and assertion mappings for Spring tests.",
             reference,
         )
         self.assertIn(
-            "The skill replaces JUnit 4 test and lifecycle annotations and assertions with JUnit 5 equivalents. It updates their imports.",
-            reference,
-        )
-        self.assertIn(
-            "| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` | `@ExtendWith(SpringExtension.class)` without `@RunWith`. |",
-            reference,
+            "| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` in a Spring test without Spring Boot | `@ExtendWith(SpringExtension.class)` without `@RunWith` |",
+            junit_pattern,
         )
 
     def test_cpt_dependency_cleanup_preserves_remaining_c7_test_consumers(self):
         reference = " ".join(REFERENCE.read_text().split())
+        dependencies = DEPENDENCIES_PATTERN.read_text()
 
         self.assertIn(
-            "The skill removes each C7 test dependency that no remaining test or production code uses after migration.",
+            "The skill removes a C7 test dependency only after it confirms no remaining test or production code uses it.",
             reference,
         )
         for artifact in (
@@ -397,9 +451,9 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "`camunda-bpm-assert`",
         ):
             with self.subTest(artifact=artifact):
-                self.assertIn(artifact, reference)
+                self.assertIn(artifact, dependencies)
         self.assertIn(
-            "When production code or an unmigrated test uses a dependency, the skill keeps it.",
+            "If any test outside the migrated set or production code still uses a dependency, then the skill keeps it.",
             reference,
         )
 
@@ -411,9 +465,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             checklist,
         )
 
-    def test_endpoint_migration_preserves_start_complete_and_correlation_operations(self):
+    def test_endpoint_migration_uses_operation_specific_client_mappings(self):
         reference = " ".join(REFERENCE.read_text().split())
+        pattern_sources = " ".join(PATTERN_SOURCES.read_text().split())
+        controller = SOURCE_CONTROLLER.read_text()
 
+        self.assertIn("runtimeService.startProcessInstanceByKey", controller)
         self.assertIn(
             "The skill preserves the endpoint operation that the test exercises.",
             reference,
@@ -422,17 +479,160 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             "The skill maps the original C7 operation to the equivalent `CamundaClient` operation.",
             reference,
         )
-        self.assertNotIn(
-            "The endpoint starts the process through `CamundaClient`.",
+        self.assertIn(
+            "The skill uses the client catalog file that matches the original C7 operation behind the endpoint.",
             reference,
         )
-        for operation in (
-            "| Starts a BPMN process | Starts the same process through `CamundaClient`. |",
-            "| Completes a process-backed task | Completes the same task through `CamundaClient`. |",
-            "| Correlates a message | Correlates the same message through `CamundaClient`. |",
+
+        for signal, catalog_path in (
+            (
+                "Endpoint starts a process instance by ID or key",
+                "20-client-code/10-process-engine/starting-process-instances.md",
+            ),
+            (
+                "Endpoint starts a process instance by message",
+                "20-client-code/10-process-engine/starting-process-instances.md",
+            ),
+            (
+                "Endpoint searches, assigns, completes, or reads variables from a user task",
+                "20-client-code/10-process-engine/handle-user-tasks.md",
+            ),
+            (
+                "Endpoint correlates a message",
+                "20-client-code/10-process-engine/correlate-messages.md",
+            ),
         ):
-            with self.subTest(operation=operation):
-                self.assertIn(operation, reference)
+            with self.subTest(signal=signal):
+                self.assertIn(f"`{catalog_path}`", reference)
+                self.assertIn(f"| {signal} | `{catalog_path}` |", pattern_sources)
+
+        for pattern, source, target in (
+            (STARTING_PROCESS_PATTERN, "startProcessInstanceByKey", "newCreateInstanceCommand"),
+            (
+                STARTING_PROCESS_PATTERN,
+                "startProcessInstanceByMessage",
+                "newCorrelateMessageCommand",
+            ),
+            (USER_TASKS_PATTERN, "getTaskService().claim", "newAssignUserTaskCommand"),
+            (USER_TASKS_PATTERN, "getTaskService().complete", "newCompleteUserTaskCommand"),
+            (
+                MESSAGE_CORRELATION_PATTERN,
+                "correlateMessage(",
+                "newCorrelateMessageCommand",
+            ),
+        ):
+            with self.subTest(pattern=pattern.name):
+                mapping = pattern.read_text()
+                self.assertIn(source, mapping)
+                self.assertIn(target, mapping)
+
+        user_task_mapping = USER_TASKS_PATTERN.read_text()
+        self.assertNotIn("newUserTaskAssignCommand", user_task_mapping)
+        self.assertNotIn("newUserTaskCompleteCommand", user_task_mapping)
+
+    def test_message_start_mapping_uses_keyless_correlation(self):
+        mapping = STARTING_PROCESS_PATTERN.read_text(encoding="utf-8")
+        message_mapping = mapping.split(
+            "## By Message (And ProcessDefinitionId)", 1
+        )[1]
+        c8_mapping = message_mapping.split(
+            "- no specific method to start a process instance by message", 1
+        )[0]
+
+        self.assertIn(".withoutCorrelationKey()", c8_mapping)
+        self.assertNotIn(".correlationKey(", c8_mapping)
+        self.assertIn("when the c7 `businesskey` is null", message_mapping.lower())
+        self.assertIn(
+            "when the c7 `businesskey` is non-null, mark this mapping for manual redesign",
+            message_mapping.lower(),
+        )
+        self.assertIn(
+            "c8 message correlation cannot set a `businessid`",
+            message_mapping.lower(),
+        )
+        message_start_example = START_PROCESS_EXAMPLE.read_text(encoding="utf-8").split(
+            "startProcessByMessage", 1
+        )[1]
+        self.assertIn(".withoutCorrelationKey()", message_start_example)
+        self.assertNotIn("String correlationKey", message_start_example)
+        self.assertNotIn(".correlationKey(", message_start_example)
+
+    def test_message_correlation_requires_a_preinitialized_subscription_key(self):
+        mapping = MESSAGE_CORRELATION_PATTERN.read_text(encoding="utf-8")
+        normalized_mapping = mapping.lower()
+
+        self.assertIn(
+            "do not pass the c7 process-instance `businesskey` directly as the c8 `correlationkey`",
+            normalized_mapping,
+        )
+        self.assertIn(
+            "initialize its source process variable before the catch event",
+            normalized_mapping,
+        )
+        self.assertIn(
+            "correlation command applies `.variables(...)` after matching",
+            normalized_mapping,
+        )
+        self.assertIn("manual redesign", normalized_mapping)
+
+    def test_task_service_claim_disables_assignment_overrides(self):
+        mapping = USER_TASKS_PATTERN.read_text(encoding="utf-8")
+        claim_mapping = mapping.split("## Claim User Task", 1)[1].split(
+            "## Complete User Task", 1
+        )[0]
+
+        self.assertIn(".allowOverride(false)", claim_mapping)
+        self.assertIn("claim fails when the task already has an assignee", claim_mapping)
+        claim_example = HANDLE_USER_TASKS_EXAMPLE.read_text(encoding="utf-8").split(
+            "claimUserTask", 1
+        )[1].split("completeUserTask", 1)[0]
+        self.assertIn(".allowOverride(false)", claim_example)
+
+    def test_junit_harness_inventories_camunda_cfg_xml_settings(self):
+        junit_pattern = " ".join(JUNIT_PATTERN.read_text().split())
+        build_cleanup = REFERENCE.read_text(encoding="utf-8").split("## Build cleanup", 1)[1].split(
+            "## References", 1
+        )[0]
+        camunda_cfg_cleanup = next(
+            row
+            for row in build_cleanup.splitlines()
+            if row.startswith("| `camunda.cfg.xml` | No remaining C7 test")
+        )
+
+        self.assertIn(
+            "Before removing `camunda.cfg.xml`, inventory every setting.",
+            junit_pattern,
+        )
+        self.assertIn(
+            "Remove it only when it configures the test engine alone.",
+            junit_pattern,
+        )
+        self.assertIn(
+            "Ask the user how to handle each plugin, custom history level, or "
+            "other setting that changes behavior.",
+            junit_pattern,
+        )
+        self.assertIn(
+            "40-test-assertions/20-test-setup/10-junit-harness.md",
+            camunda_cfg_cleanup,
+        )
+        self.assertNotIn("delete the file", camunda_cfg_cleanup.lower())
+
+    def test_engine_property_mapping_reviews_behavior_before_removal(self):
+        spring_pattern = SPRING_PATTERN.read_text(encoding="utf-8")
+        engine_property_mapping = next(
+            line
+            for line in spring_pattern.splitlines()
+            if line.startswith("| `camunda.bpm.*` engine properties |")
+        )
+
+        self.assertIn("Review each property before removal.", engine_property_mapping)
+        self.assertIn(
+            "Migrate required behavior to a C8 setting or flag unsupported behavior "
+            "for manual migration before removing the C7 property.",
+            engine_property_mapping,
+        )
+        self.assertNotIn("Remove them.", engine_property_mapping)
 
     def test_standalone_task_completion_is_not_a_process_test(self):
         reference = " ".join(REFERENCE.read_text().split())

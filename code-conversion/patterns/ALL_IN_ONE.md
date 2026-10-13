@@ -68,6 +68,8 @@ Patterns:
   - [Coverage and Scenario Tests](#coverage-and-scenario-tests)
     - [Process Test Coverage](#process-test-coverage)
     - [Camunda Platform Scenario Tests](#camunda-platform-scenario-tests)
+  - [Remote Engine Tests](#remote-engine-tests)
+    - [Engine REST Test Mapping](#engine-rest-test-mapping)
 
 ## General thoughts and changes
 
@@ -179,8 +181,11 @@ For Camunda 8.9 or later, replace the temporary `camunda-process-test-spring-4` 
 | `camunda-process-test-coverage` platform 7 modules | No extra dependency | CPT writes its own coverage report from 8.8. |
 | `camunda-bpm-assert-scenario`, `camunda-platform-scenario-runner` | `io.camunda:camunda-process-test-java` | Conditional behavior requires 8.9. |
 | Test-scoped `camunda-engine` used only by process tests | `io.camunda:camunda-process-test-java` | Remove the embedded engine only after confirming no other required use remains. |
+| Test-scoped `org.camunda.bpm.dmn:camunda-engine-dmn` or `org.camunda.bpm.dmn:camunda-engine-feel-*` used only by decision tests | Remove the Camunda 7 DMN engine and FEEL artifacts. | Add the selected CPT Java or Spring artifact in test scope. Keep an artifact that production code or a remaining test uses. |
 | H2 used only by the embedded test engine | No replacement | Remove H2 only when the application does not use it. CPT runs against the Camunda runtime. |
 | JUnit 4 tests that remain in the module but are not process tests | `org.junit.vintage:junit-vintage-engine` | Add it in test scope so the remaining JUnit 4 tests still run. |
+
+Align AssertJ to the version supported by the selected Camunda Process Test release.
 
 **Logging backend**: When removing Camunda 7 webapp/rest starters, keep an SLF4J binding. If those starters were your only logging source, add `org.springframework.boot:spring-boot-starter-logging` (or another SLF4J backend) so startup failures remain visible.
 
@@ -613,6 +618,10 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 ```
 
 -   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
+-   do not pass the C7 process-instance `businessKey` directly as the C8 `correlationKey`
+-   when the converted message catch event declares a matching subscription-key expression, initialize its source process variable before the catch event activates, then pass that value as the C8 `correlationKey`
+-   the C8 correlation command applies `.variables(...)` after matching, so those values cannot initialize the subscription key for that correlation
+-   when no matching subscription key exists, mark the operation for manual redesign
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message
@@ -1158,12 +1167,15 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public AssignUserTaskResponse claimUserTask(Long userTaskKey, String assignee) {
-        return camundaClient.newUserTaskAssignCommand(userTaskKey)
+        return camundaClient.newAssignUserTaskCommand(userTaskKey)
                 .assignee(assignee)
+                .allowOverride(false)
                 .send()
                 .join();
     }
 ```
+
+-   set `.allowOverride(false)` so a claim fails when the task already has an assignee
 
 ###### Complete User Task
 
@@ -1179,7 +1191,7 @@ The following patterns focus on handling user tasks in Camunda 7 vs. Camunda 8.
 
 ```java
     public CompleteUserTaskResponse completeUserTask(Long userTaskKey, Map<String, Object> variableMap) {
-        return camundaClient.newUserTaskCompleteCommand(userTaskKey)
+        return camundaClient.newCompleteUserTaskCommand(userTaskKey)
                 .variables(variableMap)
                 .send()
                 .join();
@@ -1520,10 +1532,11 @@ The following patterns focus on various methods to start process instances in Ca
 ###### CamundaClient (Camunda 8)
 
 ```java
-    public CorrelateMessageResponse startProcessByMessage(String messageName, String correlationKey, Map<String, Object> variableMap, String tenantId) {
+    public CorrelateMessageResponse startProcessByMessage(
+            String messageName, Map<String, Object> variableMap, String tenantId) {
         return camundaClient.newCorrelateMessageCommand()
                 .messageName(messageName)
-                .correlationKey(correlationKey)
+                .withoutCorrelationKey()
                 .variables(variableMap)
                 .tenantId(tenantId)
                 .send()
@@ -1534,8 +1547,10 @@ The following patterns focus on various methods to start process instances in Ca
 -   no specific method to start a process instance by message
 -   no method to target a specific process definition
 -   if the message is received by a message start event of a deployed process definition (latest version), a process instance is created
+-   when the C7 `businessKey` is null, use `.withoutCorrelationKey()` to start a new process instance through the matching message start event
+-   when the C7 `businessKey` is non-null, mark this mapping for manual redesign
 -   for more information, see [the docs on messages](https://docs.camunda.io/docs/next/components/concepts/messages/#message-correlation-overview)
--   `businessId` cannot be set via message correlation — if you need to assign a businessId when starting by message, start via `newCreateInstanceCommand()` instead
+-   C8 message correlation cannot set a `businessId`
 -   on Camunda 8.8 (no businessId) use tags or a process variable instead — see the [Business Key pattern](business-key-and-tags.md)
 -   it is also possible to publish a message with a time to live
 
@@ -3061,6 +3076,13 @@ void testProcessInstanceIsWaitingAtUserTask() {
 
 [List of supported assertions](https://docs.camunda.io/docs/apis-tools/testing/assertions/).
 
+###### Process instance API mappings
+
+| Camunda 7 | Camunda 8 | Note |
+|---|---|---|
+| `runtimeService().startProcessInstanceByKey(key, vars)` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Returns a `ProcessInstanceEvent`. Apply the business-key pattern when the test sets a business key. |
+| `historyService` or `runtimeService` queries used as assertions | CPT assertions or client search requests | CPT assertions wait for asynchronous behavior. Client search requests are eventually consistent. |
+
 ###### Negative assertions
 
 Use `hasNoActiveElements("A")` to map `isNotWaitingAt("A")`. It checks the current process state.
@@ -3107,6 +3129,8 @@ assertThat(processInstance)
 ###### Camunda 8
 
 [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/) is available from Camunda 8.8 and supports direct assertions on the process instance level:
+
+Camunda 8 serializes map values as JSON. Check the converted value shape instead of assuming a Camunda 7 typed or serialized value keeps the same Java type.
 
 ```java
 @Test
@@ -3171,20 +3195,37 @@ void testUserTaskIsReachedAndCompleted() {
 
 ###### Camunda 8
 
+###### User-task API mappings
+
+| Camunda 7 | CPT | Note |
+|---|---|---|
+| `task()` | No direct counterpart | Poll a search by `processInstanceKey` and `UserTaskState.CREATED` until `.hasSize(1)` passes. Inspect or complete its exact `userTaskKey`. |
+| `task("A")` | `UserTaskSelectors.byElementId("A", processInstanceKey)` | `A` is the BPMN user-task element ID. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the element can repeat, poll a `CREATED` search scoped by `processInstanceKey` and `elementId` until `.hasSize(1)` passes. |
+| `findId("Task name")` | `UserTaskSelectors.byTaskName("Task name", processInstanceKey)` | Use the task name selected by the source test. Get `processInstanceKey` from the started `ProcessInstanceEvent`. If the name can match multiple tasks, poll a `CREATED` search scoped by `processInstanceKey` and task name until `.hasSize(1)` passes. |
+| `complete(task(), withVariables(vars))` | No direct counterpart | Poll a search by `processInstanceKey` and `UserTaskState.CREATED` until `.hasSize(1)` passes. Complete that task by its exact `userTaskKey`. |
+| `complete(task("A"), withVariables(vars))` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars)` | Include the process-instance key in the selector. If the element can repeat, poll a `CREATED` search scoped by `processInstanceKey` and `elementId` until `.hasSize(1)` passes. |
+| `taskService.complete(id, vars)` | `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | When using `CamundaClient`, poll a `CREATED` search with equivalent process-instance and task-identity filters until exactly one result is visible. Complete its exact `userTaskKey`. |
+| `claim(task(), "user")` | `client.newAssignUserTaskCommand(userTaskKey).assignee("user").allowOverride(false).send().join()` | Set `allowOverride(false)` so an already-assigned task still fails as it does in Camunda 7. Poll the `CREATED` search by `processInstanceKey` until exactly one task is visible before reading its key. Record a reason before dropping the assignment step. |
+
 The CPT selector-based user-task assertions and completion APIs shown here are available from Camunda 8.8. With [Camunda Process Test (CPT)](https://docs.camunda.io/docs/apis-tools/testing/getting-started/), you can use hasActiveElements() to assert the task is active. Furthermore, there are utility methods, for example to [complete user tasks](https://docs.camunda.io/docs/apis-tools/testing/utilities/#complete-user-tasks).
+
+User-task client searches are eventually consistent. Use a bounded poll before inspecting or completing a search result.
 
 Note that you typically address elements by ID and not by name, which we do for illustration purposes here:
 
 ```java
+import static org.awaitility.Awaitility.await;
+
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
-import io.camunda.process.test.api.assertions.UserTaskSelectors;
+import io.camunda.client.api.search.enums.UserTaskState;
+import io.camunda.client.api.search.response.UserTask;
 
 @Autowired
 private CamundaClient client;
-@Autowired
-private CamundaProcessTestContext processTestContext;
 
 @Test
 void testUserTaskIsReachedAndCompleted() {
@@ -3195,16 +3236,27 @@ void testUserTaskIsReachedAndCompleted() {
 
   assertThat(processInstance)
     .hasActiveElements(byName("Approve Request"));
-      
-  assertThat(UserTaskSelectors.byTaskName("Approve Request"))
-    .isCreated()
-    .hasName("Approve Request")
-    .hasAssignee("demo");
 
-  // Complete the task by its name selector
+  var userTaskRef = new AtomicReference<UserTask>();
+  await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+    var userTasks = client.newUserTaskSearchRequest()
+      .filter(filter -> filter
+        .processInstanceKey(processInstance.getProcessInstanceKey())
+        .state(UserTaskState.CREATED))
+      .send().join().items();
+    assertThat(userTasks).hasSize(1);
+    userTaskRef.set(userTasks.get(0));
+  });
+  var userTask = userTaskRef.get();
+  assertThat(userTask.getName()).isEqualTo("Approve Request");
+  assertThat(userTask.getAssignee()).isEqualTo("demo");
+
+  // Complete the selected task by its exact user-task key
   Map<String, Object> variables = new HashMap<>();
   variables.put("approved", true);
-  processTestContext.completeUserTask(UserTaskSelectors.byTaskName("Approve Request"), variables);
+  client.newCompleteUserTaskCommand(userTask.getUserTaskKey())
+    .variables(variables)
+    .send().join();
 
   assertThat(processInstance)
     .hasCompletedElements("UserTask_Approve")
@@ -3273,6 +3325,13 @@ void testMessageCorrelation() {
 }
 ```
 
+###### Message and signal API mappings
+
+| Camunda 7 | Camunda 8 | Note |
+|---|---|---|
+| `runtimeService.correlateMessage(name, businessKey, vars)` | `client.newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Read the correlation-key expression from the converted model's message subscription. Pass its evaluated key, not the business key or expression text. Only map when the model has an explicit subscription correlation key and the matching process variable is initialized before the catch event. Variables sent with this command are applied after correlation and cannot initialize the key. Otherwise, manually redesign the model. |
+| `runtimeService.signalEventReceived(name)` | `client.newBroadcastSignalCommand().signalName(name).send().join()` | Use the signal name from the converted model. |
+
 This example assumes that the converted model's message subscription reads the `correlationKey` process variable. Set that variable to the same value passed to `.correlationKey(...)`. Use `newPublishMessageCommand()` when the test needs publication or buffering semantics instead of immediate correlation.
 
 ---
@@ -3280,6 +3339,18 @@ This example assumes that the converted model's message subscription reads the `
 #### Job Execution in Test Cases
 
 The CPT clock and job utilities in this pattern are available from Camunda 8.8.
+
+###### Job and clock API mappings
+
+| Camunda 7 | CPT | Note |
+|---|---|---|
+| `execute(job())` for an asynchronous continuation | Remove the manual job step | Camunda 8 continues asynchronously. Use a waiting assertion for the next state. |
+| `execute(job())` or `managementService.executeJob(id)` for a timer | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first, or the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
+| `ClockUtil.setCurrentTime(date)` | `processTestContext.setTime(instant)` | Use before process creation when the test needs a specific start time. |
+| `ClockUtil.reset()` in `@After` or `@AfterEach` | Remove the reset. | CPT resets the clock after each test. |
+| `ClockUtil.reset()` during a test | `processTestContext.setTime(Instant.now())` | Restore the current system time before the test ends. |
+| Completing an external task with `complete(externalTask(), vars)` or `fetchAndLock(...)` followed by `complete(...)` | `processTestContext.completeJob(JobSelectors.byJobType(jobType).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), vars)` | Preserve the C7 fetch filters and assert that the selector matches exactly one job because CPT acts on the first match. Use an equivalent filtered search and the exact C8 job key, or use manual migration, when the selector is not unique or cannot preserve the filters. Use `throwBpmnErrorFromJob` with the same selector for `handleBpmnError`. |
+| An expected exception from process start or task completion because a delegate failed | `assertThat(pi).hasActiveIncidents()` | A failing Camunda 8 worker creates an incident after its retries instead of throwing into the test. |
 
 ###### Camunda 7
 
@@ -3336,7 +3407,7 @@ void testTimerTriggered() {
 }
 ```
 
-Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. If the process must start at a specific instant, call `setTime` before creating it. If `setTime` is used to trigger a timer, first wait until the timer event is active, for example with `assertThat(instance).hasActiveElements("TimerEvent")`. CPT resets the clock after each test.
+Replace `ClockUtil.setCurrentTime(instant)` with `processTestContext.setTime(instant)`. Use `processTestContext.setTime(Instant.now())` to restore the current system time during a test. Remove `ClockUtil.reset()` from `@After` or `@AfterEach` because CPT resets the clock after each test. If `setTime` is used to trigger a timer, first wait until the timer event is active, for example with `assertThat(instance).hasActiveElements("TimerEvent")`.
 
 For an asynchronous continuation, omit `execute(job())` and assert the next process state with a waiting assertion:
 
@@ -3474,7 +3545,7 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `isWaitingAtExactly("A")` | `hasActiveElementsExactly("A")` | |
 | `isNotWaitingAt("A")` | `hasNoActiveElements("A")` | Both inspect the current state. If absence is meaningful only after a later point, assert that observation point first. See below. |
 | `hasPassed("A")`, `hasPassedInOrder("A", "B")` | `hasCompletedElements("A")`, `hasCompletedElementsInOrder("A", "B")` | Camunda 7 counts finished activity instances, including cancelled ones. Use `hasTerminatedElements("A")` when a boundary event interrupted the element. |
-| `hasNotPassed("A")` | `hasNotActivatedElements("A")` | This is stricter. It also fails when the element is active, so confirm that behavior is intended. |
+| `hasNotPassed("A")` | No exact counterpart | `hasNotActivatedElements("A")` is stricter because it also fails while the element is active. Camunda 7 `hasNotPassed` already fails after the element completes or terminates. Use the CPT assertion only when the test means the element was never activated. Otherwise decide per test and record the decision. |
 | `isEnded()` | `isCompleted()` or `isTerminated()` | Camunda 7 `isEnded()` passes for both completed and cancelled instances. |
 | `isNotEnded()`, `isActive()` | `isActive()` | |
 | `isStarted()` | `isCreated()` | |
@@ -3502,7 +3573,7 @@ In the CPT rows, `selector` denotes a `UserTaskSelector` scoped to `pi.getProces
 | `assertThat(pi).externalTask("A")` | No counterpart | C7 first checks that `"A"` is waiting, then filters by activity ID and scopes the lookup to `pi`. Assert `hasActiveElements("A")`, then search jobs by process-instance key and converted element ID or job type; assert `.hasSize(1)` when preserving C7's single-result behavior. |
 | `assertThat(pi).externalTask(ExternalTaskQuery query)` | No counterpart | C7 adds the process-instance ID to the supplied query and uses `singleResult()`. Search jobs by process-instance key with equivalent filters, then assert `.hasSize(1)` when preserving C7's single-result behavior. |
 | `BpmnAwareTests.externalTask()`, `externalTask("A")`, `externalTask(ExternalTaskQuery query)` (also overloads with `ProcessInstance`) | No counterpart | These are `BpmnAwareTests` helpers, not `ProcessInstanceAssert` methods. C7 scopes them to the last asserted or explicitly supplied process instance. Camunda 8 models external tasks as jobs; query jobs by process-instance key and the converted element ID or job type, and assert `.hasSize(1)` when preserving the C7 single-result behavior. `JobSelectors` can select jobs for actions, not assertions. |
-| `assertThat(task()).isAssignedTo("u")` | `assertThatUserTask(UserTaskSelectors.byElementId("A", pi.getProcessInstanceKey())).isCreated().hasAssignee("u")` | Include the process-instance key to preserve C7's scope. |
+| `assertThat(task()).isAssignedTo("u")` | No direct counterpart | Search user tasks by `processInstanceKey` and `UserTaskState.CREATED`, then poll until `.hasSize(1)` passes. Assert that its assignee is `u` with AssertJ. |
 | `assertThat(task()).hasName("Approve")` | `assertThatUserTask(selector).isCreated().hasName("Approve")` | |
 | `assertThat(task()).hasCandidateGroup("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Camunda 7 also requires the task to be unassigned; search for the task and assert that its assignee is null with AssertJ. |
 | `assertThat(task()).hasCandidateGroupAssociated("approvers")` | `assertThatUserTask(selector).isCreated().hasCandidateGroup("approvers")` | Both check the candidate-group association whether or not the task is assigned. |
@@ -3554,6 +3625,17 @@ public class OrderProcessTest {
 
 `ProcessEngineRule`, `@ClassRule`, `ProcessEngineExtension`, `ProcessEngineTestCase`, `AbstractProcessEngineRuleTest`, and `StandaloneInMemoryTestConfiguration` all use the embedded Camunda 7 test engine.
 
+###### Harness and lifecycle mappings
+
+| Camunda 7 | Camunda Process Test | Note |
+|---|---|---|
+| `@Rule ProcessEngineRule`, `@ClassRule`, or `ProcessEngineRule("custom.cfg.xml")` | `@CamundaProcessTest` with injected `CamundaClient` and `CamundaProcessTestContext` fields | Configure the CPT runtime in `camunda-container-runtime.properties`. |
+| `@ExtendWith(ProcessEngineExtension.class)` or `@RegisterExtension ProcessEngineExtension` | `@CamundaProcessTest` with the same fields | |
+| `extends ProcessEngineTestCase` | JUnit 5 class with `@CamundaProcessTest` | Add `@Test` to each `testXxx()` method. Map overridden `setUp()` and `tearDown()` to `@BeforeEach` and `@AfterEach`, and remove calls to `super`. |
+| `extends AbstractProcessEngineRuleTest` or `new StandaloneInMemoryTestConfiguration().rule()` | `@CamundaProcessTest` | These helpers start a standalone engine with `MockExpressionManager` and no Spring context. |
+| JUnit 4 `@Before`, `@After`, `@Ignore`, `@Test(expected = ...)`, and `org.junit.Assert` | JUnit 5 `@BeforeEach`, `@AfterEach`, `@Disabled`, `assertThrows`, and JUnit 5 `Assertions` or AssertJ | |
+| `@RunWith(SpringJUnit4ClassRunner.class)` or `@RunWith(SpringRunner.class)` in a Spring test without Spring Boot | `@ExtendWith(SpringExtension.class)` without `@RunWith` | Keep `@ContextConfiguration` when the test needs Spring-managed beans. |
+
 ###### Camunda 8
 
 ```java
@@ -3581,7 +3663,7 @@ class OrderProcessTest {
 
 Use `@CamundaProcessTest` with injected `CamundaClient` and `CamundaProcessTestContext` fields. Convert JUnit 3 and JUnit 4 process tests to JUnit 5.
 
-Remove `camunda.cfg.xml` when it configures only the test engine. Ask the user to decide how to handle a plugin, history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
+Before removing `camunda.cfg.xml`, inventory every setting. Remove it only when it configures the test engine alone. Ask the user how to handle each plugin, custom history level, or other setting that changes behavior. Keep JUnit 4 tests that are not process tests and add `junit-vintage-engine` when the module still needs them.
 
 [CPT getting started](https://docs.camunda.io/docs/apis-tools/testing/getting-started/)
 
@@ -3604,6 +3686,11 @@ public class OrderProcessTest {
 ```
 
 `@Deployment` without `resources` implicitly deploys a model named after the test class or method. `repositoryService.createDeployment().addClasspathResource(...)` also deploys a classpath model.
+
+| Camunda 7 deployment | CPT deployment | Note |
+|---|---|---|
+| Class- or method-level `@Deployment(resources = {...})` | Class- or method-level `@TestDeployment(resources = {...})` | Use converted-copy paths. A method-level annotation takes precedence. |
+| Implicit `@Deployment` | Explicit `@TestDeployment(resources = "<resolved converted-copy path>")` | Resolve the path from the Test Inventory. |
 
 ###### Camunda 8
 
@@ -3641,6 +3728,16 @@ Method-level `@TestDeployment` takes precedence over a class-level annotation. D
 #### Spring Boot Test Setup
 
 Camunda 7 Spring Boot tests run an embedded engine in the application context. CPT 8.8 and later use `@CamundaSpringProcessTest` with the application's Spring Boot test.
+
+###### Target harness selection
+
+| Target application | CPT dependency in test scope | Test annotation |
+|---|---|---|
+| Spring Boot 4.x with `camunda-spring-boot-starter` | `io.camunda:camunda-process-test-spring` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring Boot 3.5.x with `camunda-spring-boot-3-starter` | `io.camunda:camunda-process-test-spring-boot-3` | `@SpringBootTest` and `@CamundaSpringProcessTest` |
+| Spring without Spring Boot | `io.camunda:camunda-process-test-java` | `@CamundaProcessTest` |
+
+The CPT Spring dependencies include the CPT Java API. Do not add `camunda-process-test-java` with either Spring dependency.
 
 ###### Camunda 7
 
@@ -3685,6 +3782,17 @@ class OrderProcessTest {
 }
 ```
 
+###### Camunda 7 to CPT mappings
+
+| Camunda 7 Spring test | CPT test | Note |
+|---|---|---|
+| `@RunWith(SpringRunner.class) @SpringBootTest` | `@SpringBootTest @CamundaSpringProcessTest` | Keep the Spring context and match the CPT artifact to the production starter. |
+| `@SpringBootTest` that injects `DecisionService` | `@SpringBootTest @CamundaSpringProcessTest` with injected `CamundaClient` | Keep the Spring context and use the CPT Spring artifact that matches the production starter. |
+| `@Autowired RuntimeService`, `TaskService`, `HistoryService`, or `ProcessEngine` | `@Autowired CamundaClient` and `CamundaProcessTestContext` | |
+| `@Autowired @Rule ProcessEngineRule` or `BpmnAwareTests.init(processEngine)` | Remove the engine rule and initialization. | |
+| `camunda.bpm.*` engine properties | Review each property before removal. | Migrate required behavior to a C8 setting or flag unsupported behavior for manual migration before removing the C7 property. |
+| A C7 test transaction that reverts engine and application state | Keep `@Transactional` only for application database state. | |
+
 Use `camunda-process-test-spring` with the Spring Boot 4 starter or `camunda-process-test-spring-boot-3` with the Spring Boot 3 starter. See [dependencies](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/10-general/dependencies.md) for the Camunda 8.8 artifact names.
 
 Use `@MockitoBean` instead of deprecated `@MockBean` with Spring Boot 3.4 or later. Keep the mock at the same boundary as the Camunda 7 test. Keep the real worker enabled when the test mocks only its collaborator. Disable the matching worker with `camunda.client.worker.override.<type>.enabled=false` when the test replaces the worker itself.
@@ -3715,7 +3823,7 @@ These patterns preserve the mock boundary of Camunda 7 process tests. CPT's mock
 
 #### Delegate and Worker Mocks
 
-The CPT mock-worker APIs in this pattern are available from Camunda 8.8. Preserve what the Camunda 7 test replaced. Use the job type from `zeebe:taskDefinition` in the converted copy, not the Camunda 7 bean name.
+The basic CPT mock-worker APIs in this pattern are available from Camunda 8.8. Conditional behavior and user-task listener completion require Camunda 8.9 or later. Preserve what the Camunda 7 test replaced. Use the job type from `zeebe:taskDefinition` in the converted copy, not the Camunda 7 bean name.
 
 ###### Camunda 7
 
@@ -3757,17 +3865,27 @@ class InvoiceProcessTest {
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `Mocks.register("service", mock)` where the service is a collaborator called by a delegate | Keep a Mockito mock of the collaborator | Run the real migrated worker. Use `@MockitoBean` in Spring or pass the mock to the worker. |
+| `Mocks.register("service", mock)` for a `camunda:expression` target | Keep a Mockito mock of the expression target. Inject it into the matching service used by the real worker. | Keep the real worker enabled. Use `@MockitoBean` in Spring or pass the mock to the worker. |
+| `Mocks.register("service", mock)` for a collaborator called by a real delegate or worker | Keep a Mockito mock of the collaborator and inject it into the real worker's collaborator. | Keep the real worker enabled. Use `@MockitoBean` in Spring or pass the mock to the worker. |
 | `Mocks.register("delegate", mock)` for a whole delegate expression | `mockJobWorker(type)` | The real delegate did not run in Camunda 7, so mock the converted task's job type. |
-| `registerJavaDelegateMock(name)` | `mockJobWorker(type)` | Read `type` from the converted model. |
+| `CamundaMockito.registerMockInstance(...)` | Apply the same-boundary mapping. | Classify the registered object. Do not infer its boundary from the helper name. |
+| `doAnswer(...)` on a whole delegate with fixed outputs | `.thenComplete(outputs)` and `getActivatedJobs()` | Preserve every output variable. Read input variables from the activated job. Keep the invocation verification. |
+| `doAnswer(...)` on a whole delegate with input-dependent outputs | `.withHandler(handler)` | Read activation variables and complete the job with the matching outputs. |
+| `registerJavaDelegateMock(name)` | `mockJobWorker(type).thenComplete()` | Read `type` from the converted model. |
 | `.onExecutionSetVariables(vars)`, `.onExecutionSetVariable(key, value)` | `.thenComplete(vars)` | |
 | `.onExecutionSetVariables(first, second)` | `.withHandler(...)` | Complete with the next result on each invocation. |
-| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, vars)` (8.9+) or `.thenThrowBpmnError(code, vars)` / `.thenThrowBpmnError(code)` (8.8) | The 8.8 builder cannot preserve the error message. Use `.withHandler(...)` and `newThrowErrorCommand(...)` when the message matters. |
+| `.onExecutionThrowBpmnError(code, message)` | `.thenThrowBpmnError(code, message, Map.of())` or `.thenThrowBpmnError(code)` | Preserve the error code and message when the test checks them. On 8.8, use `.withHandler(...)` and `newThrowErrorCommand(...)` when the message matters. |
 | `.onExecutionThrowException(exception)` | `.withHandler(...)` that fails the job with zero retries | Camunda 7 throws into the test. Camunda 8 creates an incident. Assert `hasActiveIncidents()` instead. |
-| `DelegateExpressions.autoMock("process.bpmn")` | One `mockJobWorker(type).thenComplete()` per converted job type | Include listener job types. Disable the matching real workers in a Spring test. |
-| `registerExecutionListenerMock(...)`, `registerTaskListenerMock(...)` | `mockJobWorker(type)` | Use the converted listener job type. Record a listener that the converter removed. |
-| `verifyJavaDelegateMock(name).executed(times(n))` or `executedNever()` | `mock.getInvocations()` | Add a waiting CPT assertion before checking invocations. |
-| `ArgumentCaptor<DelegateExecution>` | `mock.getActivatedJobs()` and each job's variables | |
+| `DelegateExpressions.autoMock("process.bpmn")` | For each mocked delegate expression, use `mockJobWorker(type).thenComplete()` for its converted service-task or execution-listener type. | The helper applies registrations in source order, and the last registration for a bean sets the effective boundary. Do not infer mocks from `camunda:class` or `camunda:expression`. Read each job type from its own extension declaration. For each retained user-task listener, call `completeJobOfUserTaskListener(...)` for every matching activation. Disable matching real workers in Spring tests. |
+| `registerExecutionListenerMock(...)` | `mockJobWorker(type)` | Read `type` from the converted copy's `zeebe:executionListener/@type`. Do not use the attached task's `zeebe:taskDefinition/@type`. |
+| `registerTaskListenerMock("listener")` | Where the converted copy retains a listener job, call `completeJobOfUserTaskListener(JobSelectors.byJobType(type), result -> {})` once for every matching listener-job activation. | Read `type` from the matching `zeebe:taskListener/@type`. Record a dropped C7 listener in `mocks.c7` and leave `mocks.c8` without a corresponding mock. |
+| `@MockBean` or `@MockitoBean` for a process-used delegate or listener | Apply the matching whole-component mock mapping. | Preserve the mock boundary and disable the matching real worker in Spring. |
+| `@MockBean` or `@MockitoBean` for a service called by a delegate | `@MockitoBean` or the version-compatible Spring mock for the same service | Keep the real worker enabled. |
+| `verifyJavaDelegateMock("name")` or `verifyExecutionListenerMock("name")` with `executed()`, `executed(times(n))`, or `executedNever()` | `assertThat(mock.getInvocations())` with `isEqualTo(1)`, `isEqualTo(n)`, or `isZero()` | Read the count only after a waiting CPT assertion on the related element. |
+| `verifyTaskListenerMock("name").executed()` | Increment an `AtomicInteger` in the listener completion callback and assert that the count is `1`. | Read the count only after a waiting CPT assertion on the related task or process. |
+| `verifyTaskListenerMock("name").executed(times(n))` | Increment an `AtomicInteger` in each listener completion callback and assert that the count is `n`. | Complete every matching listener-job activation. Read the count only after a waiting CPT assertion on the related task or process. |
+| `verifyTaskListenerMock("name").executedNever()` | Do not complete a matching listener job. | Assert that the same CPT checkpoint succeeds without a matching blocking listener job. Ask the user before claiming parity when no waiting assertion proves the absence. |
+| `ArgumentCaptor<DelegateExecution>` on a delegate mock | `mock.getActivatedJobs()` and each job's `getVariablesAsMap()` | Read the activated jobs after a waiting CPT assertion. |
 | `Mocks.reset()`, mock cleanup in `@After` | Remove the cleanup | CPT closes the client and clears runtime data after each test. |
 
 For a failed job, a worker mock can use a custom handler:
@@ -3855,6 +3973,9 @@ public void evaluatesTheDecision() {
 ###### Camunda 8
 
 ```java
+import io.camunda.process.test.api.CamundaAssert;
+import io.camunda.process.test.api.assertions.DecisionSelectors;
+
 @CamundaProcessTest
 @TestDeployment(resources = "converted-c8-dish.dmn")
 class DishDecisionTest {
@@ -3868,7 +3989,8 @@ class DishDecisionTest {
     EvaluateDecisionResponse response = client.newEvaluateDecisionCommand()
         .decisionId("dish").variables(variables).send().join();
 
-    assertThat(response).isEvaluated().hasOutput("Water");
+    CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response))
+        .isEvaluated().hasOutput("Water");
   }
 }
 ```
@@ -3877,17 +3999,18 @@ CPT's DMN evaluation and assertion APIs shown here are available from Camunda 8.
 
 | Camunda 7 | CPT | Note |
 |---|---|---|
-| `@Rule DmnEngineRule`, `DmnEngineConfiguration.createDefaultDmnEngineConfiguration().buildEngine()` | `@CamundaProcessTest` with `CamundaClient` | Camunda 7 evaluates DMN in process. CPT uses a Camunda runtime, with Testcontainers by default. |
+| `@Rule DmnEngineRule`, `DmnEngineConfiguration.createDefaultDmnEngineConfiguration().buildEngine()`, or a `DmnEngine` built from `DmnEngineConfiguration` | `@CamundaProcessTest` with `CamundaClient` | Camunda 7 evaluates DMN in process. CPT uses a Camunda runtime, with Testcontainers by default. |
 | `parseDecision(...)`, `parseDecisions(...)`, `@Deployment(resources = "dish.dmn")` | `@TestDeployment(resources = "converted-c8-dish.dmn")` | A DRD deploys as one resource. |
-| `DecisionService.evaluateDecisionByKey(...)`, `DmnEngine.evaluateDecisionTable(...)`, `evaluateDecision(...)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | |
-| `Variables.putValue(...)` | `Map<String, Object>` | Keep values in JSON-compatible form and check how the converted DMN reads them. |
-| `getSingleResult().getSingleEntry()`, `getSingleEntry()` | `assertThat(response).hasOutput(value)` | For one output column and a single-result hit policy. |
-| `getSingleResult().getEntry("a")`, `getEntryMap()` | `assertThat(response).hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected fields. |
-| `collectEntries("x")` with hit policy `COLLECT` | Parse `response.getDecisionOutput()` and assert with `containsExactlyInAnyOrder` | Camunda 8 returns `COLLECT` results in arbitrary order. Do not use `hasOutput(List)` for `COLLECT`. |
-| `collectEntries("x")` with `RULE ORDER` or `OUTPUT ORDER` | `assertThat(response).hasOutput(List.of(...))` | These hit policies define result order. |
-| `result.isEmpty()`, `getSingleResult()` is `null` | `assertThat(response).hasNoMatchedRules()` | |
-| Historic decision rule checks | `hasMatchedRules(int...)`, `hasNotMatchedRules(int...)` | `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
-| Expected `DmnEngineException`, such as a `UNIQUE` hit-policy violation | Assert `response.getFailureMessage()` is not null | Failed evaluations return failure details instead of throwing. `isEvaluated()` fails for a failed evaluation. |
+| `DecisionService.evaluateDecisionByKey("dish").variables(vars).evaluate()`, `DmnEngine.evaluateDecisionTable(decision, vars)`, `evaluateDecision(decision, vars)`, or `evaluateDecisionTableByKey("dish", vars)` | `client.newEvaluateDecisionCommand().decisionId("dish").variables(vars).send().join()` | The Camunda 8 command evaluates required decisions automatically. |
+| `Variables.putValue(...)` | `Map<String, Object>` | Keep values in JSON-compatible form. When a Camunda 7 value is a `Date` or typed value, check that the converted DMN reads its JSON representation as intended. Do not assume the Java type survives serialization. |
+| `getSingleResult().getSingleEntry()`, `getSingleEntry()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(value)` | Use for one output column and a single-result hit policy. |
+| `getSingleResult().getEntry("a")`, `getEntryMap()` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(Map.of("a", value, "b", value))` | `hasOutput` compares all outputs. Parse `response.getDecisionOutput()` to check only selected fields. |
+| `collectEntries("x")` with hit policy `COLLECT` | Parse `response.getDecisionOutput()` as a list of scalar values for one output column or maps keyed by output name for multiple columns. | Select values by output name and compare rows without relying on their order. Do not use `hasOutput(List)` for `COLLECT`. |
+| `collectEntries("x")` with hit policy `RULE ORDER` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasOutput(List.of(...))` | `RULE ORDER` defines result order. |
+| `collectEntries("x")` with hit policy `OUTPUT ORDER` | Manual redesign | Camunda 8.9 does not support `OUTPUT ORDER`. |
+| `result.isEmpty()`, `getSingleResult()` is `null` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNoMatchedRules()` | A failed evaluation must not be treated as an empty result. |
+| Matched-rule checks through `HistoricDecisionInstance` | `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasMatchedRules(int...)` or `CamundaAssert.assertThatDecision(DecisionSelectors.byResponse(response)).isEvaluated().hasNotMatchedRules(int...)` | Call `isEvaluated()` before each matched-rule assertion so a failed evaluation cannot appear to have no matches. `hasMatchedRules` passes when the given rule indexes are a subset of the matched rules. |
+| An expected `DmnEngineException`, including one wrapped by `DecisionService` in `ProcessEngineException` | Check `response.getFailureMessage()` and `response.getFailedDecisionId()` | Camunda 8 returns a failed response instead of throwing. `isEvaluated()` fails for a failed evaluation. |
 
 Keep null inputs. Build variables with a `HashMap` or another map that accepts null values. Do not use `Map.of` when the Camunda 7 test passed a null value.
 
@@ -3905,6 +4028,10 @@ Camunda 8.8 and later generate CPT coverage reports. CPT conditional behavior fo
 #### Process Test Coverage
 
 Camunda 7 coverage extensions add a rule or JUnit extension to process tests. CPT generates its own coverage report from Camunda 8.8.
+
+| Camunda 7 coverage support | CPT | Note |
+|---|---|---|
+| `camunda-process-test-coverage` rule or extension | Remove it when no remaining test uses it. | CPT reports process coverage. Do not add a separate coverage dependency. |
 
 ###### Camunda 7
 
@@ -4000,32 +4127,41 @@ class InvoiceScenarioTest {
 }
 ```
 
-| Camunda Platform Scenario | CPT 8.9 | Note |
+| Camunda Platform Scenario | Camunda Process Test 8.9 or later | Notes |
 |---|---|---|
-| `@Mock ProcessScenario`, `MockitoAnnotations.openMocks(this)` | Remove | |
-| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `when(() -> assertThatProcessInstance(byProcessId(pid)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("A"), vars))` | The action must resolve the wait state so CPT can observe it again. |
-| `thenReturn(first, second)` or different actions per call | Chain `.then(first).then(second)` | The last action repeats. |
-| `task.handleBpmnError(...)`, `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
+| `@Mock ProcessScenario` and its retained Scenario stubs | Convert each retained stub with the matching CPT behavior below. | Remove the C7 mock and Scenario runner setup only when no retained method needs them. Map each verification to the matching assertion row below. |
+| `MockitoAnnotations.openMocks(this)` and matching cleanup | Remove initialization and cleanup when no retained Mockito annotation needs them. | Keep them for retained `@Mock`, `@Spy`, `@Captor`, or `@InjectMocks` fields. |
+| JUnit 4 `@Before`, `@After`, and `@Test` | JUnit 5 `@BeforeEach`, `@AfterEach`, and `@Test` | |
+| `waitsAtUserTask("A").thenReturn(task -> task.complete(vars))` | `processTestContext.when(() -> assertThatProcessInstance(byKey(processInstanceKey)).hasActiveElements("A")).as("A").then(() -> processTestContext.completeUserTask(UserTaskSelectors.byElementId("A", processInstanceKey), vars))` | The condition and completion action use the Scenario instance's process-instance key. The action must resolve the wait state so CPT can observe it again. |
+| `thenReturn(first, second)` or different actions per call on a conditional behavior | Chain `.then(first).then(second)` on the matching CPT conditional behavior. | CPT repeats the last action after earlier actions run. Do not use this chain for worker mocks. |
+| User-task stubs whose action calls `task.handleBpmnError(...)` or `task.handleEscalation(...)` | No direct counterpart | Report for manual migration. |
 | `waitsAtServiceTask`, `waitsAtSendTask`, `waitsAtMessageIntermediateThrowEvent`, `waitsAtMessageEndEvent` with `complete(vars)` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
 | `waitsAtBusinessRuleTask("R")` when the converted task uses `zeebe:calledDecision` | `mockDmnDecision(decisionId, output)` | The called decision runs natively and does not create a worker job. |
 | `waitsAtBusinessRuleTask("R")` when the converted task defines `zeebe:taskDefinition` | `mockJobWorker(type).thenComplete(vars)` | Read the job type from the converted copy. |
-| Worker-backed wait states with `handleBpmnError(code, vars)` | `mockJobWorker(type).thenThrowBpmnError(code, vars)` | |
+| Worker-backed wait states with `handleBpmnError(code, vars)` | `mockJobWorker(type).thenThrowBpmnError(code, vars)` | Read the job type from the converted copy. |
+| The same external-task stubs handling a BPMN error | `mockJobWorker(type).thenThrowBpmnError(code, variables)` | Read the job type from the converted copy. |
+| Repeated external-task actions on a linear path | Call `completeJob(...)` or `throwBpmnErrorFromJob(...)` once per activation in the tested order. | Do not register a worker mock or chain `thenComplete(...)` or `thenThrowBpmnError(...)`; those builder methods return `JobWorkerMock`. |
+| Repeated external-task actions on a non-linear path | Configure `mockJobWorker(type).withHandler(...)` to select the response for each activated job. | Read the job type from the converted copy. |
 | `waitsAtTimerIntermediateEvent("T")` | Assert `hasActiveElements("T")`, then call `increaseTime(duration)` | Read the duration from the converted timer. |
 | `action.defer(period, action)` | Increase time in steps, then run the action | Keep each step no longer than the shortest timer period on the path. Assert the expected timer effect after each step. |
-| `waitsAtMessageIntermediateCatchEvent` or `waitsAtReceiveTask` with `receive(vars)` | `newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Use the converted copy's message subscription for the name and key. Wait with `isWaitingForMessage(name, key)`. |
-| `waitsAtSignalIntermediateCatchEvent` with `receive()` | `newBroadcastSignalCommand().signalName(name).send().join()` | |
-| `waitsAtEventBasedGateway("G")` with an event action | The message, signal, or timer action for the selected event | |
+| `waitsAtMessageIntermediateCatchEvent` or `waitsAtReceiveTask` with `receive(vars)` | `newCorrelateMessageCommand().messageName(name).correlationKey(key).variables(vars).send().join()` | Read the message name and correlation-key FEEL expression from the converted copy's `zeebe:subscription`. Evaluate the expression against the test variables. Pass the result to `correlationKey(...)`, not the expression text. Wait with `isWaitingForMessage(name, key)`. |
+| `waitsAtSignalIntermediateCatchEvent` with `receive()` | `newBroadcastSignalCommand().signalName(name).send().join()` | Read the signal name from the converted copy. |
+| `waitsAtEventBasedGateway("G")` with an event action | The message, signal, or timer action for the selected event | Read the event type and subscription from the converted copy. |
 | `waitsAtConditionalIntermediateEvent("C")` | `processTestContext.updateVariables(byKey(pik), vars)` | Conditional events require 8.9. |
-| `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | |
-| `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | |
-| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | If the scenario starts with a business key, also apply the [business-key pattern](https://github.com/camunda/camunda-7-to-8-migration-tooling/blob/main/code-conversion/patterns/20-client-code/10-process-engine/business-key-and-tags.md) to preserve it. |
+| `runsCallActivity("C").thenReturn(Scenario.use(child))` | Deploy the converted child and register its behaviors with `byProcessId(childPid)` | Preserve the mocked-child boundary when the Camunda 7 test mocks the child process. |
+| `withMockedProcess("child")`, `waitsAtMockedCallActivity("C")` | `mockChildProcess("child", vars)` | Preserve the existing mocked-child boundary. |
+| `Scenario.run(process).startByKey(key, vars).execute()` | `newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Retain the returned `ProcessInstanceEvent`. When the source test sets a business key, apply the confirmed business-key mapping. |
 | `startByMessage(name, vars)` | `CorrelateMessageResponse response = newCorrelateMessageCommand().messageName(name).withoutCorrelationKey().variables(vars).send().join()` | The response is not a `ProcessInstanceEvent`; use `response.getProcessInstanceKey()` with `ProcessInstanceSelectors.byKey(...)` to select the instance for CPT assertions. |
-| `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | `fromAfter` has no direct counterpart. Start before the next element only when it is unambiguous. |
+| `startBy(customProcessStarter)` | Record `manual` in the parity ledger. | CPT has no direct mapping for a custom `ProcessStarter`. |
+| `.fromBefore("A")` | `.startBeforeElement("A")` on the create command | |
+| `.fromAfter("A")` with an unambiguous next element | `.startBeforeElement(nextElement)` on the create command | Resolve the next element from the converted copy. |
+| `.fromAfter("A")` with no clear next element | No direct counterpart | Record `manual` in the parity ledger because the next element is ambiguous. |
 | `Scenario.instance(process)` after `startByKey` or `fromBefore` | The `ProcessInstanceEvent` returned by the create command | |
 | `Scenario.instance(process)` after `startByMessage` | `assertThatProcessInstance(ProcessInstanceSelectors.byKey(response.getProcessInstanceKey()))` | `response` is the `CorrelateMessageResponse` returned by the message-correlation command. |
 | `verify(process).hasCompleted("E")` | `assertThat(pi).hasCompletedElements("E")` | |
+| `verify(process, times(n)).hasCompleted("E")` | Assert `hasCompletedElement("E", n)`. | Preserve the exact completed-element count. |
 | `verify(process).hasFinished("E")` | `hasCompletedElements("E")` or `hasTerminatedElements("E")` | `hasFinished` includes completed and cancelled activities. |
-| `verify(process, times(n)).hasFinished("E")` | All complete: `hasCompletedElement("E", n)`; all canceled: `hasTerminatedElement("E", n)`; mixed: assert both with their respective counts. | `hasFinished` includes completed and canceled activities. For mixed outcomes, assert after the scenario's final observation point; the completed and terminated counts must sum to `n`. Each exact-count assertion waits. |
+| `verify(process, times(n)).hasFinished("E")` | When all visits completed, assert `hasCompletedElement("E", n)`. When all visits terminated, assert `hasTerminatedElement("E", n)`. When mixed outcomes have known counts, assert both with their respective counts. When the completed-versus-terminated split is unknown, record `manual` in the parity ledger. Do not assert exact counts or their sum. | `hasFinished` includes completed and canceled activities. For mixed outcomes with known counts, assert after the scenario's final observation point. The completed and terminated counts must sum to `n`. Each exact-count assertion waits. |
 | `verify(process).hasCanceled("E")` | `hasTerminatedElements("E")` | |
 | `verify(process).hasStarted("E")` | Assert the reached state with `hasActiveElements`, `hasCompletedElements`, or `hasTerminatedElements` | |
 | `verify(process, never()).hasStarted("E")` | `hasNotActivatedElements("E")` after a waiting assertion at the intended observation point | This check does not wait. A preceding `hasNoActiveElements("A")` can pass before A is reached. |
@@ -4037,5 +4173,53 @@ The scenario runner advances the clock to each due timer in turn. CPT advances t
 External tasks in Camunda 7 scenarios were completed by the scenario runner, so use `mockJobWorker` for those task types. Java delegates are not wait states. Keep migrated workers real unless the Camunda 7 test mocked them.
 
 [CPT conditional behavior](https://docs.camunda.io/docs/apis-tools/testing/utilities/#conditional-behavior)
+
+---
+
+### Remote Engine Tests
+
+Patterns for migrating Camunda 7 remote Engine REST tests to Camunda Process Test.
+
+
+#### Engine REST Test Mapping
+
+Use these mappings for in-scope remote-engine tests. Deploy converted copies and pass plain JSON variables.
+
+| Camunda 7 Engine REST call | CPT 8.9 replacement | Notes |
+|---|---|---|
+| `POST /deployment/create` | `@TestDeployment(resources = "converted-c8-<name>.bpmn")` or the application's `@Deployment` | Deploy the converted copy. |
+| `POST /process-definition/key/{key}/start` | `client.newCreateInstanceCommand().bpmnProcessId(key).latestVersion().variables(vars).send().join()` | Pass plain JSON variables. When the request includes `businessKey`, add `.businessId(businessKey)` (Camunda 8.9+). For Camunda 8.8, use tags or a process variable as described in `20-client-code/10-process-engine/business-key-and-tags.md`. This direct mapping covers only `variables` and optional `businessKey`. For C7 `startInstructions`, map only `startBeforeActivity` instructions without instruction-local variables to the C8.9 `.startBeforeElement(elementId)` operation. Use manual migration for `startAfterActivity`, `startTransition`, instruction-local variables, or other unsupported instruction behavior. C8 has no matching request options for `caseInstanceId`, `skipCustomListeners`, or `skipIoMappings`. Use manual migration if the test depends on them. C8 create-with-result waits for process completion before returning variables. Use it for `withVariablesInReturn` only when this wait matches the test, or use manual migration. |
+| `POST /message` | `client.newCorrelateMessageCommand()` or `client.newPublishMessageCommand()` | Read the name and correlation-key expression from the converted copy's `zeebe:subscription`. Choose publish only when the test requires buffered delivery. See [Message request fields](#message-request-fields). |
+| `POST /signal` without `executionId` | `client.newBroadcastSignalCommand().signalName(name).variables(vars).tenantId(tenantId).send().join()` | Broadcast to matching signal subscriptions. Preserve `variables` and `tenantId` when supplied. Camunda 8 has no equivalent `withoutTenantId` field, and its optional `tenantId` does not express every Camunda 7 tenant scope. Confirm the scope or handle it manually. |
+| `POST /signal` with `executionId` | Manual redesign | Camunda 7 targets one execution. The Camunda 8 broadcast command has no execution selector and can signal all matching subscriptions. |
+| `GET /task?processInstanceId=...` then `POST /task/{id}/complete` | `processTestContext.completeUserTask(UserTaskSelectors.byElementId(elementId, processInstanceKey), vars)` or `client.newCompleteUserTaskCommand(userTaskKey).variables(vars).send().join()` | Scope the CPT selector to the process instance returned by the C8 start command. When using `CamundaClient` directly, user-task search is eventually consistent. Poll by `processInstanceKey`, `elementId`, and `UserTaskState.CREATED` until exactly one task is visible, then complete its exact `userTaskKey`. |
+| `POST /task/{id}/claim` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(false).send().join()` | Set `allowOverride(false)` to preserve the C7 failure when the task already has an assignee. |
+| `POST /task/{id}/assignee` | `client.newAssignUserTaskCommand(userTaskKey).assignee(user).allowOverride(true).send().join()` or, when `userId` is `null`, `client.newUnassignUserTaskCommand(userTaskKey).send().join()` | Set `allowOverride(true)` to preserve reassignment. Use the unassign command when C7 sends `userId: null`. |
+| `POST /external-task/fetchAndLock` then `POST /external-task/{id}/complete` | `processTestContext.completeJob(JobSelectors.byJobType(type).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), vars)` | Preserve equivalent `fetchAndLock` filters. CPT selects the first matching job, so assert exactly one match before acting. If the selector is not unique or cannot preserve the C7 filters, use an equivalent filtered search and the exact C8 job key, or use manual migration. Use `mockJobWorker(type).thenComplete(vars)` only when the test replaces the worker boundary; it handles jobs of that type. |
+| `POST /external-task/{id}/bpmnError` | `processTestContext.throwBpmnErrorFromJob(JobSelectors.byJobType(type).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), code, errorMessage, vars)` when the request supplies `errorMessage`; otherwise use `processTestContext.throwBpmnErrorFromJob(JobSelectors.byJobType(type).and(JobSelectors.byProcessInstanceKey(processInstanceKey)), code, vars)` | Preserve the same fetch filters and uniqueness check as the completion mapping. If the selector cannot preserve the C7 filters or is not unique, use an equivalent filtered search and the exact C8 job key, or use manual migration. Preserve the BPMN error code and variables. Pass the error message when supplied. Use the overload without `errorMessage` when it is absent. |
+| `GET /history/process-instance/{id}` with state `COMPLETED` | `assertThat(processInstance).isCompleted()` | Use the CPT process-instance assertion. |
+| `GET /history/activity-instance?processInstanceId=...` when checking completed activity IDs or order only | `hasCompletedElements(...)` or `hasCompletedElementsInOrder(...)` | These assertions cover completed elements only. Handle canceled or terminated elements separately. |
+| Other `/history/activity-instance` queries, including `unfinished`, `canceled`, assignee, time, or count filters | `newElementInstanceSearchRequest()` with equivalent filters and AssertJ, or manual migration | Filter by process-instance key and preserve the requested state and filters. Mark the case manual when C8 cannot express them. |
+| `GET /process-instance/{id}/variables` | `hasVariable(name, value)` or `hasVariables(map)` | Compare plain JSON process variables. |
+| `GET /history/variable-instance` | `client.newVariableSearchRequest().filter(f -> f.processInstanceKey(processInstanceKey).name(variableName)).withFullValues().send().join()` | Map `processInstanceId` to the C8 process-instance key and preserve supported `variableName`, explicit scope, `tenantId`, and compatible string `variableValue` filters through `VariableFilter`. Add `.scopeKey(scopeKey)` only when the source query selects a known scope. C8 search returns current variables directly at selected scopes, not historical values, and is eventually consistent. Use Awaitility to wait for expected search rows. Use manual migration for deleted or prior values, unsupported filters, or source scope semantics that C8 cannot preserve. |
+| `GET /incident?processInstanceId=...` | `hasActiveIncidents()` or `hasNoActiveIncidents()` | Assert the expected incident state. |
+| `POST /job/{id}/execute` for a timer job | `processTestContext.increaseTime(duration)` | Assert the timer catch event is active first. Assert the attached activity for a boundary timer. CPT does not expose a boundary timer as an active element. |
+| `POST /job/{id}/execute` for a non-timer job | No time-advancement mapping | Identify the job type and why the test executes it. Use the matching CPT worker command when the test controls a worker boundary. Assert the process path for an engine-managed continuation. Do not advance time. |
+
+###### Message request fields
+
+Map each supplied C7 `POST /message` field. Do not treat `businessKey` as the C8 correlation key.
+
+| C7 request field | Camunda 8.9 handling |
+|---|---|
+| `messageName` | Set `.messageName(name)` on the selected message command. |
+| `processVariables` | Map to `.variables(vars)`. Pass plain JSON values. |
+| `tenantId` | Map to `.tenantId(tenantId)` when the request supplies an explicit tenant. |
+| `correlationKeys` | Map to `.correlationKey(key)` only when one scalar key matches the converted BPMN subscription's correlation-key expression. Multiple keys or different matching rules need manual migration. |
+| `businessKey` | This is not the C8 `correlationKey` or `businessId`. C8 message correlation cannot select an existing instance by business key or set a business ID on a message-started instance. Use manual migration when the test depends on either behavior. |
+| `localCorrelationKeys`, `processInstanceId`, `withoutTenantId` | C8 message commands do not preserve local-variable matching, exact process-instance targeting, or no-tenant-only matching. Use manual migration when the test depends on these fields. |
+| `processVariablesLocal`, `processVariablesToTriggeredScope` | `.variables(vars)` does not preserve these C7 variable scopes. Use manual migration when the test depends on either scope. |
+| `all` | C8 correlates a message at most once per process and can correlate across different processes. It does not expose C7's `all` option or guarantee the combined multiple-execution and message-start result. Use manual migration when the test depends on that exact result set. |
+| `resultEnabled`, `variablesInResultEnabled` | C8 message commands return a different response shape and do not return the C7 correlation result objects with optional process variables. Use manual migration when the test reads these results. |
 
 ---

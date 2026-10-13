@@ -7,11 +7,15 @@
  */
 package org.camunda.example.payment;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.response.ProcessInstanceEvent;
 import io.camunda.process.test.api.CamundaAssert;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import io.camunda.process.test.api.TestDeployment;
+import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +40,20 @@ class PaymentWorkerTest {
 
     CamundaAssert.assertThat(processInstance).isCompleted();
     CamundaAssert.assertThat(processInstance).hasNoActiveIncidents();
-    CamundaAssert.assertThat(processInstance).hasVariable("charged", true);
+    await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+      var variables =
+          camundaClient.newVariableSearchRequest()
+              .filter(
+                  filter ->
+                      filter
+                          .processInstanceKey(processInstance.getProcessInstanceKey())
+                          .name("charged"))
+              .withFullValues()
+              .send()
+              .join();
+      assertThat(variables.items())
+          .singleElement()
+          .satisfies(variable -> assertThat(variable.getValue()).isEqualTo("true"));
+    });
   }
 }

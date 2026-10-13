@@ -72,6 +72,10 @@ The following patterns focus on methods how to correlate messages in Camunda 7 a
 ```
 
 -   C8 does not correlate messages by `businessKey` — correlation is driven by `correlationKey` (a process variable value matched against the message subscription), not the process instance's `businessId`
+-   do not pass the C7 process-instance `businessKey` directly as the C8 `correlationKey`
+-   when the converted message catch event declares a matching subscription-key expression, initialize its source process variable before the catch event activates, then pass that value as the C8 `correlationKey`
+-   the C8 correlation command applies `.variables(...)` after matching, so those values cannot initialize the subscription key for that correlation
+-   when no matching subscription key exists, mark the operation for manual redesign
 -   when correlating a message, the message is not buffered
 -   a published message can be buffered by specifying a time to live
 -   the messageId can be used to differentiate between different buffered message

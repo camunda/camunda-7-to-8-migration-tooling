@@ -152,4 +152,12 @@ Patterns:
 - [Process Test Coverage](40-test-assertions/50-coverage-and-scenarios/10-coverage.md)
 - [Camunda Platform Scenario Tests](40-test-assertions/50-coverage-and-scenarios/20-scenario-tests.md)
 
+### Remote Engine Tests
+
+Patterns for migrating Camunda 7 remote Engine REST tests to Camunda Process Test.
+
+Patterns:
+
+- [Engine REST Test Mapping](40-test-assertions/60-remote-engine-tests/10-engine-rest-mapping.md)
+
 <!-- END-CATALOG -->
