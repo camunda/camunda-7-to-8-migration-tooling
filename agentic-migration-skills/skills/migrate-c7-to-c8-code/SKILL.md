@@ -444,7 +444,8 @@ repeat-run, and coverage checks.
 #### Model checks, when models were migrated
 
 Run every check in "Model validation" in `references/model-migration-approaches.md`.
-For M1, follow `references/model-lint-and-connectivity.md` for DI-less sources and form-free user tasks.
+For every model-conversion approach, follow `references/model-lint-and-connectivity.md` when the
+original source is DI-less or the user chooses to keep a form-free user task.
 
 #### Process behavior
 

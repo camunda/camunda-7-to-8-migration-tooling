@@ -20,7 +20,7 @@ constructs in a migration run. Do not use this fixture verifier as a general BPM
 
 The test suite verifies that a user task with Camunda form metadata is not eligible for the
 form-free lint exception. It does not run `c8ctl bpmn lint` or contact a Camunda cluster.
-`../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md` defines the M1 lint,
+`../../skills/migrate-c7-to-c8-code/references/model-lint-and-connectivity.md` defines the lint,
 exception, and runtime gate.
 
 The raw target lint remains visible. On c8ctl 4.2.0, this command exits with 12 errors and one

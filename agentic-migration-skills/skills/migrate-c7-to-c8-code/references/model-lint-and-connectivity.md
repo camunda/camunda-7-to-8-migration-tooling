@@ -1,4 +1,4 @@
-# M1 lint and connectivity for DI-less sources
+# BPMN lint and connectivity for DI-less sources and form-free tasks
 
 Every instruction in this reference is mandatory. "Never" means MUST NOT. A preference is marked
 (SHOULD) and an option is marked (MAY).
@@ -8,16 +8,19 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 A **DI-less source** is a Camunda 7 BPMN file with no `bpmndi:BPMNDiagram`, no `bpmn:incoming`
 children, and no `bpmn:outgoing` children.
 
-The skill uses this path only for an M1 conversion whose original source meets that definition. The
-skill parses both the original source and the converted copy with a namespace-aware XML parser.
+Use this reference when the original BPMN source is DI-less or the user chooses to keep a form-free
+user task. The DI-less checks apply to every model-conversion approach, including M2. The form-free
+exception applies regardless of source DI or conversion approach.
+
+The skill parses both the original source and the converted copy with a namespace-aware XML parser.
 The skill records DI and incoming/outgoing presence for each file before it evaluates lint findings.
 
 The skill never edits the original source. The skill never invents BPMN DI to make an editor lint
-rule pass. When the source has DI, the skill follows the existing DI-preservation check. A converted
-copy that loses source DI is a regression.
+rule pass. When the source has BPMN DI, the skill follows the existing DI-preservation check. The
+form-free exception does not relax that check. A converted copy that loses source DI is a regression.
 
 When the source is DI-less, the converted copy must remain DI-less unless the user explicitly
-approves a layout change. The skill does not treat the source's missing DI as a converter regression.
+approves a layout change. The skill does not treat the source's missing DI as a conversion regression.
 
 ## Run and record target lint
 

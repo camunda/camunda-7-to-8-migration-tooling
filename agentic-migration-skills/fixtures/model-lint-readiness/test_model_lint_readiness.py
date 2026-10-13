@@ -85,7 +85,7 @@ class ModelLintReadinessTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("references unknown flow node", result.stderr)
 
-    def test_skill_routes_m1_and_form_free_decisions_to_the_reference(self):
+    def test_skill_routes_di_less_and_form_free_decisions_to_the_reference(self):
         skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
         model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
             encoding="utf-8"
@@ -122,6 +122,30 @@ class ModelLintReadinessTest(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required.casefold(), reference.casefold())
+
+    def test_di_less_checks_apply_to_every_model_conversion_approach(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        scope = " ".join(
+            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
+        )
+        self.assertIn(
+            "The DI-less checks apply to every model-conversion approach, including M2.",
+            scope,
+        )
+
+    def test_form_free_exception_applies_when_source_has_di(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        scope = " ".join(
+            reference.split("## Scope", 1)[1].split("## Run and record target lint", 1)[0].split()
+        )
+        self.assertIn(
+            "The form-free exception applies regardless of source DI or conversion approach.",
+            scope,
+        )
+        self.assertIn(
+            "When the source has BPMN DI, the skill follows the existing DI-preservation check.",
+            scope,
+        )
 
 
 if __name__ == "__main__":
