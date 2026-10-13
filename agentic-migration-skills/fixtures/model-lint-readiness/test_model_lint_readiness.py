@@ -186,6 +186,50 @@ class ModelLintReadinessTest(unittest.TestCase):
         self.assertIn("completes the task through", exception_scope)
         self.assertNotIn("completes the task through", normalized_scope[:exception_start])
 
+    def test_runtime_test_suite_must_deploy_and_exercise_exact_converted_copies(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        runtime_text = reference.split("## Require target runtime evidence", 1)[1].split(
+            "## ", 1
+        )[0]
+        runtime_scope = " ".join(runtime_text.split()).casefold()
+
+        self.assertIn(
+            "project target-version process test suite is an alternative only when it deploys "
+            "and exercises every exact converted bpmn copy",
+            runtime_scope,
+        )
+
+    def test_compensating_graph_and_runtime_gates_are_scoped(self):
+        reference = REFERENCE_PATH.read_text(encoding="utf-8")
+        normalized = " ".join(reference.split()).casefold()
+        normalized_lines = [line.strip().casefold() for line in reference.splitlines()]
+        graph_scope = normalized.split("## check the source and target graph", 1)[1].split(
+            "## verify the form-free decision", 1
+        )[0]
+        runtime_scope = normalized.split("## require target runtime evidence", 1)[1].split(
+            "## ", 1
+        )[0]
+        readiness_row = next(
+            line for line in normalized_lines if line.startswith("| model readiness |")
+        )
+
+        self.assertIn(
+            "when the source is di-less or the user chooses to keep a form-free user task, "
+            "the skill runs the graph and runtime checks",
+            normalized,
+        )
+        self.assertIn("when the graph gate applies", graph_scope)
+        self.assertIn("when the runtime gate applies", runtime_scope)
+        self.assertIn(
+            "graph and runtime gates pass for a di-less source or an applicable form-free "
+            "exception",
+            readiness_row,
+        )
+        self.assertIn(
+            "passes each graph or runtime check required by an exception",
+            readiness_row,
+        )
+
     def test_di_less_checks_apply_to_every_model_conversion_approach(self):
         reference = REFERENCE_PATH.read_text(encoding="utf-8")
         scope = " ".join(
@@ -259,6 +303,18 @@ class ModelLintReadinessTest(unittest.TestCase):
         self.assertIn("c8ctl bpmn lint <converted-file>.bpmn", lint_scope)
         self.assertNotIn("npx bpmnlint", lint_scope)
         self.assertIn("c8ctl bpmn lint", reference_text)
+
+        fixture_readme = (FIXTURE_DIR.parent / "diagram-interchange" / "README.md").read_text(
+            encoding="utf-8"
+        )
+        normalized_fixture_readme = " ".join(fixture_readme.split()).casefold()
+        self.assertIn("c8ctl bpmn lint", normalized_fixture_readme)
+        self.assertNotIn("npx bpmnlint", normalized_fixture_readme)
+        self.assertIn("keep the `c8ctl bpmn lint` exit code", normalized_fixture_readme)
+        self.assertIn(
+            "record each `c8ctl bpmn lint` command, exit code, and output",
+            normalized_fixture_readme,
+        )
 
     def test_di_less_source_cannot_gain_layout_by_user_approval(self):
         reference = REFERENCE_PATH.read_text(encoding="utf-8")

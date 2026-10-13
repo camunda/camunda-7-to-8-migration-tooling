@@ -14,6 +14,9 @@ Apply the DI-less checks when the original source meets the definition above. Ap
 exception when the user chooses to keep a form-free user task. The DI-less checks apply to every
 model-conversion approach, including M2. The form-free exception applies regardless of source DI or
 conversion approach.
+When the source is DI-less or the user chooses to keep a form-free user task, the skill runs the
+graph and runtime checks. When a lint-exception row requires either check, the skill runs that
+check.
 
 The skill parses both the original source and the converted copy with a namespace-aware XML parser.
 The skill records DI and incoming/outgoing presence for each file before it evaluates lint findings.
@@ -63,8 +66,8 @@ same user task.
 
 ## Check the source and target graph
 
-The skill uses BPMN namespace-aware XML queries. The skill never checks XML connectivity with
-regular expressions.
+When the graph gate applies, the skill uses BPMN namespace-aware XML queries. The skill never
+checks XML connectivity with regular expressions.
 
 For each process scope, the skill checks the original source and converted copy:
 
@@ -110,8 +113,10 @@ same UX decision.
 
 ## Require target runtime evidence
 
-The skill deploys the exact converted copies to a Camunda 8 target that matches the selected
-version, or runs the project's target-version process test suite.
+When the runtime gate applies, the skill deploys the exact converted copies to a Camunda 8 target
+that matches the selected version.
+A project target-version process test suite is an alternative only when it deploys and exercises
+every exact converted BPMN copy.
 
 For each affected executable process, the skill starts an instance with the expected inputs. The
 skill verifies the expected path and end event.
@@ -134,10 +139,10 @@ the evidence in `MIGRATION_REPORT.md`.
 |---|---|---|
 | Raw target lint | The CLI reports zero errors and zero warnings. | Record the raw findings. |
 | Scoped lint exceptions | Every exception matches a row above and names its exact rule and element. | Keep the affected finding blocking. |
-| Graph connectivity | Every checked process scope has resolved references and verified start-to-end paths. | Keep connectivity unverified or failing. |
-| Target runtime | The deployment and process behavior checks pass on the selected target version. | Mark readiness blocked or unverified. |
-| Model readiness | Raw lint is clean, or every remaining finding has a valid scoped exception. Graph and runtime gates pass. | Do not mark model readiness as passing. |
+| Graph connectivity | Every process scope covered by the graph gate has resolved references and verified start-to-end paths. | Keep connectivity unverified or failing. |
+| Target runtime | When required, the deployment and process behavior checks pass on the selected target version. | Mark readiness blocked or unverified. |
+| Model readiness | Raw lint is clean, or every remaining finding has a valid scoped exception. The graph and runtime gates pass for a DI-less source or an applicable form-free exception. The skill also passes each graph or runtime check required by an exception row. | Do not mark model readiness as passing. |
 
-When the target runtime or a capable graph checker is unavailable, the skill records the check as
-blocked or unverified. The skill never infers readiness from lint output, static XML, or a successful
-compile alone.
+When a required target runtime or capable graph checker is unavailable, the skill records the check
+as blocked or unverified. The skill never infers readiness from lint output, static XML, or a
+successful compile alone.

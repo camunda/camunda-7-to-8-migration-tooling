@@ -59,19 +59,19 @@ skill must not invent a layout for that source.
    ```
 
 8. Capture the DI-copy lint output in `bpmn-di-lint.log` and keep the
-   `bpmnlint` exit code.
+   `c8ctl bpmn lint` exit code.
 
    On macOS or Linux, run:
 
    ```sh
    set -o pipefail
-   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | tee bpmn-di-lint.log
+   c8ctl bpmn lint converted-c8-bpmn-di-c7.bpmn 2>&1 | tee bpmn-di-lint.log
    ```
 
    On Windows PowerShell, run:
 
    ```powershell
-   npx bpmnlint converted-c8-bpmn-di-c7.bpmn 2>&1 | Tee-Object -FilePath bpmn-di-lint.log
+   c8ctl bpmn lint converted-c8-bpmn-di-c7.bpmn 2>&1 | Tee-Object -FilePath bpmn-di-lint.log
    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
    ```
 
@@ -80,21 +80,22 @@ skill must not invent a layout for that source.
    Use the target-compatible Camunda compatibility ruleset described in the
    skill reference. The DI copy must introduce no `no-bpmndi` finding.
 
-10. Lint the no-DI control with the same ruleset. Use the same command pattern
-   to capture output and keep the exit code. Record any `no-bpmndi`
-   finding as inherited source quality only when the converted copy still has no
-   DI. Do not add a layout to silence that finding.
+10. Lint the no-DI control with `c8ctl bpmn lint` and the same ruleset. Use the
+   same command pattern to capture output and keep the exit code. Record any
+   `no-bpmndi` finding as inherited source quality only when the converted copy
+   still has no DI. Do not add a layout to silence that finding.
 11. Record the source and converted DI counts, reference checks, complete
-   per-element DI comparisons, namespace bindings, lint output, and the no-DI
-   provenance in `MIGRATION_REPORT.md`. Include the control filename and an
-   explicit statement that its source BPMN DI is absent.
+   per-element DI comparisons, namespace bindings, and no-DI provenance in
+   `MIGRATION_REPORT.md`. Record each `c8ctl bpmn lint` command, exit code, and
+   output there. Include the control filename and an explicit statement that its
+   source BPMN DI is absent.
 
 ## Expected checks
 
 | Source | Expected converted copy | Expected result |
 |---|---|---|
-| `bpmn-di-c7.bpmn` | Diagram and DI retained | The script passes. DI attributes, child geometry, namespace bindings, and references remain unchanged. |
-| `no-di-c7.bpmn` | No DI added | The script passes with `MIGRATION_REPORT.md`. The report records absent source DI and inherited lint findings. |
+| `bpmn-di-c7.bpmn` | Diagram and DI retained | The script passes. DI attributes, child geometry, namespace bindings, and references remain unchanged. Record the `c8ctl bpmn lint` output and exit code. The copy has no `no-bpmndi` finding. |
+| `no-di-c7.bpmn` | No DI added | The script passes with `MIGRATION_REPORT.md`. The report records absent source DI, the `c8ctl bpmn lint` output and exit code, and any inherited lint findings. |
 
 The original Camunda 7 files must remain byte-for-byte unchanged. A missing,
 unmapped, or newly invented DI reference is a failed evaluation.
