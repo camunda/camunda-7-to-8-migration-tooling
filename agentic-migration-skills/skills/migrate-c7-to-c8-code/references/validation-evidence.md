@@ -703,8 +703,11 @@ and completed cleanup. It cannot inspect the remote target. Never substitute a p
 command for the disposable test. If no safe target exists, then block the preflight.
 Do not deploy or start that model.
 
-Each check stores a fingerprint of the declared modules, source and converted models, root build
-configuration, deployment-set membership, and active timer decision. Changes make old checks stale.
+Command fingerprints cover executable source, build and configuration files, test sources and
+resources, BPMN/DMN models, validation scope, deployment sets, and active timer decisions.
+The validator excludes recognized documentation and CI workflow paths from these fingerprints. The
+project-readiness verdict remains separate from command evidence. When an in-scope document or CI
+workflow changes, the migration skill requires a new project-readiness review.
 Refresh stale checks before a dependent command or readiness claim. The recorder rejects a
 dependent command before it runs when its review, lint, or timer preflight is stale.
 

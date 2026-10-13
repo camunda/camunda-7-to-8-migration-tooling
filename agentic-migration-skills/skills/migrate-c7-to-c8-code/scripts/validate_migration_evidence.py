@@ -43,6 +43,26 @@ SAFE_ENVIRONMENTS = ("local", "non-production")
 SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     ".venv", ".worktree", ".worktrees", "__pycache__",
                     "build", "dist", "node_modules", "target"}
+DOCUMENTATION_DIRS = {"doc", "docs", "documentation"}
+DOCUMENTATION_SUFFIXES = {".adoc", ".asciidoc", ".markdown", ".md", ".mdx", ".rst"}
+CI_DIRS = {".buildkite", ".circleci", ".github", ".gitlab", ".teamcity", ".woodpecker"}
+CI_FILES = {
+    ".appveyor.yml",
+    ".gitlab-ci.yml",
+    ".travis.yml",
+    "azure-pipelines.yml",
+    "bitbucket-pipelines.yml",
+    "jenkinsfile",
+}
+SOURCE_OR_TEST_DIRS = {
+    "source",
+    "src",
+    "test",
+    "tests",
+    "test-fixtures",
+    "test_fixtures",
+    "testdata",
+}
 CODE_SUFFIXES = {".cjs", ".cts", ".groovy", ".http", ".java", ".js", ".jsx",
                  ".kt", ".kts", ".mjs", ".mts", ".scala", ".ts", ".tsx"}
 NESTED_BLOCK_COMMENT_SUFFIXES = {".kt", ".kts", ".scala"}
@@ -612,7 +632,37 @@ def nested_module_paths(root, module, path, module_paths):
     return nested
 
 
-def scan_source_directory(root, module, path, nested, hashes, skip_directories):
+def command_input_file(relative):
+    path = Path(relative)
+    parts = tuple(part.casefold() for part in path.parts)
+    name = parts[-1]
+    if name in CI_FILES or CI_DIRS.intersection(parts):
+        return False
+
+    source_or_test_path = SOURCE_OR_TEST_DIRS.intersection(parts)
+    documentation_index = next(
+        (index for index, part in enumerate(parts) if part in DOCUMENTATION_DIRS),
+        None,
+    )
+    source_or_test_index = next(
+        (index for index, part in enumerate(parts) if part in SOURCE_OR_TEST_DIRS),
+        None,
+    )
+    if documentation_index is not None and (
+        source_or_test_index is None or documentation_index < source_or_test_index
+    ):
+        return False
+    if not source_or_test_path and (
+        name in {"changelog", "contributing", "readme"}
+        or path.suffix.casefold() in DOCUMENTATION_SUFFIXES
+    ):
+        return False
+    return True
+
+
+def scan_source_directory(
+    root, module, path, nested, hashes, skip_directories, *, include_all_files=False
+):
     hits = {}
 
     def walk_error(error):
@@ -632,14 +682,18 @@ def scan_source_directory(root, module, path, nested, hashes, skip_directories):
             file = directory / name
             if file.is_symlink():
                 raise EvidenceError(f"Cannot scan symlinked source file: {file}")
+            relative = file.relative_to(root).as_posix()
+            if relative == REPORT.as_posix():
+                continue
+            if not include_all_files and not command_input_file(
+                file.relative_to(path).as_posix()
+            ):
+                continue
             try:
                 content = file.read_bytes()
                 text = content.decode("utf-8") if file.suffix.lower() in CODE_SUFFIXES else ""
             except (OSError, UnicodeError) as exc:
                 raise EvidenceError(f"Cannot scan {file}: {exc}") from exc
-            relative = file.relative_to(root).as_posix()
-            if relative == REPORT.as_posix():
-                continue
             hashes[relative] = hashlib.sha256(content).hexdigest()
             scan_text = source_without_comments(text, file.suffix.lower())
             for match in DUE_DATE_HINT.finditer(scan_text):
@@ -659,7 +713,9 @@ def scan_module(root, module, module_paths, hashes):
 
 def scan_test_root(root, module, module_paths, path, hashes):
     nested = nested_module_paths(root, module, path, module_paths)
-    return scan_source_directory(root, module, path, nested, hashes, ())
+    return scan_source_directory(
+        root, module, path, nested, hashes, (), include_all_files=True
+    )
 
 
 def valid_migrated_caller_location(root, module, location, hashes):
