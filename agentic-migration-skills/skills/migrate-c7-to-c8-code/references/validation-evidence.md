@@ -707,6 +707,8 @@ Command fingerprints cover executable source, build and configuration files, tes
 resources, BPMN/DMN models, validation scope, deployment sets, and active timer decisions. The
 validator applies these path rules to command fingerprints:
 
+The validator classifies each file by its path relative to the project root.
+
 | Path | Fingerprint |
 |---|---|
 | A documentation or CI directory appears before the first source or test directory, or no source or test directory exists | Excluded |

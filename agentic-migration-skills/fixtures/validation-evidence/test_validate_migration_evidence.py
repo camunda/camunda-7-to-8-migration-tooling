@@ -5560,6 +5560,45 @@ class ValidationEvidenceTest(unittest.TestCase):
                 self.complete_required_checks()
                 self.assertEqual(0, self.audit())
 
+    def test_module_path_prefix_preserves_nested_ci_files_in_command_fingerprint(self):
+        module = "app/src/test/resources"
+        self.plan["modules"][0]["path"] = module
+        self.plan["deployment_sets"][0]["modules"] = [module]
+        module_root = self.root / module
+        ci_files = (
+            (
+                module_root / ".github" / "workflows" / "build.yml",
+                "name: build\n",
+                "name: updated build\n",
+            ),
+            (
+                module_root / "Jenkinsfile",
+                "pipeline { agent any }\n",
+                "pipeline { agent none }\n",
+            ),
+        )
+        for path, initial, _ in ci_files:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(initial, encoding="utf-8")
+
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+        for path, _, updated in ci_files:
+            with self.subTest(path=path.relative_to(self.root)):
+                path.write_text(updated, encoding="utf-8")
+                self.assertEqual(1, self.audit())
+                self.assertTrue(
+                    any(
+                        "stale source or deployment-set evidence" in issue
+                        for issue in self.summary()["issues"]
+                    ),
+                    self.summary()["issues"],
+                )
+                self.complete_required_checks()
+                self.assertEqual(0, self.audit())
+
     def test_unsafe_model_path_is_not_read(self):
         outside = self.root.parent / f"{self.root.name}-outside.bpmn"
         outside.write_text("outside", encoding="utf-8")

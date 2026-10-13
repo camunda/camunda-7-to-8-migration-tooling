@@ -695,9 +695,7 @@ def scan_source_directory(
             relative = file.relative_to(root).as_posix()
             if relative == REPORT.as_posix():
                 continue
-            if not include_all_files and not command_input_file(
-                file.relative_to(path).as_posix()
-            ):
+            if not include_all_files and not command_input_file(relative):
                 continue
             try:
                 content = file.read_bytes()
