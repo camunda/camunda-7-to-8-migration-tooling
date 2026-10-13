@@ -18,6 +18,7 @@
   <properties>
     <camunda.version>8.9.21</camunda.version>
     <java.version>17</java.version>
+    <slf4j.provider.scope>test</slf4j.provider.scope>
   </properties>
 
   <dependencies>
@@ -40,7 +41,21 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <scope>${slf4j.provider.scope}</scope>
+    </dependency>
   </dependencies>
+
+  <profiles>
+    <profile>
+      <id>with-runtime-provider</id>
+      <properties>
+        <slf4j.provider.scope>runtime</slf4j.provider.scope>
+      </properties>
+    </profile>
+  </profiles>
 
   <build>
     <plugins>
