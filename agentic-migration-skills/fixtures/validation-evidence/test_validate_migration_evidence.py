@@ -5490,6 +5490,90 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(1, self.audit())
         self.assertIn("Missing module executable_jar", "\n".join(self.summary()["issues"]))
 
+    def run_process_input_review(self, environment=None):
+        command = [
+            sys.executable,
+            str(SCRIPT_DIR / "validate_migration_evidence.py"),
+            "--project-root",
+            str(self.root),
+            "review",
+            "--type",
+            "process",
+            "--target",
+            "models/converted-c8-process.bpmn#p",
+            "--kind",
+            "worker_input_inventory",
+            "--note",
+            "Inspected normal and absent worker inputs on the local CPT target.",
+        ]
+        if environment is not None:
+            command.extend(["--environment", environment])
+        return subprocess.run(command, capture_output=True, text=True, check=False)
+
+    def test_process_review_requires_safe_environment_before_recording(self):
+        result = self.run_process_input_review()
+        self.assertNotEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("local or non-production", result.stderr)
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        self.assertEqual([], evidence["checks"])
+
+    def test_process_review_replaces_legacy_unsafe_environment_record(self):
+        key = ("process", "models/converted-c8-process.bpmn#p", "worker_input_inventory", None)
+        initial = self.run_process_input_review(environment="local")
+        self.assertEqual(0, initial.returncode, initial.stderr)
+
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        self.assertEqual(1, len(evidence["checks"]))
+        check_path = self.root / evidence["checks"][0]
+        check = json.loads(check_path.read_text(encoding="utf-8"))
+        check["environment"] = None
+        write_json(check_path, check)
+        self.assertEqual(1, self.audit())
+        self.assertIn("production or unknown runtime target", "\n".join(self.summary()["issues"]))
+
+        corrected = self.run_process_input_review(environment="local")
+        self.assertEqual(0, corrected.returncode, corrected.stderr)
+        evidence = json.loads((self.root / gate.EVIDENCE).read_text(encoding="utf-8"))
+        self.assertEqual(1, len(evidence["checks"]))
+        check = json.loads((self.root / evidence["checks"][0]).read_text(encoding="utf-8"))
+        self.assertEqual(
+            key,
+            (check["type"], check["target"], check["kind"], check["scenario"]),
+        )
+        self.assertEqual("passed", check["result"])
+        self.assertEqual("local", check["environment"])
+
+        self.complete_required_checks()
+        report = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT_DIR / "validate_migration_evidence.py"),
+                "--project-root",
+                str(self.root),
+                "report",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(0, report.returncode, report.stderr)
+        self.assertIn("READY", report.stdout)
+
+    def test_process_execution_rejects_unsafe_environment_before_command(self):
+        marker = self.root / "process-executed"
+        command = [
+            sys.executable,
+            "-c",
+            f"from pathlib import Path; Path({str(marker)!r}).touch()",
+        ]
+        with self.assertRaisesRegex(gate.EvidenceError, "local or non-production"):
+            self.submit(
+                ("process", "models/converted-c8-process.bpmn#p", "process_path", "normal"),
+                command=command,
+            )
+        self.assertFalse(marker.exists())
+
     def test_cli_records_and_reports_a_check(self):
         previous = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))["run_id"]
         init = subprocess.run(
