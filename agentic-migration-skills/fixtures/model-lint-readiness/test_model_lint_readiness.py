@@ -247,6 +247,19 @@ class ModelLintReadinessTest(unittest.TestCase):
             with self.subTest(required=required):
                 self.assertIn(required, model_scope)
 
+    def test_model_migration_uses_one_authoritative_bpmn_lint_command(self):
+        model_text = (SKILL_DIR / "references/model-migration-approaches.md").read_text(
+            encoding="utf-8"
+        )
+        lint_scope = model_text.split("## Linting Converted BPMN (M1 and M2)", 1)[1].split(
+            "## Model validation (Step 4)", 1
+        )[0]
+        reference_text = REFERENCE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn("c8ctl bpmn lint <converted-file>.bpmn", lint_scope)
+        self.assertNotIn("npx bpmnlint", lint_scope)
+        self.assertIn("c8ctl bpmn lint", reference_text)
+
     def test_di_less_source_cannot_gain_layout_by_user_approval(self):
         reference = REFERENCE_PATH.read_text(encoding="utf-8")
         scope = " ".join(

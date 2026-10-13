@@ -709,7 +709,7 @@ readiness.
 
 ## Linting Converted BPMN (M1 and M2)
 
-After any manual BPMN edit (findings follow-up, form wiring, expression fixes), lint immediately with bpmnlint and the Camunda compatibility ruleset for the target version.
+After any manual BPMN edit (findings follow-up, form wiring, expression fixes), run `c8ctl bpmn lint` immediately with the target-compatible ruleset.
 Before accepting BPMN lint output, follow the effective-configuration check in
 [`model-lint-and-connectivity.md`](model-lint-and-connectivity.md). When the original source is
 DI-less, or the user keeps a form-free user task, follow the same reference for scoped exceptions,
@@ -717,7 +717,7 @@ graph checks, and runtime evidence.
 
 ```sh
 npm install -D bpmnlint zeebe-bpmn-moddle bpmnlint-plugin-camunda-compat   # once
-npx bpmnlint <converted-file>.bpmn
+c8ctl bpmn lint <converted-file>.bpmn
 ```
 
 `.bpmnlintrc`: extend `bpmnlint:recommended` and `plugin:camunda-compat/camunda-cloud-<target-major>-<target-minor>` (for example, `camunda-cloud-8-9` for target 8.9), and set `moddleExtensions.zeebe` to `zeebe-bpmn-moddle/resources/zeebe.json`. Fix or record every lint error before continuing.
