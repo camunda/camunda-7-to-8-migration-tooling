@@ -5431,6 +5431,8 @@ class ValidationEvidenceTest(unittest.TestCase):
         workflow = self.root / ".github" / "workflows" / "build.yml"
         workflow.parent.mkdir(parents=True)
         workflow.write_text("name: build\n", encoding="utf-8")
+        ci_file = self.root / "Jenkinsfile"
+        ci_file.write_text("pipeline { agent any }\n", encoding="utf-8")
         self.write_scope()
         with patch.object(
             gate.subprocess,
@@ -5470,6 +5472,7 @@ class ValidationEvidenceTest(unittest.TestCase):
 
         readme.write_text("Updated project instructions.\n", encoding="utf-8")
         workflow.write_text("name: updated build\n", encoding="utf-8")
+        ci_file.write_text("pipeline { agent none }\n", encoding="utf-8")
 
         self.assertEqual(0, self.audit())
         self.assertEqual("READY", self.summary()["gate"])
@@ -5517,6 +5520,13 @@ class ValidationEvidenceTest(unittest.TestCase):
         test_resource.write_text("fixture version 1\n", encoding="utf-8")
         text_test_resource = self.root / "src" / "test" / "resources" / "README.txt"
         text_test_resource.write_text("fixture version 1\n", encoding="utf-8")
+        ci_workflow_resource = (
+            self.root / "src" / "test" / "resources" / ".github" / "workflows" / "build.yml"
+        )
+        ci_workflow_resource.parent.mkdir(parents=True)
+        ci_workflow_resource.write_text("name: fixture\n", encoding="utf-8")
+        ci_file_resource = self.root / "src" / "test" / "resources" / "Jenkinsfile"
+        ci_file_resource.write_text("pipeline { agent any }\n", encoding="utf-8")
         text_configuration = self.root / "requirements.txt"
         text_configuration.write_text("example==1\n", encoding="utf-8")
         self.write_scope()
@@ -5532,6 +5542,8 @@ class ValidationEvidenceTest(unittest.TestCase):
             (test_source, "class OrderTest { int version = 2; }\n"),
             (test_resource, "fixture version 2\n"),
             (text_test_resource, "fixture version 2\n"),
+            (ci_workflow_resource, "name: changed fixture\n"),
+            (ci_file_resource, "pipeline { agent none }\n"),
             (text_configuration, "example==2\n"),
             (model, updated_model),
         ):

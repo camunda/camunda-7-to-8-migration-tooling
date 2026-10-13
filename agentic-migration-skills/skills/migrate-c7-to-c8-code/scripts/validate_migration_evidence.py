@@ -637,16 +637,22 @@ def command_input_file(relative):
     path = Path(relative)
     parts = tuple(part.casefold() for part in path.parts)
     name = parts[-1]
-    if name in CI_FILES or CI_DIRS.intersection(parts):
-        return False
-
     source_or_test_path = SOURCE_OR_TEST_DIRS.intersection(parts)
-    documentation_index = next(
-        (index for index, part in enumerate(parts) if part in DOCUMENTATION_DIRS),
-        None,
-    )
     source_or_test_index = next(
         (index for index, part in enumerate(parts) if part in SOURCE_OR_TEST_DIRS),
+        None,
+    )
+    ci_index = next(
+        (index for index, part in enumerate(parts) if part in CI_DIRS),
+        len(parts) - 1 if name in CI_FILES else None,
+    )
+    if ci_index is not None and (
+        source_or_test_index is None or ci_index < source_or_test_index
+    ):
+        return False
+
+    documentation_index = next(
+        (index for index, part in enumerate(parts) if part in DOCUMENTATION_DIRS),
         None,
     )
     if documentation_index is not None and (
