@@ -181,8 +181,12 @@ without their own launch path.
 
 Check each runtime module independently. Do not use a parent or sibling module's runtime path as
 evidence. Resolve the module's runtime classpath or module path, excluding test dependencies. For
-Maven, run `mvn -f <module>/pom.xml dependency:build-classpath -Dmdep.includeScope=runtime`. For
-Gradle, inspect the module's `runtimeClasspath`.
+Maven, run `mvn -f <module>/pom.xml dependency:build-classpath -DincludeScope=runtime`. The Maven
+Dependency Plugin does not add the `mdep.` prefix to the `includeScope` user property. Keep
+`-Dmdep.outputFile` when the command writes the classpath to a file. For Gradle, inspect the
+module's `runtimeClasspath`. Where a runtime module produces a packaged application, confirm
+provider candidates in the packaged artifact's runtime dependencies. Do not use a test classpath as
+evidence for the launch path.
 
 Inspect the resolved classpath for the SLF4J API and compatible providers. For SLF4J 2.x, count
 provider classes declared in `META-INF/services/org.slf4j.spi.SLF4JServiceProvider`. When the

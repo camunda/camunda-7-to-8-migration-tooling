@@ -333,8 +333,9 @@ The [`fixtures/process-test-mocks`](fixtures/process-test-mocks) fixture checks 
 preserves collaborator, delegate, listener, and called-process mock boundaries. It includes a
 negative case for an unapproved worker mock.
 
-The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) walkthrough checks that
-a runtime module without a usable SLF4J provider cannot pass logging validation.
+The [`fixtures/slf4j-provider`](fixtures/slf4j-provider) fixture checks that
+test-only SLF4J providers cannot pass runtime validation and that a packaged
+runtime provider initializes the expected logging factory.
 The [`domain-license-dependency`](fixtures/domain-license-dependency) fixture
 checks that a compatible active library under an `org.camunda.bpm` group
 survives migration. Its tests cover both synthetic license types and the
