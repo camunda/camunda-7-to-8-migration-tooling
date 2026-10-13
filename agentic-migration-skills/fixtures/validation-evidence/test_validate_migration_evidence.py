@@ -5422,6 +5422,183 @@ class ValidationEvidenceTest(unittest.TestCase):
         self.assertEqual(0, self.audit())
         self.assertEqual(0, self.audit())
 
+    def test_root_readme_and_ci_edits_do_not_stale_command_evidence(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        self.plan["modules"][0]["test_suites"][0]["requires_docker"] = True
+        readme = self.root / "README.md"
+        readme.write_text("Initial project instructions.\n", encoding="utf-8")
+        workflow = self.root / ".github" / "workflows" / "build.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text("name: build\n", encoding="utf-8")
+        ci_file = self.root / "Jenkinsfile"
+        ci_file.write_text("pipeline { agent any }\n", encoding="utf-8")
+        self.write_scope()
+        with patch.object(
+            gate.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess(
+                ["docker", "info"], 0, "Docker responds"
+            ),
+        ):
+            self.assertEqual(
+                0,
+                self.submit(
+                    ("project", ".", "docker_info", None), command=["docker", "info"]
+                ),
+            )
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        checks = self.summary()["checks"]
+        self.assertTrue(
+            any(
+                check["type"] == "project"
+                and check["kind"] == "docker_info"
+                for check in checks
+            )
+        )
+        self.assertTrue(
+            any(
+                check["type"] == "model" and check["kind"] == "lint"
+                for check in checks
+            )
+        )
+        self.assertTrue(
+            any(
+                check["type"] == "process" and check["kind"] == "process_path"
+                for check in checks
+            )
+        )
+
+        readme.write_text("Updated project instructions.\n", encoding="utf-8")
+        workflow.write_text("name: updated build\n", encoding="utf-8")
+        ci_file.write_text("pipeline { agent none }\n", encoding="utf-8")
+
+        self.assertEqual(0, self.audit())
+        self.assertEqual("READY", self.summary()["gate"])
+
+    def test_root_documentation_text_files_do_not_stale_command_evidence(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        documentation = []
+        for name in ("README.txt", "CHANGELOG.TXT", "CONTRIBUTING.txt"):
+            path = self.root / name
+            path.write_text("Initial project documentation.\n", encoding="utf-8")
+            documentation.append(path)
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+        for path in documentation:
+            with self.subTest(path=path.name):
+                path.write_text("Updated project documentation.\n", encoding="utf-8")
+                self.assertEqual(0, self.audit())
+                self.assertEqual("READY", self.summary()["gate"])
+
+    def test_c7_baseline_snapshot_ignores_readme_edits(self):
+        readme = self.root / "app" / "README.md"
+        readme.write_text("Initial project instructions.\n", encoding="utf-8")
+        self.configure_test_run(
+            '<testsuite><testcase classname="com.example.OrderTest" '
+            'name="testOrder" /></testsuite>'
+        )
+        self.assertEqual(0, self.record_c7_baseline())
+
+        readme.write_text("Updated project instructions.\n", encoding="utf-8")
+        self.assertEqual(0, self.record_c7_baseline())
+
+    def test_build_and_test_inputs_still_stale_ready_command_evidence(self):
+        self.plan["modules"][0]["path"] = "."
+        self.plan["deployment_sets"][0]["modules"] = ["."]
+        pom = self.root / "pom.xml"
+        pom.write_text("<project><version>1</version></project>\n", encoding="utf-8")
+        test_source = self.root / "src" / "test" / "java" / "OrderTest.java"
+        test_source.parent.mkdir(parents=True)
+        test_source.write_text("class OrderTest { int version = 1; }\n", encoding="utf-8")
+        test_resource = self.root / "src" / "test" / "resources" / "README.md"
+        test_resource.parent.mkdir(parents=True)
+        test_resource.write_text("fixture version 1\n", encoding="utf-8")
+        text_test_resource = self.root / "src" / "test" / "resources" / "README.txt"
+        text_test_resource.write_text("fixture version 1\n", encoding="utf-8")
+        ci_workflow_resource = (
+            self.root / "src" / "test" / "resources" / ".github" / "workflows" / "build.yml"
+        )
+        ci_workflow_resource.parent.mkdir(parents=True)
+        ci_workflow_resource.write_text("name: fixture\n", encoding="utf-8")
+        ci_file_resource = self.root / "src" / "test" / "resources" / "Jenkinsfile"
+        ci_file_resource.write_text("pipeline { agent any }\n", encoding="utf-8")
+        text_configuration = self.root / "requirements.txt"
+        text_configuration.write_text("example==1\n", encoding="utf-8")
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+        model = self.root / "models" / "converted-c8-process.bpmn"
+        model_content = model.read_text(encoding="utf-8")
+        updated_model = model_content.replace('isExecutable="true"', 'isExecutable="1"', 1)
+        self.assertNotEqual(model_content, updated_model)
+
+        for path, content in (
+            (pom, "<project><version>2</version></project>\n"),
+            (test_source, "class OrderTest { int version = 2; }\n"),
+            (test_resource, "fixture version 2\n"),
+            (text_test_resource, "fixture version 2\n"),
+            (ci_workflow_resource, "name: changed fixture\n"),
+            (ci_file_resource, "pipeline { agent none }\n"),
+            (text_configuration, "example==2\n"),
+            (model, updated_model),
+        ):
+            with self.subTest(path=path.relative_to(self.root)):
+                path.write_text(content, encoding="utf-8")
+                self.assertEqual(1, self.audit())
+                self.assertTrue(
+                    any(
+                        "stale source or deployment-set evidence" in issue
+                        for issue in self.summary()["issues"]
+                    ),
+                    self.summary()["issues"],
+                )
+                self.complete_required_checks()
+                self.assertEqual(0, self.audit())
+
+    def test_module_path_prefix_preserves_nested_ci_files_in_command_fingerprint(self):
+        module = "app/src/test/resources"
+        self.plan["modules"][0]["path"] = module
+        self.plan["deployment_sets"][0]["modules"] = [module]
+        module_root = self.root / module
+        ci_files = (
+            (
+                module_root / ".github" / "workflows" / "build.yml",
+                "name: build\n",
+                "name: updated build\n",
+            ),
+            (
+                module_root / "Jenkinsfile",
+                "pipeline { agent any }\n",
+                "pipeline { agent none }\n",
+            ),
+        )
+        for path, initial, _ in ci_files:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(initial, encoding="utf-8")
+
+        self.write_scope()
+        self.complete_required_checks()
+        self.assertEqual(0, self.audit())
+
+        for path, _, updated in ci_files:
+            with self.subTest(path=path.relative_to(self.root)):
+                path.write_text(updated, encoding="utf-8")
+                self.assertEqual(1, self.audit())
+                self.assertTrue(
+                    any(
+                        "stale source or deployment-set evidence" in issue
+                        for issue in self.summary()["issues"]
+                    ),
+                    self.summary()["issues"],
+                )
+                self.complete_required_checks()
+                self.assertEqual(0, self.audit())
+
     def test_unsafe_model_path_is_not_read(self):
         outside = self.root.parent / f"{self.root.name}-outside.bpmn"
         outside.write_text("outside", encoding="utf-8")
