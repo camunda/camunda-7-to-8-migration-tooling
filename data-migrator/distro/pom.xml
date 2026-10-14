@@ -60,6 +60,12 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-93879: override the imported Hibernate Validator version for the shipped distro. -->
+      <dependency>
+        <groupId>org.hibernate.validator</groupId>
+        <artifactId>hibernate-validator</artifactId>
+        <version>${version.hibernate-validator}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
