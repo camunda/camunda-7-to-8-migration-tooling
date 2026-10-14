@@ -227,6 +227,13 @@
       </exclusions>
     </dependency>
 
+    <!-- Override Guava pulled transitively from Camunda 8 dependencies (CVE-2026-102554). -->
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${version.guava}</version>
+    </dependency>
+
     <!-- Spring Boot -->
 
     <dependency>
