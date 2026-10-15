@@ -49,7 +49,7 @@ claude plugin install camunda-migration
 
 ```bash
 copilot plugin marketplace add camunda/camunda-7-to-8-migration-tooling
-copilot plugin install camunda-migration@camunda
+copilot plugin install camunda-migration@camunda-migration
 ```
 
 **Install with any other agent** (Cursor, Codex, Gemini CLI, Cline, Windsurf, and [25+ more](./agentic-migration-skills/README.md)) via [GitHub CLI](https://cli.github.com/) 2.90+:
