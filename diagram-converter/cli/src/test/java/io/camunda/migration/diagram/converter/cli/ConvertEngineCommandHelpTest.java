@@ -28,4 +28,14 @@ class ConvertEngineCommandHelpTest {
         .contains("only WARNING and TASK messages")
         .contains("appended to BPMN element documentation");
   }
+
+  @Test
+  void shouldDescribeLatestStableTargetAsDefaultInHelp() {
+    String help =
+        new CommandLine(new ConvertEngineCommand()).getUsageMessage().replaceAll("\\s+", " ");
+
+    assertThat(help)
+        .contains("--platform-version")
+        .contains("Defaults to Camunda 8.10 (latest stable).");
+  }
 }

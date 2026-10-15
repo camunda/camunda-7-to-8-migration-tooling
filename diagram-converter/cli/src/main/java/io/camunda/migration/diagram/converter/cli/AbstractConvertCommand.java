@@ -75,7 +75,7 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
 
   @Option(
       names = {"--platform-version"},
-      description = "Semantic version of the target platform, defaults to latest version")
+      description = "Target platform version. Defaults to Camunda 8.10 (latest stable).")
   String platformVersion;
 
   @Option(
