@@ -4398,6 +4398,22 @@ def validate_risk_check(plan, key, check):
             raise EvidenceError(f"{key}: timer observation needs completed cleanup evidence")
 
 
+def resolve_observed_deployment_path(observed, module, inventory, error):
+    if not isinstance(observed, str):
+        raise EvidenceError(error)
+    path = observed.replace("\\", "/")
+    candidates = {
+        candidate
+        for candidate in (path, (Path(module) / path).as_posix())
+        if candidate in inventory
+    }
+    if not candidates:
+        raise EvidenceError(error)
+    if len(candidates) > 1:
+        raise EvidenceError(f"{error}: ambiguous module-relative path {observed!r}")
+    return candidates.pop()
+
+
 def validate_deployment_resources(plan, key, check):
     expected = plan.deployment_resources[(key[1], key[3])]
     marker = "CAMUNDA_DEPLOYMENT_RESOURCES "
@@ -4412,11 +4428,14 @@ def validate_deployment_resources(plan, key, check):
     except json.JSONDecodeError as exc:
         raise EvidenceError(f"{key}: invalid Spring resolver observation") from exc
     if not isinstance(observation, dict) or (
-        observation.get("source") != key[3]
-        or observation.get("resolver")
+        observation.get("resolver")
         != "org.springframework.core.io.support.PathMatchingResourcePatternResolver"
     ):
         raise EvidenceError(f"{key}: observation must identify its annotation and Spring resolver")
+    resolve_observed_deployment_path(
+        observation.get("source"), key[1], {key[3]},
+        f"{key}: observation must identify its annotation and Spring resolver",
+    )
     entries = observation.get("entries")
     if not isinstance(entries, list) or len(entries) != len(expected["patterns"]):
         raise EvidenceError(f"{key}: resolver entries must match the @Deployment annotation")
@@ -4429,11 +4448,11 @@ def validate_deployment_resources(plan, key, check):
             raise EvidenceError(f"{key}: every Spring resource entry needs nonempty matches")
         kinds = set()
         for match in matches:
-            resource = match.get("resource") if isinstance(match, dict) else None
-            if not isinstance(resource, str) or resource not in expected["resources"]:
-                raise EvidenceError(
-                    f"{key}: original, unaccepted, or uninventoried resource in Spring matches"
-                )
+            resource = resolve_observed_deployment_path(
+                match.get("resource") if isinstance(match, dict) else None,
+                key[1], expected["resources"],
+                f"{key}: original, unaccepted, or uninventoried resource in Spring matches",
+            )
             kind = deployment_resource_type(resource)
             if match.get("type") != kind:
                 raise EvidenceError(f"{key}: Spring resource type differs from inventory: {resource}")

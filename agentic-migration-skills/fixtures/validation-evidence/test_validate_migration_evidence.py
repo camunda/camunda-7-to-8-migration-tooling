@@ -630,6 +630,37 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.assertEqual(0, self.submit_deployment_resources(key, observation))
 
+    def test_module_relative_resolver_paths_match_project_inventory(self):
+        form = {
+            "path": "app/src/test/resources/converted-c8-request.form",
+            "status": "accepted",
+            "model_path": "models/converted-c8-process.bpmn",
+            "approval_reference": "MIGRATION_REPORT.md#accepted-request",
+        }
+        patterns = ["classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.form"]
+        key = self.spring_deployment(patterns, forms=[form])
+        observation = self.deployment_resource_observation(
+            patterns,
+            [["models/converted-c8-process.bpmn"], [form["path"]]],
+        )
+        observation["source"] = "src/main/java/com/example/Application.java"
+        observation["entries"][1]["matches"][0]["resource"] = (
+            "src/test/resources/converted-c8-request.form"
+        )
+        self.assertEqual(0, self.submit_deployment_resources(key, observation))
+
+    def test_ambiguous_module_relative_resource_is_rejected(self):
+        with self.assertRaisesRegex(gate.EvidenceError, "ambiguous"):
+            gate.resolve_observed_deployment_path(
+                "src/test/resources/converted-c8-request.form",
+                "app",
+                {
+                    "src/test/resources/converted-c8-request.form",
+                    "app/src/test/resources/converted-c8-request.form",
+                },
+                "resource is not in inventory",
+            )
+
     def test_shared_accepted_form_outside_module_resolves_with_its_bpmn(self):
         form = {
             "path": "models/converted-c8-request.form",

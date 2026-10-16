@@ -689,7 +689,9 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 ```
 
 The command prints one `CAMUNDA_DEPLOYMENT_RESOURCES` JSON line.
-Each match records its project-relative path, resource type, and SHA-256 of its resolved bytes.
+Use project-relative paths for `source` and each matched `resource`. The validator accepts
+module-relative paths that identify exactly one inventoried project path. It rejects ambiguous paths.
+Each match records its resource type and SHA-256 of its resolved bytes.
 The validator compares those values with the application inventory and actual Java annotation:
 
 ```text
