@@ -3554,7 +3554,7 @@ def requirements(root, evidence):
         }
         module_root = project_path(root, module_path, "deployment module")
         nested = nested_module_paths(root, module_path, module_root, module_paths)
-        for relative in hashes:
+        for relative in tuple(hashes):
             path = root / relative
             if path.suffix != ".java" or not path.is_relative_to(module_root) or any(
                 path.is_relative_to(child) for child in nested
