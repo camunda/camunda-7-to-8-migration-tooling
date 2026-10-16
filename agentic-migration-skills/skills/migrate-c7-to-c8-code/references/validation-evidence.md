@@ -420,19 +420,22 @@ approved test changes and approved mock changes.
 
 ### Migrate tests only
 
-When the user selects **Migrate tests only**, block every module test suite and Step 4 process
-scenario with the exact reason `declined by user (Question 8)`:
+When the user selects **Migrate tests only**, block every module test suite, Spring deployment
+resolver check, and Step 4 process scenario with the exact reason `declined by user (Question 8)`:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target examples/web --kind tests --scenario unit --reason "declined by user (Question 8)"
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type module --target app --kind deployment_resources --scenario app/src/main/java/example/Application.java --reason "declined by user (Question 8)"
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . block --type process --target models/converted-c8-order.bpmn#order-process --kind process_path --scenario normal --reason "declined by user (Question 8)"
 ```
 
 In `migrate_only` mode, the validation script applies these rules:
 
-- It refuses the `run` and `review` actions for `tests` and `process_path` checks.
+- It refuses the `run` and `review` actions for `tests`, `deployment_resources`, `process_path`,
+  and `cpt_runtime_preflight` checks.
 - It rejects a `block` action with another reason.
-- The gate rejects a passed or differently blocked `tests` or `process_path` check.
+- The gate rejects a passed or differently blocked `tests`, `deployment_resources`, or
+  `process_path` check.
 - It accepts module `compile` evidence only for a `test-compile` or `testClasses` command without
   `-Dmaven.test.skip`.
 - It does not require `docker_info`.
@@ -660,6 +663,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 |---|---|
 | Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
+| Each annotated Spring application | `deployment_resources` resolver check. In `migrate_only` mode, block it with the exact Question 8 reason. |
 | Each Docker-dependent CPT suite | In `run` mode, require `cpt_runtime_preflight` after its C7 baseline, freeze, module compile, and `docker_info`. Execute one mapped CPT method with the suite's real runtime before `test_repeat`. |
 | Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
 | Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |

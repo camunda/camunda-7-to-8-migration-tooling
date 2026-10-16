@@ -83,7 +83,7 @@ DEFAULT_C7_COVERAGE_REPORTS = (
     "target/process_test_coverage/**/*.json",
 )
 DEFAULT_CPT_COVERAGE_REPORTS = ("target/coverage-report/report.json",)
-TEST_EXECUTION_KINDS = {"tests", "process_path", "cpt_runtime_preflight"}
+TEST_EXECUTION_KINDS = {"tests", "process_path", "cpt_runtime_preflight", "deployment_resources"}
 TEST_LEDGER_CHECK_KINDS = {
     "cpt_runtime_preflight",
     "test_freeze",

@@ -317,8 +317,8 @@ When the user selects **Migrate tests only**, apply these rules:
   main-source-only compile does not count.
 - Where a non-test check needs packaging, package with `-DskipTests` (Maven) or `-x test` (Gradle).
   Record why in `MIGRATION_REPORT.md`.
-- Record each module `tests` check and each process `process_path` check with the `block` action and
-  the exact reason `declined by user (Question 8)`.
+- Record each module `tests` and `deployment_resources` check and each process `process_path`
+  check with the `block` action and the exact reason `declined by user (Question 8)`.
 - The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as
   defined in `references/project-readiness.md`.
 
@@ -645,8 +645,10 @@ Keep BPMN, DMN, and accepted `.form` patterns in separate array entries.
 Never join two patterns with a comma inside one entry.
 Never include draft or declined forms.
 
-For each application `@Deployment`, run a Java test with Spring's
+For each application `@Deployment`, prepare a Java test with Spring's
 `PathMatchingResourcePatternResolver`.
+When the user selects **Migrate tests only**, compile the test source without running it and block
+the `deployment_resources` check with `declined by user (Question 8)`.
 Read the actual annotation's `resources` array through reflection.
 Resolve each entry separately. Require nonempty matches of one resource type.
 Match every resource in that application's inventory to exactly one entry.
@@ -679,7 +681,7 @@ A module that only calls a model does not need an application deployment record.
 }
 ```
 
-Record the executable resolver check:
+When test execution is authorized, record the executable resolver check:
 
 ```sh
 python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run \

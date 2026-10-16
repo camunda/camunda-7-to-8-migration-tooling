@@ -453,7 +453,8 @@ class ValidationEvidenceTest(unittest.TestCase):
 
     def spring_deployment(
         self, patterns, *, include_dmn=False, include_second_bpmn=False,
-        scalar=False, app_models=None, forms=(), import_statement=None, inline=False
+        scalar=False, app_models=None, forms=(), import_statement=None, inline=False,
+        test_run_mode=None
     ):
         if include_second_bpmn:
             second = "models/converted-c8-second.bpmn"
@@ -492,7 +493,7 @@ class ValidationEvidenceTest(unittest.TestCase):
                 "id": "fixture-request",
                 "type": "default",
             }, indent=2) + "\n", encoding="utf-8")
-        self.write_scope()
+        self.write_scope(test_run_mode=test_run_mode)
         if include_dmn:
             model = "models/converted-c8-decision.dmn"
             self.plan["models"].append({
@@ -1023,6 +1024,39 @@ class ValidationEvidenceTest(unittest.TestCase):
                     with self.assertRaisesRegex(gate.EvidenceError, "exact Question 8 reason"):
                         self.submit(key, action="block", reason=reason)
                 self.assertEqual(1, self.submit(key, action="block", reason=gate.QUESTION_8_DECLINE_REASON))
+
+    def test_migrate_only_refuses_deployment_resolver_before_execution(self):
+        pattern = "classpath*:/converted-c8-*.bpmn"
+        key = self.spring_deployment([pattern], test_run_mode="migrate_only")
+        self.assertIn(key, gate.requirements(self.root, self.plan).required)
+        observation = self.deployment_resource_observation(
+            [pattern], [["models/converted-c8-process.bpmn"]]
+        )
+        with patch.object(gate.subprocess, "run") as command:
+            with self.assertRaisesRegex(gate.EvidenceError, "Migrate tests only"):
+                self.submit_deployment_resources(key, observation)
+            command.assert_not_called()
+        with self.assertRaisesRegex(gate.EvidenceError, "exact Question 8 reason"):
+            self.submit(key, action="block", reason="resolver deferred")
+        self.assertEqual(1, self.submit(
+            key, action="block", reason=gate.QUESTION_8_DECLINE_REASON
+        ))
+        self.assertEqual(1, self.audit())
+        self.assertIn(gate.QUESTION_8_DECLINE_REASON, "\n".join(self.summary()["issues"]))
+
+    def test_migrate_only_gate_rejects_previously_passed_deployment_resolver(self):
+        pattern = "classpath*:/converted-c8-*.bpmn"
+        key = self.spring_deployment([pattern])
+        observation = self.deployment_resource_observation(
+            [pattern], [["models/converted-c8-process.bpmn"]]
+        )
+        self.assertEqual(0, self.submit_deployment_resources(key, observation))
+        inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+        inventory["test_run_mode"] = "migrate_only"
+        write_json(self.root / gate.INVENTORY, inventory)
+        self.assertEqual(1, self.audit())
+        self.assertIn("Question 8 migrate_only checks must be blocked with reason",
+                      "\n".join(self.summary()["issues"]))
 
     def test_migrate_only_requires_test_source_compilation(self):
         self.write_scope(test_run_mode="migrate_only")
