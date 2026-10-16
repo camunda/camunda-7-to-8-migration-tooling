@@ -329,7 +329,9 @@ Testcontainers compatibility.
 
 When Docker rejects the resolved Java client's API version, the recorder classifies the failure as
 `compatibility` and keeps readiness blocked. Check the selected starter, BOM, and test dependency
-family before changing versions. Never replace this command with plugin help or a print-only probe.
+family before changing versions. Use a documented compatible pairing, then repeat the preflight and
+the full suite. If no compatible pairing is verified, then keep the suite blocked for review.
+Never replace this command with plugin help or a print-only probe.
 Use a dedicated local or non-production runtime. Never run a CPT probe against production.
 
 **Repeat runs.** For each migrated suite, run the CPT command twice with `test_repeat`:
