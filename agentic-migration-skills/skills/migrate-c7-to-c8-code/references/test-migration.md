@@ -681,7 +681,7 @@ Prefer a waiting CPT assertion for the created instance key and expected active 
 When a test must poll secondary-storage process search, filter by the created instance key.
 Only a visible matching instance with the expected state satisfies the wait.
 An empty result, an unrelated instance, or an active instance cannot prove completion.
-The search wait requires a visible, matching completed instance and fails on timeout.
+The search wait requires a visible, matching instance in the expected state and fails on timeout.
 Establish this positive observation before absence assertions on processes, incidents, or application effects.
 When a test expects an incident, poll for a positive incident scoped to the same process instance key.
 Never treat an empty process or incident search as evidence that the work completed.

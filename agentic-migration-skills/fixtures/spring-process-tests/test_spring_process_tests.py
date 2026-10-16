@@ -304,6 +304,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         self.assertIn("original observation point", endpoint)
         self.assertIn("created instance key", polling)
         self.assertIn("An empty result", polling)
+        self.assertIn("matching instance in the expected state and fails on timeout", polling)
         self.assertIn("fails on timeout", polling)
         self.assertIn("ProcessInstanceSearchWaiter.awaitCompleted(", migrated_test)
 
