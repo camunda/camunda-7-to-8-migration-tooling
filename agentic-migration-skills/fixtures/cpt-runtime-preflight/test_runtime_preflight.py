@@ -4,10 +4,12 @@
 # Licensed under the Camunda License 1.0. You may not use this file
 # except in compliance with the Camunda License 1.0.
 
+import copy
 import contextlib
 import importlib.util
 import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -26,7 +28,9 @@ SPEC.loader.exec_module(evidence)
 MODULE = "examples/web"
 SOURCE_ID = f"{MODULE}:com.example.SourceTest#run"
 TARGET_ID = f"{MODULE}:com.example.TargetTest#run"
+OTHER_SOURCE_ID = f"{MODULE}:com.example.OtherSourceTest#run"
 OTHER_ID = f"{MODULE}:com.example.OtherTest#run"
+ADDED_ID = f"{MODULE}:com.example.AddedTest#run"
 SUITE = {
     "module": MODULE,
     "name": "unit",
@@ -36,7 +40,7 @@ MAPPING = {
     "tests": [
         {"c7_id": SOURCE_ID, "status": "migrated", "c8_ids": [TARGET_ID]},
         {
-            "c7_id": f"{MODULE}:com.example.OtherSourceTest#run",
+            "c7_id": OTHER_SOURCE_ID,
             "status": "migrated",
             "c8_ids": [OTHER_ID],
         },
@@ -76,6 +80,56 @@ class RuntimePreflightTest(unittest.TestCase):
             timeout=90,
         )
 
+    def recorder_args(self):
+        return SimpleNamespace(
+            **vars(self.args),
+            type="module",
+            kind="cpt_runtime_preflight",
+            action="run",
+            environment="local",
+            non_timer_evidence_json=None,
+            isolation_plan=None,
+            target_disposable=False,
+            target_version=None,
+            reference=None,
+            disposition=None,
+        )
+
+    def ledger(self, tests=None):
+        return {
+            "schema_version": 1,
+            "baseline": {"suites": []},
+            "tests": copy.deepcopy(MAPPING["tests"] if tests is None else tests),
+            "freeze": {"files": {}},
+            "test_changes": [],
+            "mock_changes": [],
+        }
+
+    def write_failed_probe(self, root, mapping):
+        evidence.write_json(
+            root, evidence.INVENTORY, {"run_id": "test-run", "test_run_mode": "run"}
+        )
+        evidence.write_json(root, evidence.TEST_MAPPING, mapping)
+        key = ("module", MODULE, "cpt_runtime_preflight", "unit")
+        reference = evidence.write_check_log(root, key, {
+            "run_id": "test-run",
+            "type": "module",
+            "target": MODULE,
+            "kind": "cpt_runtime_preflight",
+            "scenario": "unit",
+            "method": "command",
+            "command": ["mvn", "-B", "test"],
+            "exit_code": 0,
+            "result": "failed",
+            "reason": "No mapped CPT method ran",
+            "output": "Only an unrelated test ran",
+            "environment": "local",
+            "source_digest": "source-digest",
+            "test_mapping_digest": evidence.test_mapping_digest(mapping, "all"),
+        })
+        evidence.write_json(root, evidence.EVIDENCE, {"checks": [reference]})
+        return key, reference
+
     def run_with_results(self, results, exit_code=0):
         with patch.object(evidence, "run_cpt_test_suite", return_value={
             "exit_code": exit_code,
@@ -112,6 +166,41 @@ class RuntimePreflightTest(unittest.TestCase):
             with self.subTest(results=results):
                 self.assertEqual("failed", self.run_with_results(results)["result"])
 
+    def test_baseline_results_cannot_assign_a_migrated_test_to_another_suite(self):
+        mapping = self.ledger()
+        mapping["baseline"]["suites"] = [{
+            "module": MODULE,
+            "suite": "unit",
+            "test_results": {OTHER_SOURCE_ID: {"result": "passed"}},
+        }]
+        self.assertEqual(
+            {TARGET_ID}, evidence.suite_cpt_test_ids(SUITE, mapping, MODULE, "unit")
+        )
+        mapping["tests"][1]["handling"] = "Report only"
+        self.assertEqual(
+            {TARGET_ID, OTHER_ID},
+            evidence.suite_cpt_test_ids(SUITE, mapping, MODULE, "unit"),
+        )
+
+    def test_added_only_docker_suite_can_preflight(self):
+        mapping = self.ledger([{
+            "status": "added", "suite": "extra", "c8_ids": [ADDED_ID]
+        }])
+        self.plan.test_contract["cpt_suites"][(MODULE, "extra")] = {"name": "extra"}
+        args = SimpleNamespace(**vars(self.args))
+        args.scenario = "extra"
+        with patch.object(evidence, "run_cpt_test_suite", return_value={
+            "exit_code": 0,
+            "result": "passed",
+            "reason": None,
+            "test_results": {ADDED_ID: {"result": "passed"}},
+            "output": "",
+        }):
+            probe = evidence.record_cpt_runtime_preflight(
+                Path("."), self.plan, args, mapping
+            )
+        self.assertEqual("passed", probe["result"])
+
     def test_failed_command_keeps_its_exit_code_and_reason(self):
         result = self.run_with_results({}, exit_code=1)
         self.assertEqual("failed", result["result"])
@@ -134,22 +223,7 @@ class RuntimePreflightTest(unittest.TestCase):
             "client version 1.32 is too old. "
             "Minimum supported API version is 1.40"
         )
-        args = SimpleNamespace(
-            type="module",
-            target=MODULE,
-            kind="cpt_runtime_preflight",
-            scenario="unit",
-            action="run",
-            environment="local",
-            timeout=90,
-            command=["--", "mvn", "-B", "test"],
-            non_timer_evidence_json=None,
-            isolation_plan=None,
-            target_disposable=False,
-            target_version=None,
-            reference=None,
-            disposition=None,
-        )
+        args = self.recorder_args()
         contents = {"checks": [], "run_id": "test-run", "test_run_mode": "run"}
         with contextlib.ExitStack() as stack:
             stack.enter_context(patch.object(evidence, "read_json", return_value=contents))
@@ -176,6 +250,61 @@ class RuntimePreflightTest(unittest.TestCase):
         self.assertEqual("compatibility", check["failure_class"])
         self.assertIn("1.32", check["reason"])
         self.assertIn("1.40", check["reason"])
+
+    def test_zero_exit_failed_probe_can_be_reloaded_and_retried(self):
+        mapping = self.ledger()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            key, reference = self.write_failed_probe(root, mapping)
+            issues = []
+            self.assertIn(
+                key,
+                evidence.load_checks(
+                    root, {"checks": [reference]}, self.plan, issues
+                ),
+            )
+            self.assertEqual([], issues)
+            with contextlib.ExitStack() as stack:
+                stack.enter_context(
+                    patch.object(evidence, "requirements", return_value=self.plan)
+                )
+                stack.enter_context(patch.object(evidence, "require_prerequisites"))
+                stack.enter_context(patch.object(evidence, "record_cpt_runtime_preflight", return_value={
+                    "command": ["mvn", "-B", "test"],
+                    "exit_code": 0,
+                    "result": "passed",
+                    "reason": None,
+                    "output": "",
+                    "test_ids": [TARGET_ID],
+                    "test_mapping_digest": evidence.test_mapping_digest(
+                        mapping, "all"
+                    ),
+                }))
+                stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                self.assertEqual(0, evidence.record(root, self.recorder_args()))
+            self.assertEqual(
+                "passed", evidence.read_json(root / reference)["result"]
+            )
+
+    def test_retired_suite_ignores_saved_preflight_evidence(self):
+        mapping = self.ledger()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            key, reference = self.write_failed_probe(root, mapping)
+            retired = self.ledger([{
+                "c7_id": SOURCE_ID, "status": "retired", "c8_ids": []
+            }])
+            evidence.write_json(root, evidence.TEST_MAPPING, retired)
+            self.plan.allowed.remove(key)
+            self.plan.required.pop(key)
+            issues = []
+            self.assertNotIn(
+                key,
+                evidence.load_checks(
+                    root, {"checks": [reference]}, self.plan, issues
+                ),
+            )
+            self.assertEqual([], issues)
 
     def test_runtime_preflight_precedes_cpt_repeat_after_baseline(self):
         preflight = ("module", MODULE, "cpt_runtime_preflight", "unit")

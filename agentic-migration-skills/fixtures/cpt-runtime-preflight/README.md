@@ -8,6 +8,8 @@ The runtime tests use synthetic JUnit results. They reject a skipped test, a cla
 error, and a method from another suite. They classify a Java Docker-client API mismatch as
 compatibility rather than an unavailable Docker daemon. A passing Docker CLI check cannot unlock
 the repeat run when the CPT runtime preflight failed.
+The fixture also checks suite-specific baseline membership, added-only suites, retry after a
+zero-exit failure, and evidence retained after the last CPT test is retired.
 
 Run the focused checks from the repository root:
 

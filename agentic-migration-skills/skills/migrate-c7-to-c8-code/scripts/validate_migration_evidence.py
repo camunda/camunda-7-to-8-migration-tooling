@@ -2075,15 +2075,18 @@ def suite_has_cpt_tests(suite, mapping):
     return suite_has_added_cpt_tests(suite.get("module"), suite.get("name"), mapping)
 
 
-def suite_cpt_test_ids(suite, mapping):
+def suite_cpt_test_ids(suite, mapping, module, suite_name):
     rows = test_rows_by_id(mapping)
-    source_ids = set(suite["test_ids"])
+    source_ids = set(suite["test_ids"]) if suite is not None else set()
     for baseline_suite in mapping["baseline"].get("suites", []):
         if (
-            baseline_suite.get("module") == suite["module"]
-            and baseline_suite.get("suite") == suite["name"]
+            baseline_suite.get("module") == module
+            and baseline_suite.get("suite") == suite_name
         ):
-            source_ids.update(baseline_suite.get("test_results", {}))
+            source_ids.update(
+                test_id for test_id in baseline_suite.get("test_results", {})
+                if rows.get(test_id, {}).get("handling") == "Report only"
+            )
     expected = set()
     for source_id in source_ids:
         test = rows.get(source_id)
@@ -2094,12 +2097,12 @@ def suite_cpt_test_ids(suite, mapping):
     for test in mapping["tests"]:
         if (
             test.get("status") == "added"
-            and test.get("suite") == suite["name"]
+            and test.get("suite") == suite_name
         ):
             expected.update(
                 test_id for test_id in strings(
                     test.get("c8_ids"), "added CPT test IDs"
-                ) if test_id.startswith(f"{suite['module']}:")
+                ) if test_id.startswith(f"{module}:")
             )
     return expected
 
@@ -2805,9 +2808,9 @@ def record_cpt_runtime_preflight(root, plan, args, mapping):
     suite_key = (args.target, args.scenario)
     suite = plan.test_contract["suites"].get(suite_key)
     suite_config = plan.test_contract["cpt_suites"].get(suite_key)
-    if suite is None or suite_config is None:
+    if suite_config is None:
         raise EvidenceError(f"{suite_key}: CPT test suite is not in the validation scope")
-    expected = suite_cpt_test_ids(suite, mapping)
+    expected = suite_cpt_test_ids(suite, mapping, args.target, args.scenario)
     if not expected:
         raise EvidenceError(f"{suite_key}: runtime probe needs a mapped CPT test")
     command = list(args.command or [])
@@ -4445,7 +4448,7 @@ def load_checks(root, evidence, plan, issues, replace_unsafe_key=None):
                     type(exit_code) is not int
                     or exit_code == 0
                     and key[0] != "timer"
-                    and key[2] != "c7_baseline"
+                    and key[2] not in ("c7_baseline", "cpt_runtime_preflight")
                     and not (
                         key[2] == "test_repeat"
                         and isinstance(check.get("test_runs"), list)
@@ -4564,12 +4567,16 @@ def obsolete_test_check_key(key, plan, mapping):
         return not expected_cpt_test_ids(mapping)
     if (
         key[0] == "module"
-        and key[2] == "test_repeat"
+        and key[2] in ("test_repeat", "cpt_runtime_preflight")
         and key[3] is not None
         and (key[1], key[3]) in plan.test_contract["suites"]
     ):
-        return not suite_has_cpt_tests(
+        if not suite_has_cpt_tests(
             plan.test_contract["suites"][(key[1], key[3])], mapping
+        ):
+            return True
+        return key[2] == "cpt_runtime_preflight" and not plan.docker_suites.get(
+            ("module", key[1], "test_repeat", key[3]), False
         )
     if key[0] != "test" or key[3] is not None:
         return False
