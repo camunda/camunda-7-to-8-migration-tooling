@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_Post_Deployment_Order" targetNamespace="http://camunda.org/examples" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="post-deployment-order" name="Post-deployment order" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_PostDeployment" name="Deployment completed">
+      <bpmn:outgoing>Flow_PostDeployment_Work</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_PostDeployment_Work" sourceRef="StartEvent_PostDeployment" targetRef="Task_PostDeploymentWork" />
+    <bpmn:serviceTask id="Task_PostDeploymentWork" name="Post-deployment work">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="post-deployment-work" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_PostDeployment_Work</bpmn:incoming>
+      <bpmn:outgoing>Flow_PostDeployment_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_PostDeployment_End" sourceRef="Task_PostDeploymentWork" targetRef="EndEvent_PostDeployment" />
+    <bpmn:endEvent id="EndEvent_PostDeployment" name="Work completed">
+      <bpmn:incoming>Flow_PostDeployment_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Post_Deployment">
+    <bpmndi:BPMNPlane id="BPMNPlane_Post_Deployment" bpmnElement="post-deployment-order">
+      <bpmndi:BPMNShape id="StartEvent_PostDeployment_di" bpmnElement="StartEvent_PostDeployment">
+        <dc:Bounds x="100" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PostDeploymentWork_di" bpmnElement="Task_PostDeploymentWork">
+        <dc:Bounds x="210" y="108" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_PostDeployment_di" bpmnElement="EndEvent_PostDeployment">
+        <dc:Bounds x="360" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_PostDeployment_Work_di" bpmnElement="Flow_PostDeployment_Work">
+        <di:waypoint x="136" y="148" />
+        <di:waypoint x="210" y="148" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_PostDeployment_End_di" bpmnElement="Flow_PostDeployment_End">
+        <di:waypoint x="310" y="148" />
+        <di:waypoint x="360" y="148" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

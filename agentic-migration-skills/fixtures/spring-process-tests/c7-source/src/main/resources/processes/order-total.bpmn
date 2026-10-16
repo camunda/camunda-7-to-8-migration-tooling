@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Order_Total"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="order-total" name="Calculate order total" isExecutable="true"
+                camunda:historyTimeToLive="P1D">
+    <bpmn:startEvent id="StartEvent_Total" />
+    <bpmn:sequenceFlow id="Flow_Total_Calculate" sourceRef="StartEvent_Total" targetRef="Task_CalculateTotal" />
+    <bpmn:serviceTask id="Task_CalculateTotal" name="Calculate total"
+                      camunda:delegateExpression="${calculateTotalDelegate}" />
+    <bpmn:sequenceFlow id="Flow_Total_End" sourceRef="Task_CalculateTotal" targetRef="EndEvent_Total" />
+    <bpmn:endEvent id="EndEvent_Total" />
+  </bpmn:process>
+</bpmn:definitions>
