@@ -902,7 +902,7 @@ class MigrationGuidanceTest(unittest.TestCase):
             "spring-boot-app:com.camunda.fixture.subscription.SubscriptionEndpointTest#startsSubscriptionFromHttp",
             "engine-tests:com.camunda.fixture.order.PromotionsDecisionTest#evaluatesRequiredDecision",
             "engine-tests:com.camunda.fixture.order.InventoryDiscoverySpec#feature without engine",
-            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#Without engine execution@L10",
+            "engine-tests:src/test/resources/features/CandidateDiscovery.feature#Without engine execution@L8",
             "engine-tests:com.camunda.fixture.order.JGivenEngineBackedTest#startsProcess",
             "engine-tests:com.camunda.fixture.order.JGivenNoEngineTest#runsPlainUnitTest",
         ):
@@ -919,7 +919,7 @@ class MigrationGuidanceTest(unittest.TestCase):
     def test_cucumber_discovery_preserves_full_scenario_names(self):
         self.assertIn(
             "engine-tests:src/test/resources/features/"
-            "CandidateDiscovery.feature#Without engine execution@L10",
+            "CandidateDiscovery.feature#Without engine execution@L8",
             test_method_ids(C7_SOURCE),
         )
 
