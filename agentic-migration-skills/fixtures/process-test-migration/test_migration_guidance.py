@@ -36,6 +36,10 @@ PATTERN_SOURCES_PATH = (
     REPO_ROOT
     / "agentic-migration-skills/skills/migrate-c7-to-c8-code/references/pattern-catalog-sources.md"
 )
+RESOURCES_PATTERN = (
+    REPO_ROOT
+    / "code-conversion/patterns/20-client-code/10-process-engine/handle-resources.md"
+)
 TEST_CLASSES = ("ImplicitDeploymentTest", "OrderProcessTest", "MessageProcessTest")
 EXPECTED_PROCESS_TEST_IDS = {
     "ImplicitDeploymentTest#testStartsImplicitlyDeployedProcess",
@@ -71,6 +75,31 @@ def diagram_shapes(bpmn):
     return sorted(
         re.findall(r'<bpmndi:BPMN(?:Shape|Edge)\b[^>]*\bbpmnElement="([^"]+)"', bpmn)
     )
+
+
+def cpt_user_task_api_supported(document, process_id, task_id):
+    bpmn = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
+    zeebe = "{http://camunda.org/schema/zeebe/1.0}"
+    processes = [
+        process for process in document.findall(f"{bpmn}process")
+        if process.get("id") == process_id
+    ]
+    if len(processes) != 1:
+        return False
+    tasks = [
+        task for task in processes[0].iter(f"{bpmn}userTask")
+        if task.get("id") == task_id
+    ]
+    return len(tasks) == 1 and tasks[0].find(
+        f"{bpmn}extensionElements/{zeebe}userTask"
+    ) is not None
+
+
+def blocked_cpt_user_task_calls(document, process_id, calls):
+    return [
+        action for action, task_id in calls.items()
+        if not cpt_user_task_api_supported(document, process_id, task_id)
+    ]
 
 
 def extract_test_deployment_resources(source):
@@ -117,6 +146,120 @@ class ProcessTestMigrationFixtureTest(unittest.TestCase):
         self.assertIn("isNotWaitingAt(", order)
         self.assertIn("@Test(expected = IllegalStateException.class)", order)
         self.assertIn("correlateMessage(", message)
+
+    def test_deployment_only_test_stays_out_of_process_test_parity(self):
+        c7_source = (C7_TESTS / "DeploymentOnlyTest.java").read_text()
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        reference = REFERENCE_PATH.read_text()
+
+        self.assertIn("@Deployment(resources =", c7_source)
+        self.assertRegex(c7_source, r"void deploysModelOnly\(\)\s*\{\s*\}")
+        self.assertNotIn("startProcessInstance", c7_source)
+        self.assertIn("DeploymentOnlyTest#deploysModelOnly", report)
+        self.assertRegex(
+            report,
+            r"DeploymentOnlyTest#deploysModelOnly[^\n]*\| out of scope \|[^\n]*\| "
+            r"Not part of test migration \|",
+        )
+        self.assertIn("process-test-cases.bpmn", report.split("## Model Inventory", 1)[1])
+        self.assertFalse((C8_TESTS / "DeploymentOnlyTest.java").exists())
+        self.assertIn("deployment-only", reference)
+        self.assertIn("independent", reference.lower())
+
+    def test_context_only_engine_rule_does_not_create_a_cpt_test(self):
+        c7_source = (C7_TESTS / "ContextOnlyTest.java").read_text()
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+
+        self.assertIn("ProcessEngineRule", c7_source)
+        self.assertIn("assertNotNull(processEngineRule.getProcessEngine())", c7_source)
+        self.assertNotIn("startProcessInstance", c7_source)
+        self.assertRegex(
+            report,
+            r"ContextOnlyTest#initializesEngineWithoutProcess[^\n]*\| out of scope "
+            r"\|[^\n]*\| Not part of test migration \|",
+        )
+        self.assertFalse((C8_TESTS / "ContextOnlyTest.java").exists())
+
+    def test_user_task_api_requires_the_exact_marked_converted_task(self):
+        original = ET.parse(
+            C8_RESOURCES / "com/camunda/fixture/tests/converted-c8-process-test-cases.bpmn"
+        ).getroot()
+        marker_free = ET.parse(
+            C8_RESOURCES / "com/camunda/fixture/tests/converted-c8-job-worker-user-task.bpmn"
+        ).getroot()
+        source = (C7_TESTS / "JobWorkerUserTaskTest.java").read_text()
+        report = (FIXTURE_ROOT / "expected-c8/MIGRATION_REPORT.md").read_text()
+        reference = REFERENCE_PATH.read_text()
+
+        blocked = report.split("## Blocked process-test pairing", maxsplit=1)[1].split(
+            "\n## ", maxsplit=1
+        )[0]
+        for method, action in (
+            ("searchesProcessTask", "createTaskQuery"),
+            ("assignsProcessTask", "taskService.claim"),
+            ("completesProcessTask", "taskService.complete"),
+        ):
+            with self.subTest(method=method):
+                self.assertIn(f"void {method}()", source)
+                self.assertIn(f"{action}(", source)
+                self.assertIn(f"JobWorkerUserTaskTest#{method}", report)
+                self.assertIn(f"JobWorkerUserTaskTest#{method}", blocked)
+        self.assertIn("Blocked", blocked)
+        self.assertFalse((C8_TESTS / "JobWorkerUserTaskTest.java").exists())
+        self.assertIn("## Process-test user-task API compatibility", reference)
+        calls = {action: "Task_Review" for action in ("search", "assign", "complete", "assert")}
+        self.assertEqual(
+            list(calls),
+            blocked_cpt_user_task_calls(marker_free, "job-worker-process", calls),
+        )
+        self.assertEqual(
+            [],
+            blocked_cpt_user_task_calls(
+                original, "order-process", {action: "Task_Approve" for action in calls}
+            ),
+        )
+        self.assertEqual(
+            ["complete"],
+            blocked_cpt_user_task_calls(original, "order-process", {"complete": "NotTheTask"}),
+        )
+        cpt_source = (C8_TESTS / "OrderProcessTest.java").read_text()
+        task_ids = re.findall(r'(?:completeUserTask|byElementId)\("([^"]+)"', cpt_source)
+        self.assertTrue(task_ids)
+        for task_id in task_ids:
+            with self.subTest(task_id=task_id):
+                self.assertTrue(
+                    cpt_user_task_api_supported(original, "order-process", task_id)
+                )
+        marked_process = original.find(
+            ".//{http://www.omg.org/spec/BPMN/20100524/MODEL}process[@id='order-process']"
+        )
+        marked_task = marked_process.find(
+            ".//{http://www.omg.org/spec/BPMN/20100524/MODEL}userTask[@id='Task_Approve']"
+        )
+        marker = marked_task.find(
+            "./{http://www.omg.org/spec/BPMN/20100524/MODEL}extensionElements/"
+            "{http://camunda.org/schema/zeebe/1.0}userTask"
+        )
+        marker.tag = "{urn:unrelated}userTask"
+        self.assertFalse(cpt_user_task_api_supported(original, "order-process", "Task_Approve"))
+
+    def test_deployment_pattern_names_import_for_each_selected_starter(self):
+        mapping = RESOURCES_PATTERN.read_text(encoding="utf-8")
+        fixture = FIXTURE_ROOT / "spring-deployment"
+        for starter, module in (
+            ("camunda-spring-boot-3-starter", "boot-3"),
+            ("camunda-spring-boot-starter", "boot-4"),
+        ):
+            with self.subTest(starter=starter):
+                pom = (fixture / module / "pom.xml").read_text(encoding="utf-8")
+                source = (fixture / module / "src/main/java/com/camunda/fixture/Application.java").read_text(
+                    encoding="utf-8"
+                )
+                self.assertIn(starter, mapping)
+                self.assertIn(starter, pom)
+                self.assertIn("import io.camunda.client.annotation.Deployment;", mapping)
+                self.assertIn("import io.camunda.client.annotation.Deployment;", source)
+                self.assertNotIn("io.camunda.spring.client.annotation.Deployment", mapping)
 
     def test_process_test_class_and_method_names_are_preserved(self):
         for class_name in TEST_CLASSES:

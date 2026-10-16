@@ -451,6 +451,188 @@ class ValidationEvidenceTest(unittest.TestCase):
         )
         self.write_scope(timer=timer)
 
+    def spring_deployment(
+        self, patterns, *, include_dmn=False, include_second_bpmn=False, scalar=False
+    ):
+        if include_second_bpmn:
+            second = "models/converted-c8-second.bpmn"
+            self.plan["models"].append({
+                "source_path": "models/second.bpmn",
+                "path": second,
+                "processes": [{"id": "p2", "standalone": True, "scenarios": ["normal"]}],
+            })
+            self.plan["deployment_sets"][0]["models"].append(second)
+        source_path = "app/src/main/java/com/example/Application.java"
+        source = self.root / source_path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        literals = ", ".join(json.dumps(pattern) for pattern in patterns)
+        resources = json.dumps(patterns[0]) if scalar else "{" + literals + "}"
+        source.write_text(
+            "package com.example;\n"
+            "import io.camunda.client.annotation.Deployment;\n"
+            f"@Deployment(resources = {resources})\n"
+            "public class Application {}\n",
+            encoding="utf-8",
+        )
+        self.write_scope()
+        if include_dmn:
+            model = "models/converted-c8-decision.dmn"
+            self.plan["models"].append({
+                "source_path": "models/decision.dmn",
+                "path": model,
+                "processes": [],
+            })
+            self.plan["deployment_sets"][0]["models"].append(model)
+            dmn = '<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="decision" />'
+            for path in ("models/decision.dmn", "models/converted-c8-decision.dmn"):
+                (self.root / path).write_text(dmn, encoding="utf-8")
+            inventory = json.loads((self.root / gate.INVENTORY).read_text(encoding="utf-8"))
+            inventory["models"].append("models/decision.dmn")
+            write_json(self.root / gate.INVENTORY, inventory)
+            write_json(self.root / gate.EVIDENCE, self.plan)
+            with redirect_stdout(StringIO()):
+                self.assertEqual(0, gate.initialize(self.root, reset_source_snapshot=True))
+        return ("module", "app", "deployment_resources", source_path)
+
+    def deployment_resource_observation(self, patterns, matches):
+        source_path = "app/src/main/java/com/example/Application.java"
+        return {
+            "source": source_path,
+            "resolver": "org.springframework.core.io.support.PathMatchingResourcePatternResolver",
+            "entries": [
+                {
+                    "pattern": pattern,
+                    "matches": [
+                        {"model": model, "sha256": gate.file_digest(self.root / model)}
+                        for model in entry_matches
+                    ],
+                }
+                for pattern, entry_matches in zip(patterns, matches)
+            ],
+        }
+
+    def submit_deployment_resources(self, key, observation):
+        command = [
+            sys.executable,
+            "-c",
+            f"import json; print('CAMUNDA_DEPLOYMENT_RESOURCES ' + json.dumps({observation!r}))",
+        ]
+        return self.submit(key, command=command)
+
+    def test_spring_deployment_requires_resolver_evidence_not_a_context_only_test(self):
+        pattern = "classpath*:/converted-c8-*.bpmn"
+        key = self.spring_deployment([pattern])
+
+        self.assertIn(key, gate.requirements(self.root, self.plan).required)
+        self.assertEqual(1, self.audit())
+        self.assertIn("Missing module deployment_resources: app", "\n".join(self.summary()["issues"]))
+
+        c7_source = self.root / "app/src/test/java/com/example/DeploymentOnlyTest.java"
+        c7_source.parent.mkdir(parents=True, exist_ok=True)
+        c7_source.write_text(
+            "import org.camunda.bpm.engine.test.Deployment;\n"
+            "@Deployment(resources = \"process.bpmn\")\n"
+            "class DeploymentOnlyTest {}\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(
+            {key},
+            {item for item in gate.requirements(self.root, self.plan).required
+             if item[2] == "deployment_resources"},
+        )
+
+    def test_joined_spring_resource_pattern_is_not_a_valid_entry(self):
+        pattern = "classpath*:/converted-c8-*.bpmn,classpath*:/converted-c8-*.dmn"
+        self.spring_deployment([pattern], include_dmn=True, scalar=True)
+
+        self.assertEqual(1, self.audit())
+        self.assertIn("comma", "\n".join(self.summary()["issues"]).lower())
+
+    def test_separate_spring_resolver_matches_cover_inventoried_bpmn_and_dmn(self):
+        patterns = ["classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"]
+        key = self.spring_deployment(patterns, include_dmn=True, include_second_bpmn=True)
+        observation = self.deployment_resource_observation(
+            patterns,
+            [
+                ["models/converted-c8-process.bpmn", "models/converted-c8-second.bpmn"],
+                ["models/converted-c8-decision.dmn"],
+            ],
+        )
+
+        self.assertEqual(0, self.submit_deployment_resources(key, observation))
+        self.assertEqual(1, self.audit())
+        self.assertNotIn("deployment_resources", "\n".join(self.summary()["issues"]))
+
+    def test_single_string_deployment_resource_can_resolve_one_type(self):
+        pattern = "classpath*:/converted-c8-*.bpmn"
+        key = self.spring_deployment([pattern], scalar=True)
+        observation = self.deployment_resource_observation(
+            [pattern],
+            [["models/converted-c8-process.bpmn"]],
+        )
+        self.assertEqual(0, self.submit_deployment_resources(key, observation))
+
+    def test_spring_resolver_rejects_empty_original_mixed_and_stale_matches(self):
+        patterns = ["classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"]
+        key = self.spring_deployment(patterns, include_dmn=True)
+        valid = self.deployment_resource_observation(
+            patterns,
+            [["models/converted-c8-process.bpmn"], ["models/converted-c8-decision.dmn"]],
+        )
+        for case, issue in (
+            ("empty", "nonempty"),
+            ("original", "original"),
+            ("mixed", "one resource type"),
+            ("stale", "sha256"),
+            ("invented_pattern", "annotation"),
+        ):
+            with self.subTest(case=case):
+                observation = json.loads(json.dumps(valid))
+                first = observation["entries"][0]
+                if case == "empty":
+                    first["matches"] = []
+                elif case == "original":
+                    first["matches"][0]["model"] = "models/process.bpmn"
+                    first["matches"][0]["sha256"] = gate.file_digest(
+                        self.root / "models/process.bpmn"
+                    )
+                elif case == "mixed":
+                    first["matches"].append(observation["entries"][1]["matches"][0])
+                elif case == "stale":
+                    first["matches"][0]["sha256"] = "0" * 64
+                else:
+                    first["pattern"] = "classpath*:/not-in-annotation.bpmn"
+                with self.assertRaisesRegex(gate.EvidenceError, issue):
+                    self.submit_deployment_resources(key, observation)
+
+    def test_spring_resolver_requires_every_model_once_across_entries(self):
+        patterns = [
+            "classpath*:/converted-c8-*.bpmn",
+            "classpath*:/converted-c8-process.bpmn",
+            "classpath*:/converted-c8-*.dmn",
+        ]
+        key = self.spring_deployment(patterns, include_dmn=True)
+        duplicate = self.deployment_resource_observation(
+            patterns,
+            [
+                ["models/converted-c8-process.bpmn"],
+                ["models/converted-c8-process.bpmn"],
+                ["models/converted-c8-decision.dmn"],
+            ],
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "exactly one"):
+            self.submit_deployment_resources(key, duplicate)
+
+    def test_spring_deployment_cannot_omit_an_inventoried_model(self):
+        patterns = ["classpath*:/converted-c8-*.bpmn"]
+        key = self.spring_deployment(patterns, include_dmn=True)
+        observation = self.deployment_resource_observation(
+            patterns,
+            [["models/converted-c8-process.bpmn"]],
+        )
+        with self.assertRaisesRegex(gate.EvidenceError, "every inventoried model"):
+            self.submit_deployment_resources(key, observation)
+
     def submit(self, key, action="run", command=None, **options):
         category, target, kind, scenario = key
         if category == "timer" and kind == "preflight" and action == "run" and command is None:

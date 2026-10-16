@@ -73,6 +73,12 @@ Apply the table from top to bottom. The first matching row assigns one test kind
 
 When a JGiven test does not execute a real C7 process or decision, the skill assigns the out-of-scope test kind.
 `@Deployment` is model-resolution evidence, not a test-kind signal by itself.
+A deployment-only method or a context-only test keeps its Test Inventory row.
+The skill links every resource it deploys to the Model Inventory.
+The skill never creates an empty CPT method for either test.
+When an out-of-scope test checks deployment, the skill adds an independent executable check.
+The check deploys the converted copy and starts its process or evaluates its decision.
+The skill does not count that check as C7 process-test parity.
 
 ## Decision-test migration
 
@@ -144,6 +150,7 @@ When the skill asks Question 8, the skill includes the DMN runtime notice from `
 | `@SpringBootTest` | The embedded engine starts a process, completes a task, correlates a message, or handles an endpoint that does one |
 | A Cucumber `Scenario` or `Scenario Outline` data row | Its step definitions or applicable hooks run a BPMN process or DMN decision on a Camunda 7 engine |
 | `@Deployment`, a Camunda 7 dependency, or a test class name | Not sufficient without an engine-backed process or decision |
+| A deployment-only or context-only test with no C7 engine execution | Keep its Test Inventory row and Model Inventory link. Do not add CPT parity. |
 
 ## Modifiers
 
@@ -478,6 +485,26 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
 7. If no listed mapping applies, then record a mapping gap in `MIGRATION_REPORT.md`. Do not invent
    an API or report the affected test as migrated.
 
+### Process-test user-task API compatibility
+
+This check applies to ordinary process tests, Spring process tests, and Scenario tests.
+Before selecting a CPT user-task action, namespace-parse the exact converted BPMN copy.
+Find the `bpmn:process` and `bpmn:userTask` by their IDs.
+Check for `bpmn:extensionElements/zeebe:userTask` inside that task.
+A marker on another task or in another XML namespace does not count.
+
+| Test action | Required converted task | Response when the marker is absent |
+|---|---|---|
+| Search for a process-backed user task or assert its fields | The exact `bpmn:userTask` contains `zeebe:userTask`. | Block the test/model pairing. Do not call the CPT User Task API. |
+| Assign or complete a process-backed user task | The exact `bpmn:userTask` contains `zeebe:userTask`. | Block the test/model pairing. Do not call `completeUserTask(...)` or client User Task API commands. |
+| Use the intended job-worker implementation | The exact `bpmn:userTask` lacks `zeebe:userTask`. | Require approval for the job-worker test path. Complete its job and verify the downstream behavior. Do not call the User Task API. |
+| The test cannot identify its converted task | The task or process ID is unknown. | Block the pairing until the skill identifies the exact task. |
+
+Where a marker is absent, record the blocked C7 test ID and converted task ID in `MIGRATION_REPORT.md`.
+Select an approved model follow-up or the intended job-worker test path.
+Never add `zeebe:userTask` to an M1 converted copy during code or test migration.
+Run the approved path before recording CPT parity.
+
 ### Harness and API mappings
 
 The code-conversion catalog owns exact API mappings for engine-backed tests without Spring.
@@ -589,10 +616,36 @@ Where practical, the skill keeps each test's class and method names. (SHOULD)
 
 The skill uses the converted copies in the application's `@Deployment` annotation. (SHOULD)
 This also exercises Step 4 check 13.
+Use `20-client-code/10-process-engine/handle-resources.md` for the selected starter's exact import.
+Compile the application and test sources before reporting the CPT harness as ready.
+Derive each `resources` entry from this run's converted files.
+Keep BPMN and DMN patterns in separate array entries.
+Never join two patterns with a comma inside one entry.
+
+For each application `@Deployment`, run a Java test with Spring's
+`PathMatchingResourcePatternResolver`.
+Read the actual annotation's `resources` array through reflection.
+Resolve each entry separately. Require nonempty matches of one resource type.
+Match every inventoried converted BPMN or DMN to exactly one entry.
+Reject original C7 models and matches whose bytes differ from the converted copy.
+The fixture at `fixtures/process-test-migration/spring-deployment` runs this check for Boot 3 and Boot 4.
+
+Record the executable resolver check with `validate_migration_evidence.py run --type module
+--target <module> --kind deployment_resources --scenario <application Java path> -- <command>`.
+The command prints one `CAMUNDA_DEPLOYMENT_RESOURCES` JSON line.
+Each match records its project-relative converted model path and SHA-256 of the resolved bytes.
+The validator compares those values with the Model Inventory and the actual Java annotation:
+
+```text
+CAMUNDA_DEPLOYMENT_RESOURCES {"source":"app/src/main/java/example/Application.java","resolver":"org.springframework.core.io.support.PathMatchingResourcePatternResolver","entries":[{"pattern":"classpath*:/converted-c8-*.bpmn","matches":[{"model":"app/src/main/resources/converted-c8-order.bpmn","sha256":"<64 lowercase hex characters>"}]}]}
+```
 
 When a test needs a resource set that differs from the application's deployment, the skill adds
 `@TestDeployment`. This rule applies to CPT 8.9 or later. The skill uses converted copies in every
 `@TestDeployment`. A method-level annotation takes precedence over a class-level annotation.
+Where test configuration disables application deployment, the skill verifies the effective test
+deployment through a process start or decision evaluation.
+A context-only assertion does not prove deployment.
 
 ## Workers and mocks
 

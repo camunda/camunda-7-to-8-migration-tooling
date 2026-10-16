@@ -114,6 +114,7 @@ class ValidationPlan:
     converted_elements: dict
     source_ids: dict
     source_job_types_by_model: dict
+    deployment_resources: dict
 
 
 class EvidenceError(ValueError):
@@ -620,6 +621,52 @@ def source_without_comments(text, suffix):
         else:
             index += 1
     return "".join(characters)
+
+
+def spring_deployment_entries(source, path):
+    source = source_without_comments(source, ".java")
+    imported = re.search(
+        r"(?m)^\s*import\s+io\.camunda\.client\.annotation\.Deployment\s*;",
+        source,
+    )
+    qualified = re.search(r"(?m)^\s*@io\.camunda\.client\.annotation\.Deployment\b", source)
+    if not imported and not qualified:
+        return None
+    annotations = re.findall(
+        r"(?ms)^\s*@(io\.camunda\.client\.annotation\.)?Deployment\b(?:\s*\((.*?)\))?",
+        source,
+    )
+    if not annotations:
+        return None
+    entries = []
+    for namespace, arguments in annotations:
+        if not namespace and not imported:
+            continue
+        resources = re.search(
+            r'\bresources\s*=\s*(\{[^{}]*\}|"(?:\\.|[^"\\])*")',
+            arguments,
+            flags=re.S,
+        )
+        if resources is None or arguments[resources.end():].lstrip().startswith("+"):
+            raise EvidenceError(f"{path}: specify literal @Deployment resources")
+        literal = resources.group(1)
+        if literal.startswith("{"):
+            literal = "[" + re.sub(r",\s*$", "", literal[1:-1]) + "]"
+        try:
+            values = json.loads(literal)
+        except json.JSONDecodeError as exc:
+            raise EvidenceError(f"{path}: invalid @Deployment resource literals") from exc
+        if isinstance(values, str):
+            values = [values]
+        if not isinstance(values, list) or not values or any(
+            not isinstance(value, str) or not value.strip() for value in values
+        ):
+            raise EvidenceError(f"{path}: @Deployment needs nonempty resource entries")
+        for value in values:
+            if "," in value:
+                raise EvidenceError(f"{path}: @Deployment has a comma-joined resource entry: {value}")
+        entries.extend(values)
+    return entries or None
 
 
 def nested_module_paths(root, module, path, module_paths):
@@ -3438,6 +3485,42 @@ def requirements(root, evidence):
         issues.append("Each converted model must belong to exactly one deployment set")
     if models and module_paths - {path for group in deployment_sets.values() for path in group["modules"]}:
         issues.append("Include each migrated module in its deployment set inventory")
+    deployment_resources = {}
+    for module in modules:
+        module_path = module["path"]
+        expected_models = {
+            model
+            for group in deployment_sets.values()
+            if module_path in group["modules"]
+            for model in group["models"]
+        }
+        module_root = project_path(root, module_path, "deployment module")
+        nested = nested_module_paths(root, module_path, module_root, module_paths)
+        for relative in hashes:
+            path = root / relative
+            if path.suffix != ".java" or not path.is_relative_to(module_root) or any(
+                path.is_relative_to(child) for child in nested
+            ):
+                continue
+            try:
+                entries = spring_deployment_entries(path.read_text(encoding="utf-8"), relative)
+            except (EvidenceError, OSError, UnicodeError) as exc:
+                issues.append(str(exc))
+                continue
+            if entries is None:
+                continue
+            if not expected_models:
+                issues.append(f"{relative}: @Deployment has no inventoried converted models")
+                continue
+            deployment_resources[(module_path, relative)] = {
+                "patterns": entries,
+                "models": expected_models,
+                "digests": {
+                    model: file_digest(project_path(root, model, "converted deployment model", must_exist=True))
+                    for model in expected_models
+                },
+            }
+            need("module", module_path, "deployment_resources", relative)
     for details in active_timer_decisions.values():
         for module in details["modules"]:
             if not any(
@@ -3470,7 +3553,7 @@ def requirements(root, evidence):
         required, allowed, timers, timer_starts, docker_suites, model_sets,
         duplicates, update_hits, source_update_locations, active_timer_locations,
         active_timer_decisions, source_digest, issues, tests, converted_elements,
-        source_ids, source_job_types_by_model,
+        source_ids, source_job_types_by_model, deployment_resources,
     )
 
 
@@ -3974,6 +4057,8 @@ def validate_risk_check(plan, key, check):
     if check["result"] != "passed":
         return
     category, target, kind, scenario = key
+    if category == "module" and kind == "deployment_resources":
+        validate_deployment_resources(plan, key, check)
     if category == "deployment_set" or (category == "timer" and kind == "disposition"):
         if not concrete_reference(check.get("reference")):
             raise EvidenceError(f"{key}: cite a concrete approval and review reference")
@@ -4099,6 +4184,55 @@ def validate_risk_check(plan, key, check):
             or not concrete_reference(cleanup.get("evidence_reference"))
         ):
             raise EvidenceError(f"{key}: timer observation needs completed cleanup evidence")
+
+
+def validate_deployment_resources(plan, key, check):
+    expected = plan.deployment_resources[(key[1], key[3])]
+    marker = "CAMUNDA_DEPLOYMENT_RESOURCES "
+    observations = [
+        line[len(marker):] for line in check["output"].splitlines()
+        if line.startswith(marker)
+    ]
+    if len(observations) != 1:
+        raise EvidenceError(f"{key}: emit one Spring resolver observation")
+    try:
+        observation = json.loads(observations[0])
+    except json.JSONDecodeError as exc:
+        raise EvidenceError(f"{key}: invalid Spring resolver observation") from exc
+    if not isinstance(observation, dict) or (
+        observation.get("source") != key[3]
+        or observation.get("resolver")
+        != "org.springframework.core.io.support.PathMatchingResourcePatternResolver"
+    ):
+        raise EvidenceError(f"{key}: observation must identify its annotation and Spring resolver")
+    entries = observation.get("entries")
+    if not isinstance(entries, list) or len(entries) != len(expected["patterns"]):
+        raise EvidenceError(f"{key}: resolver entries must match the @Deployment annotation")
+    seen = []
+    for pattern, entry in zip(expected["patterns"], entries):
+        if not isinstance(entry, dict) or entry.get("pattern") != pattern:
+            raise EvidenceError(f"{key}: resolver pattern differs from the @Deployment annotation")
+        matches = entry.get("matches")
+        if not isinstance(matches, list) or not matches:
+            raise EvidenceError(f"{key}: every Spring resource entry needs nonempty matches")
+        kinds = set()
+        for match in matches:
+            model = match.get("model") if isinstance(match, dict) else None
+            if not isinstance(model, str) or model not in expected["models"]:
+                raise EvidenceError(f"{key}: original or uninventoried model in Spring resource matches")
+            if match.get("sha256") != expected["digests"][model]:
+                raise EvidenceError(f"{key}: Spring resource sha256 differs from the converted copy: {model}")
+            kinds.add(model_type(model))
+            seen.append(model)
+        if len(kinds) != 1 or (
+            pattern.endswith((".bpmn", ".bpmn20.xml", ".dmn", ".dmn11.xml"))
+            and model_type(pattern) not in kinds
+        ):
+            raise EvidenceError(f"{key}: each Spring resource entry must match one resource type")
+    if set(seen) != expected["models"]:
+        raise EvidenceError(f"{key}: Spring resources must cover every inventoried model")
+    if len(seen) != len(set(seen)):
+        raise EvidenceError(f"{key}: each model must match exactly one @Deployment entry")
 
 
 def prerequisites(plan, key):
