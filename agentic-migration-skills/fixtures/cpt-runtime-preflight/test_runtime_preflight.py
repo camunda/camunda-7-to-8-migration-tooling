@@ -105,18 +105,18 @@ class RuntimePreflightTest(unittest.TestCase):
             "mock_changes": [],
         }
 
-    def write_failed_probe(self, root, mapping):
+    def write_failed_probe(self, root, mapping, scenario="unit"):
         evidence.write_json(
             root, evidence.INVENTORY, {"run_id": "test-run", "test_run_mode": "run"}
         )
         evidence.write_json(root, evidence.TEST_MAPPING, mapping)
-        key = ("module", MODULE, "cpt_runtime_preflight", "unit")
+        key = ("module", MODULE, "cpt_runtime_preflight", scenario)
         reference = evidence.write_check_log(root, key, {
             "run_id": "test-run",
             "type": "module",
             "target": MODULE,
             "kind": "cpt_runtime_preflight",
-            "scenario": "unit",
+            "scenario": scenario,
             "method": "command",
             "command": ["mvn", "-B", "test"],
             "exit_code": 0,
@@ -200,6 +200,39 @@ class RuntimePreflightTest(unittest.TestCase):
                 Path("."), self.plan, args, mapping
             )
         self.assertEqual("passed", probe["result"])
+
+    def test_added_only_suite_can_reload_evidence_after_switching_to_remote(self):
+        mapping = self.ledger([{
+            "status": "added", "suite": "extra", "c8_ids": [ADDED_ID]
+        }])
+        key = ("module", MODULE, "cpt_runtime_preflight", "extra")
+        repeat = ("module", MODULE, "test_repeat", "extra")
+        self.plan.test_contract["cpt_suites"][(MODULE, "extra")] = {
+            "name": "extra", "requires_docker": True
+        }
+        self.plan.required[key] = "command"
+        self.plan.allowed.add(key)
+        self.plan.docker_suites[key] = True
+        self.plan.docker_suites[repeat] = True
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            _, reference = self.write_failed_probe(root, mapping, scenario="extra")
+            issues = []
+            self.assertIn(key, evidence.load_checks(
+                root, {"checks": [reference]}, self.plan, issues
+            ))
+            self.assertEqual([], issues)
+
+            self.plan.test_contract["cpt_suites"][(MODULE, "extra")]["requires_docker"] = False
+            self.plan.required.pop(key)
+            self.plan.allowed.remove(key)
+            self.plan.docker_suites.pop(key)
+            self.plan.docker_suites[repeat] = False
+            issues = []
+            self.assertNotIn(key, evidence.load_checks(
+                root, {"checks": [reference]}, self.plan, issues
+            ))
+            self.assertEqual([], issues)
 
     def test_failed_command_keeps_its_exit_code_and_reason(self):
         result = self.run_with_results({}, exit_code=1)
