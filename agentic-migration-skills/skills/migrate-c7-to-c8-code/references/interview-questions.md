@@ -35,8 +35,8 @@ Confirm the detected project root. Provide two options:
 ## Question 2 - Target Camunda 8 Version
 
 Options (user cannot select anything else):
-- 8.10 (next version, not yet GA) - includes all features from 8.8 and 8.9
-- 8.9 (latest stable) - adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator
+- 8.10 (latest stable, default) - includes all features from 8.8 and 8.9
+- 8.9 (earlier stable) - adds Business ID (business key successor), BPMN conditional events, global user task listeners, batch delete, History/Identity Data Migrator
 - 8.8 - first version with unified Orchestration Cluster API, CamundaClient, and Camunda Process Test. No Business ID (use tags), no conditional events.
 
 Record the concrete major.minor and use it throughout. Also pass to Diagram Converter as `--platform-version`.

@@ -98,6 +98,9 @@ From your Camunda 7 project directory:
 
 The skill asks what to migrate — **code**, **models**, or **both** — then guides you through the approaches for each.
 
+Camunda 8.10 is the latest stable version and the default target. Camunda 8.9 and 8.8
+remain available as earlier target choices.
+
 ### Scope and modes
 
 The skill separates assessment, model analysis, model conversion, and complete migration.
