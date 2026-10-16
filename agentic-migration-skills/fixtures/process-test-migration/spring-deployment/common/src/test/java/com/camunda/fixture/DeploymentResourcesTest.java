@@ -10,6 +10,7 @@ package com.camunda.fixture;
 import io.camunda.client.annotation.Deployment;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,6 +33,8 @@ class DeploymentResourcesTest {
   private static final String DMN = "https://www.omg.org/spec/DMN/20191111/MODEL/";
   private static final String SPRING_RESOLVER =
       "org.springframework.core.io.support.PathMatchingResourcePatternResolver";
+  private static final String MODULE_PATH =
+      Path.of(System.getProperty("user.dir")).getFileName().toString();
   private final PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 
   @Test
@@ -42,7 +45,9 @@ class DeploymentResourcesTest {
     String entries = verifyResources(deployment.resources());
     System.out.println(
         "CAMUNDA_DEPLOYMENT_RESOURCES "
-            + "{\"source\":\"src/main/java/com/camunda/fixture/Application.java\","
+            + "{\"source\":"
+            + json(MODULE_PATH + "/src/main/java/com/camunda/fixture/Application.java")
+            + ","
             + "\"resolver\":\""
             + SPRING_RESOLVER
             + "\",\"entries\":"
@@ -104,7 +109,7 @@ class DeploymentResourcesTest {
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         matches.add(
             "{\"resource\":"
-                + json("src/test/resources/" + name)
+                + json(MODULE_PATH + "/src/test/resources/" + name)
                 + ",\"type\":"
                 + json(type)
                 + ",\"sha256\":"
