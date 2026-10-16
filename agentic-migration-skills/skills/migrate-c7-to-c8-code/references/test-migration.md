@@ -506,6 +506,7 @@ Record any disagreement with the catalog in `MIGRATION_REPORT.md`.
 ### Failure-path database effects
 
 When a C7 test asserts rollback of application database writes, preserve its zero-write expectation as a parity requirement.
+Verify that the intended final delegate failed, not an earlier setup or execution step.
 Compare the database effects after the same failure in C7 and CPT.
 An incident assertion does not replace the inventory, payment, or other application database assertions.
 

@@ -7,8 +7,8 @@
  */
 package org.camunda.bpm.example.springprocess;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 
 import org.camunda.bpm.engine.RuntimeService;
 import org.camunda.bpm.example.springprocess.service.OrderEffects;
@@ -33,8 +33,9 @@ public class RollbackProcessTest {
 
   @Test
   public void rollsBackDatabaseWritesOnDelegateFailure() {
-    assertThrows(
-        RuntimeException.class, () -> runtimeService.startProcessInstanceByKey("rollback-order"));
+    assertThatThrownBy(() -> runtimeService.startProcessInstanceByKey("rollback-order"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("payment rejected after inventory reservation");
 
     assertEquals(0, orderEffects.count("inventory"));
     assertEquals(0, orderEffects.count("payment"));

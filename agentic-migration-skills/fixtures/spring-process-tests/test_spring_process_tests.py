@@ -238,6 +238,10 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
     def test_inverted_database_effects_block_rollback_parity(self):
         source_test = SOURCE_ROLLBACK_TEST.read_text()
         migrated_test = EXPECTED_ROLLBACK_TEST.read_text()
+        source_delegates = (
+            FIXTURE
+            / "c7-source/src/main/java/org/camunda/bpm/example/springprocess/delegate/RollbackDelegates.java"
+        ).read_text()
         source_model = (
             FIXTURE / "c7-source/src/main/resources/processes/rollback-order.bpmn"
         ).read_text()
@@ -245,6 +249,11 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
 
         for delegate in ("reserveInventory", "chargePayment", "failAfterPayment"):
             self.assertIn("${" + delegate + "}", source_model)
+        failure_message = re.search(
+            r'throw new IllegalStateException\("([^"]+)"\)', source_delegates
+        ).group(1)
+        self.assertIn(".isInstanceOf(IllegalStateException.class)", source_test)
+        self.assertIn(f'.hasMessage("{failure_message}")', source_test)
         source_effects = {
             stage: int(count)
             for count, stage in re.findall(
