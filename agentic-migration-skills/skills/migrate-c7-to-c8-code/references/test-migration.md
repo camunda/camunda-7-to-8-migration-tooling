@@ -499,9 +499,26 @@ Record any disagreement with the catalog in `MIGRATION_REPORT.md`.
 |---|---|---|
 | The in-memory engine runs synchronously in the test thread up to the next wait state. | The runtime runs asynchronously. | Use waiting CPT assertions. Put non-CPT checks, such as Mockito `verify`, behind a timeout or Awaitility. |
 | The job executor is off, and tests step through jobs with `execute(job())`. | Camunda 8 advances asynchronously. Workers or test job handlers complete service-task jobs. | Remove manual async-continuation steps. Record which job types run real workers and which use test handlers. |
-| A failing synchronous delegate throws into the test. | A failing worker creates an incident after its retries. | Assert the incident instead of the exception. Record this semantic change. |
+| A failing synchronous delegate throws into the test. | A failing worker creates an incident after its retries. | Assert the incident instead of the exception. Preserve separate application database assertions as described below. |
 | A process-instance ID is a string. | A process-instance key is a `long`. | Update helpers and variables that store process-instance IDs. |
 | `@Deployment` teardown deletes its deployment after each test. | CPT deletes runtime data and resets the clock after each test. | Keep test isolation. Fix tests that depend on state from another test. |
+
+### Failure-path database effects
+
+When a C7 test asserts rollback of application database writes, preserve its zero-write expectation as a parity requirement.
+Compare the database effects after the same failure in C7 and CPT.
+An incident assertion does not replace the inventory, payment, or other application database assertions.
+
+| C7 database effect | CPT database effect | `assertion_strength` disposition |
+|---|---|---|
+| Earlier writes roll back. | Earlier writes also roll back under an approved design. | Compare each original assertion with the CPT assertion. |
+| Earlier writes roll back. | Earlier workers commit writes before a later incident. | Block the review. Record a semantic delta and seek the user's explicit approval or an atomic/compensation design. |
+
+Record both sets of effects and the blocked verdict in `MIGRATION_REPORT.md`.
+Block the affected class's `assertion_strength` check with its C7/C8 database effects and pending approval.
+Never claim C7 parity from a green CPT suite, a matching test name, or an incident alone.
+When the user approves a changed contract, record the approver, reason, and tested design.
+Identify that result as an approved semantic delta, not unchanged C7 rollback behavior.
 
 ### Dependency changes
 
@@ -619,6 +636,15 @@ When the endpoint starts or advances a process, C8 workers can run asynchronousl
 returns. The skill uses waiting CPT assertions for process state or worker effects that the test
 observes. The skill wraps asynchronous Mockito `verify` calls with a timeout.
 
+| C7 endpoint assertion | CPT assertion at the same endpoint call | Unpreserved contract action |
+|---|---|---|
+| HTTP status and a nonempty response body computed by the process | Keep the `MockMvc`, `TestRestTemplate`, or `WebTestClient` call. Assert the original status and computed body. | Mark API-contract parity unverified. Record the open decision in `MIGRATION_REPORT.md`. |
+| Active instance immediately after the call | Assert its active state at the original observation point, before it completes. | Record an approved parity decision before changing or removing the assertion. |
+
+When the application must return the completed process result, consider `CamundaClient` creation with `.withResult()`.
+When the endpoint changes its result mechanism, keep the original response status and body.
+Never substitute an instance-created, end-date, or process-completion assertion for the HTTP response assertion.
+
 ## Startup hooks and transaction state
 
 CPT runs `@PostConstruct` methods and `CommandLineRunner` callbacks once per Spring context. CPT
@@ -637,9 +663,27 @@ The skill replays each startup-hook action after CPT starts the test runtime.
 | Deploys resources | The test app adds the converted copies to `@Deployment`. |
 | Starts a process | The test calls the startup method in `@BeforeEach` with `CamundaClient`. |
 | Sends a message | The test sends the equivalent message in `@BeforeEach`. |
+| A C7 `PostDeployEvent` listener starts a process | The test invokes the migrated `CamundaPostDeploymentEvent` listener in `@BeforeEach` after CPT deploys resources. |
+
+When the C7 test checks the listener's process, capture the instance ID that the C7 listener records.
+Replay the migrated listener itself. Capture the instance key that the migrated listener records.
+Assert completion and effects for that key with `ProcessInstanceSelectors.byKey(key)`.
+Never replace the listener call with an unrelated direct process start.
+Keep the listener's required collaborators and the C7 mock boundary.
 
 The skill keeps `@Transactional` for the application's database only. The skill does not expect it
 to restore C8 process state.
+
+## Secondary-storage polling
+
+Prefer a waiting CPT assertion for the created instance key and expected active or terminal state.
+When a test must poll secondary-storage process search, filter by the created instance key.
+Only a visible matching instance with the expected state satisfies the wait.
+An empty result, an unrelated instance, or an active instance cannot prove completion.
+The search wait requires a visible, matching completed instance and fails on timeout.
+Establish this positive observation before absence assertions on processes, incidents, or application effects.
+When a test expects an incident, poll for a positive incident scoped to the same process instance key.
+Never treat an empty process or incident search as evidence that the work completed.
 
 ## Test Parity record
 
