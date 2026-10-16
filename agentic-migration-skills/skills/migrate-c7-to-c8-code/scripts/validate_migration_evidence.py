@@ -4567,6 +4567,16 @@ def obsolete_test_check_key(key, plan, mapping):
         return not expected_cpt_test_ids(mapping)
     if (
         key[0] == "module"
+        and key[2] == "cpt_runtime_preflight"
+        and key[3] is not None
+        and (key[1], key[3]) in plan.test_contract.get("cpt_suites", {})
+        and not plan.docker_suites.get(
+            ("module", key[1], "test_repeat", key[3]), False
+        )
+    ):
+        return True
+    if (
+        key[0] == "module"
         and key[2] in ("test_repeat", "cpt_runtime_preflight")
         and key[3] is not None
         and (key[1], key[3]) in plan.test_contract["suites"]
