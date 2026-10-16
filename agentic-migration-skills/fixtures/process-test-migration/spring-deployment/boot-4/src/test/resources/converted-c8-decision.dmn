@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="Definitions_Decision" name="Fixture decision"
+             namespace="http://camunda.io/dmn">
+  <decision id="fixture-decision" name="Fixture decision">
+    <literalExpression id="Expression_Fixture">
+      <text>true</text>
+    </literalExpression>
+  </decision>
+</definitions>

@@ -23,8 +23,10 @@ public class Application {
 ### CamundaClient (Camunda 8)
 
 ```java
+import io.camunda.client.annotation.Deployment;
+
 @SpringBootApplication
-@Deployment(resources = "classpath*:/bpmn/**/*.bpmn")
+@Deployment(resources = "classpath*:/bpmn/**/converted-c8-*.bpmn")
 public class ProcessPaymentsApplication {
 
 	public static void main(String[] args) {
@@ -33,7 +35,23 @@ public class ProcessPaymentsApplication {
 }
 ```
 
+Select the annotation import from the chosen starter:
+
+| Camunda target | Spring Boot generation | Selected starter | `@Deployment` Java import |
+| --- | --- | --- | --- |
+| 8.9.21 | 3.5.x | `io.camunda:camunda-spring-boot-3-starter` | `io.camunda.client.annotation.Deployment` |
+| 8.9.21 | 4.0.x or 4.1.x | `io.camunda:camunda-spring-boot-starter` | `io.camunda.client.annotation.Deployment` |
+
+For another target version, inspect its selected starter's classes before choosing the import.
+Compile application and test sources before calling the CPT harness ready.
 -   the annotation `@Deployment` can be used to specify specific files or multiple resources via a wildcard pattern to be deployed to the engine
+-   Derive each pattern from the actual converted copies and accepted forms.
+-   Use a separate `resources` array entry for each required resource type.
+-   Never join two patterns with a comma inside one entry.
+-   Resolve each entry with Spring's `PathMatchingResourcePatternResolver`.
+-   Require nonempty inventoried resources of one type for each entry.
+-   Check that every application resource matches exactly one entry.
+-   Reject original Camunda 7 models and draft or declined forms.
 -   Camunda 8 has no implicit classpath auto-deployment equivalent to the Camunda 7 Spring Boot starter defaults. Even if your Camunda 7 app had no `@EnableProcessApplication`, you must still add explicit deployment wiring (`@Deployment` or deploy commands) for BPMN/DMN resources.
 -   for more information, see [the docs](https://docs.camunda.io/docs/apis-tools/camunda-spring-boot-starter/getting-started/#deploy-process-models)
 

@@ -8,6 +8,17 @@ The process-test classes keep their names and method names. The expected tests d
 `converted-c8-*` resources. The fixture also keeps a non-process JUnit 4 test in both projects.
 `junit-vintage-engine` must run that test in the expected project.
 
+`DeploymentOnlyTest` has `@Deployment` but never runs a process or decision. `ContextOnlyTest`
+initializes the C7 engine but does not run a process or decision. The Test Inventory keeps both
+rows and links the deployed model. The expected project has no empty CPT replacement.
+`ConvertedDeploymentResourcesIT` separately starts a process from that converted resource. It is
+an executable deployment check, not parity evidence for the deployment-only C7 method.
+
+`JobWorkerUserTaskTest` searches, assigns, and completes a process-backed C7 user task.
+Its synthetic converted copy has `bpmn:userTask` without `zeebe:userTask`.
+The expected report blocks all three CPT pairings. It does not add a marker to the M1 converted
+copy or issue a CPT User Task API call for that task.
+
 The Camunda 7 `camunda.cfg.xml` enables full history and disables its job executor. The tests do
 not query history. The expected project removes that engine-only configuration and records the
 setting in `expected-c8/MIGRATION_REPORT.md`.
@@ -26,6 +37,18 @@ python3 -m unittest agentic-migration-skills/fixtures/process-test-migration/tes
 The Maven command runs the Camunda 7 tests and the expected CPT tests. CPT starts a
 Testcontainers runtime, so Docker must be available. The Python tests check test-method parity,
 converted deployment paths, the dependency changes, and the required behavior examples.
+Run the independent deployment check explicitly with Docker:
+
+```bash
+mvn test -f agentic-migration-skills/fixtures/process-test-migration/expected-c8/pom.xml \
+  -Dtest=ConvertedDeploymentResourcesIT
+```
+
+The Spring Boot 3 and 4 `@Deployment` import and Spring resolver checks run without Docker:
+
+```bash
+mvn test -f agentic-migration-skills/fixtures/process-test-migration/spring-deployment/pom.xml
+```
 
 Run the BPMN linter from `expected-c8`:
 
@@ -47,12 +70,17 @@ c8ctl bpmn lint src/test/resources/com/camunda/fixture/tests/converted-c8-proces
    BPMN file.
 5. Map the JUnit 3 `setUp()` and `tearDown()` overrides to `@BeforeEach` and `@AfterEach`.
 6. Compare every migrated method with the same method in `expected-c8`.
-7. Run both commands above. Confirm that the JUnit 4 `LegacyFormatterTest` still runs in
-   `expected-c8`.
+7. Run the fixture Maven and Python commands above. Confirm that the JUnit 4
+   `LegacyFormatterTest` still runs in `expected-c8`.
+8. Keep the deployment-only test out of CPT parity. Check the converted resource with
+   `ConvertedDeploymentResourcesIT` instead.
+9. Leave `JobWorkerUserTaskTest` blocked unless the user approves a model follow-up or a job-worker
+   test path. Parse the converted task by XML namespace before selecting the CPT task API.
 
 The async-continuation and failure tests use CPT job handlers for the converter-derived job types
 `noopDelegate` and `failingDelegate`. One completes the no-op service task. The other creates an
 incident. These test handlers do not define the general Camunda 7 mock migration.
 
-The Diagram Converter created both converted copies. `expected-c8/MIGRATION_REPORT.md` records the
-one manual change.
+The Diagram Converter created the two original converted copies.
+`converted-c8-job-worker-user-task.bpmn` is a separate synthetic marker-free converted copy.
+`expected-c8/MIGRATION_REPORT.md` records the original manual change and the blocked pairing.

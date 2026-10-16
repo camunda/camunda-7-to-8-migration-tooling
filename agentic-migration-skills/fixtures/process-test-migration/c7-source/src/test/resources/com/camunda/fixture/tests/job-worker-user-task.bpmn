@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  id="Definitions_JobWorker" targetNamespace="http://camunda.io/schema/1.0/bpmn">
+  <bpmn:process id="job-worker-process" isExecutable="true">
+    <bpmn:startEvent id="Start"/>
+    <bpmn:userTask id="Task_Review" name="Review"/>
+    <bpmn:endEvent id="End"/>
+    <bpmn:sequenceFlow id="Flow_Review" sourceRef="Start" targetRef="Task_Review"/>
+    <bpmn:sequenceFlow id="Flow_End" sourceRef="Task_Review" targetRef="End"/>
+  </bpmn:process>
+</bpmn:definitions>
