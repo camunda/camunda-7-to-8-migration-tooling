@@ -12,5 +12,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
 @Deployment(
-    resources = {"classpath*:/converted-c8-*.bpmn", "classpath*:/converted-c8-*.dmn"})
+    resources = {
+      "classpath*:/converted-c8-*.bpmn",
+      "classpath*:/converted-c8-*.dmn",
+      "classpath*:/converted-c8-*.form"
+    })
 public class Application {}

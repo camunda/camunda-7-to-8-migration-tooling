@@ -9,6 +9,7 @@ package com.camunda.fixture;
 
 import io.camunda.client.annotation.Deployment;
 import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -55,6 +56,7 @@ class DeploymentResourcesTest {
     assertThat(resolver.getResources(joined)).isEmpty();
     assertThat(resolver.getResources("classpath*:/converted-c8-*.bpmn")).hasSize(2);
     assertThat(resolver.getResources("classpath*:/converted-c8-*.dmn")).hasSize(1);
+    assertThat(resolver.getResources("classpath*:/converted-c8-*.form")).hasSize(1);
     assertThatThrownBy(() -> verifyResources(joined))
         .isInstanceOf(AssertionError.class)
         .hasMessageContaining("comma");
@@ -89,18 +91,22 @@ class DeploymentResourcesTest {
             .isIn(
                 "converted-c8-process.bpmn",
                 "converted-c8-second-process.bpmn",
-                "converted-c8-decision.dmn");
+                "converted-c8-decision.dmn",
+                "converted-c8-request.form");
         byte[] bytes;
         try (var input = resource.getInputStream()) {
           bytes = input.readAllBytes();
         }
         checkModelDocument(name, bytes);
         models.add(name);
-        types.add(name.substring(name.lastIndexOf('.') + 1));
+        String type = name.substring(name.lastIndexOf('.') + 1);
+        types.add(type);
         String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         matches.add(
-            "{\"model\":"
+            "{\"resource\":"
                 + json("src/test/resources/" + name)
+                + ",\"type\":"
+                + json(type)
                 + ",\"sha256\":"
                 + json(hash)
                 + "}");
@@ -112,11 +118,17 @@ class DeploymentResourcesTest {
         .containsExactlyInAnyOrder(
             "converted-c8-process.bpmn",
             "converted-c8-second-process.bpmn",
-            "converted-c8-decision.dmn");
+            "converted-c8-decision.dmn",
+            "converted-c8-request.form");
     return entries.toString();
   }
 
   private void checkModelDocument(String name, byte[] bytes) throws Exception {
+    if (name.endsWith(".form")) {
+      assertThat(new String(bytes, StandardCharsets.UTF_8))
+          .contains("\"id\": \"fixture-request\"", "\"schemaVersion\": 18");
+      return;
+    }
     DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
     factory.setNamespaceAware(true);
     factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);

@@ -566,7 +566,7 @@ def read_model(root, source, converted):
     return source_document, document
 
 
-def source_without_comments(text, suffix):
+def source_without_comments(text, suffix, *, mask_literals=False):
     characters = list(text)
     index = 0
     block_comment_depth = 0
@@ -587,12 +587,17 @@ def source_without_comments(text, suffix):
                 index += 1
         elif string_delimiter:
             if text[index] == "\\":
-                index += 2
+                width = 2
             elif text.startswith(string_delimiter, index):
-                index += len(string_delimiter)
+                width = len(string_delimiter)
                 string_delimiter = None
             else:
-                index += 1
+                width = 1
+            if mask_literals:
+                for offset in range(index, min(index + width, len(text))):
+                    if text[offset] not in "\r\n":
+                        characters[offset] = " "
+            index += width
         elif text.startswith("//", index) and (
             (suffix != ".http" and (index == 0 or text[index - 1] != ":"))
             or (suffix == ".http" and not text[text.rfind("\n", 0, index) + 1:index].strip())
@@ -614,9 +619,13 @@ def source_without_comments(text, suffix):
                 index += 1
         elif text.startswith('"""', index) or text.startswith("'''", index):
             string_delimiter = text[index : index + 3]
+            if mask_literals:
+                characters[index : index + 3] = "   "
             index += 3
         elif text[index] in "\"'`":
             string_delimiter = text[index]
+            if mask_literals:
+                characters[index] = " "
             index += 1
         else:
             index += 1
@@ -625,23 +634,51 @@ def source_without_comments(text, suffix):
 
 def spring_deployment_entries(source, path):
     source = source_without_comments(source, ".java")
+    searchable = source_without_comments(source, ".java", mask_literals=True)
     imported = re.search(
-        r"(?m)^\s*import\s+io\.camunda\.client\.annotation\.Deployment\s*;",
-        source,
+        r"(?m)^\s*import\s+io\.camunda\.client\.annotation\.(?:Deployment|\*)\s*;",
+        searchable,
     )
-    qualified = re.search(r"(?m)^\s*@io\.camunda\.client\.annotation\.Deployment\b", source)
-    if not imported and not qualified:
-        return None
-    annotations = re.findall(
-        r"(?ms)^\s*@(io\.camunda\.client\.annotation\.)?Deployment\b(?:\s*\((.*?)\))?",
-        source,
+    c7_imported = re.search(
+        r"(?m)^\s*import\s+org\.camunda\.bpm\.engine\.test\.Deployment\s*;",
+        searchable,
     )
-    if not annotations:
-        return None
+    annotations = re.finditer(
+        r"@(?P<namespace>io\.camunda\.client\.annotation\.)?Deployment\b",
+        searchable,
+    )
     entries = []
-    for namespace, arguments in annotations:
-        if not namespace and not imported:
+    for annotation in annotations:
+        if not annotation.group("namespace") and (not imported or c7_imported):
             continue
+        position = annotation.end()
+        while position < len(source) and source[position].isspace():
+            position += 1
+        if position == len(source) or source[position] != "(":
+            raise EvidenceError(f"{path}: specify literal @Deployment resources")
+        start = position
+        depth = 0
+        quote = None
+        while position < len(source):
+            character = source[position]
+            if quote:
+                if character == "\\":
+                    position += 2
+                    continue
+                if character == quote:
+                    quote = None
+            elif character in ('"', "'"):
+                quote = character
+            elif character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            position += 1
+        if depth != 0:
+            raise EvidenceError(f"{path}: incomplete @Deployment annotation")
+        arguments = source[start + 1:position]
         resources = re.search(
             r'\bresources\s*=\s*(\{[^{}]*\}|"(?:\\.|[^"\\])*")',
             arguments,
@@ -667,6 +704,12 @@ def spring_deployment_entries(source, path):
                 raise EvidenceError(f"{path}: @Deployment has a comma-joined resource entry: {value}")
         entries.extend(values)
     return entries or None
+
+
+def deployment_resource_type(path):
+    if path.endswith(".form"):
+        return "form"
+    return model_type(path)
 
 
 def nested_module_paths(root, module, path, module_paths):
@@ -3485,10 +3528,25 @@ def requirements(root, evidence):
         issues.append("Each converted model must belong to exactly one deployment set")
     if models and module_paths - {path for group in deployment_sets.values() for path in group["modules"]}:
         issues.append("Include each migrated module in its deployment set inventory")
+    declared_applications = evidence.get("application_deployments", [])
+    if not isinstance(declared_applications, list):
+        issues.append("application_deployments must be a list")
+        declared_applications = []
+    application_inventory = {}
+    for application in declared_applications:
+        if not isinstance(application, dict) or not isinstance(
+            application.get("module"), str
+        ) or not isinstance(application.get("source"), str):
+            issues.append("Each application deployment needs a module and Java source")
+            continue
+        key = (application["module"], application["source"])
+        if key in application_inventory:
+            issues.append(f"Duplicate application deployment: {key}")
+        application_inventory[key] = application
     deployment_resources = {}
     for module in modules:
         module_path = module["path"]
-        expected_models = {
+        target_models = {
             model
             for group in deployment_sets.values()
             if module_path in group["modules"]
@@ -3509,18 +3567,64 @@ def requirements(root, evidence):
                 continue
             if entries is None:
                 continue
-            if not expected_models:
-                issues.append(f"{relative}: @Deployment has no inventoried converted models")
+            application = application_inventory.pop((module_path, relative), None)
+            if application is None:
+                issues.append(f"{relative}: declare its application_deployments inventory")
                 continue
-            deployment_resources[(module_path, relative)] = {
-                "patterns": entries,
-                "models": expected_models,
-                "digests": {
-                    model: file_digest(project_path(root, model, "converted deployment model", must_exist=True))
-                    for model in expected_models
-                },
-            }
-            need("module", module_path, "deployment_resources", relative)
+            try:
+                app_models = set(strings(application.get("models"), f"{relative} models"))
+                if app_models - target_models:
+                    raise EvidenceError(f"{relative}: application models are outside its deployment sets")
+                forms = application.get("forms", [])
+                if not isinstance(forms, list):
+                    raise EvidenceError(f"{relative}: application forms must be a list")
+                accepted_forms = []
+                for form in forms:
+                    form_path = form.get("path") if isinstance(form, dict) else None
+                    if not isinstance(form_path, str) or not form_path.endswith(".form"):
+                        raise EvidenceError(f"{relative}: application form needs a .form path")
+                    if form.get("status") != "accepted":
+                        raise EvidenceError(f"{form_path}: only accepted forms may be deployed")
+                    if "generated-form-drafts" in Path(form_path).parts:
+                        raise EvidenceError(f"{form_path}: draft forms cannot be deployed")
+                    reference = form.get("approval_reference")
+                    if not isinstance(reference, str) or not reference.startswith(
+                        "MIGRATION_REPORT.md#"
+                    ) or not concrete_reference(reference.partition("#")[2]):
+                        raise EvidenceError(f"{form_path}: cite accepted form approval in MIGRATION_REPORT.md")
+                    owner = form.get("model_path")
+                    if owner not in app_models or model_type(owner) != "bpmn":
+                        raise EvidenceError(
+                            f"{form_path}: deploy the accepted form with its converted BPMN"
+                        )
+                    form_file = project_path(root, form_path, "accepted form", must_exist=True)
+                    reject_symlink_components(root, root / form_path, "accepted form")
+                    if not form_file.is_file() or not isinstance(
+                        read_json(form_file).get("id"), str
+                    ):
+                        raise EvidenceError(f"{form_path}: accepted form is not a valid JSON form")
+                    hashes[form_path] = file_digest(form_file)
+                    accepted_forms.append(form_path)
+                if len(set(accepted_forms)) != len(accepted_forms):
+                    raise EvidenceError(f"{relative}: duplicate accepted form")
+                resources = app_models | set(accepted_forms)
+                if not resources:
+                    raise EvidenceError(f"{relative}: @Deployment has no inventoried resources")
+                deployment_resources[(module_path, relative)] = {
+                    "patterns": entries,
+                    "resources": resources,
+                    "digests": {
+                        resource: file_digest(
+                            project_path(root, resource, "application resource", must_exist=True)
+                        )
+                        for resource in resources
+                    },
+                }
+                need("module", module_path, "deployment_resources", relative)
+            except (EvidenceError, OSError, UnicodeError) as exc:
+                issues.append(str(exc))
+    for key in application_inventory:
+        issues.append(f"application_deployments includes an unknown @Deployment source: {key}")
     for details in active_timer_decisions.values():
         for module in details["modules"]:
             if not any(
@@ -3541,6 +3645,7 @@ def requirements(root, evidence):
         "modules": modules,
         "models": models,
         "deployment_sets": declared_sets,
+        "application_deployments": declared_applications,
         "source_update_locations": source_update_locations,
         "active_timer_update_decision": decision,
         "test_contract": test_contract_snapshot(tests, include_modules=False),
@@ -4217,20 +4322,25 @@ def validate_deployment_resources(plan, key, check):
             raise EvidenceError(f"{key}: every Spring resource entry needs nonempty matches")
         kinds = set()
         for match in matches:
-            model = match.get("model") if isinstance(match, dict) else None
-            if not isinstance(model, str) or model not in expected["models"]:
-                raise EvidenceError(f"{key}: original or uninventoried model in Spring resource matches")
-            if match.get("sha256") != expected["digests"][model]:
-                raise EvidenceError(f"{key}: Spring resource sha256 differs from the converted copy: {model}")
-            kinds.add(model_type(model))
-            seen.append(model)
+            resource = match.get("resource") if isinstance(match, dict) else None
+            if not isinstance(resource, str) or resource not in expected["resources"]:
+                raise EvidenceError(
+                    f"{key}: original, unaccepted, or uninventoried resource in Spring matches"
+                )
+            kind = deployment_resource_type(resource)
+            if match.get("type") != kind:
+                raise EvidenceError(f"{key}: Spring resource type differs from inventory: {resource}")
+            if match.get("sha256") != expected["digests"][resource]:
+                raise EvidenceError(f"{key}: Spring resource sha256 differs from inventory: {resource}")
+            kinds.add(kind)
+            seen.append(resource)
         if len(kinds) != 1 or (
-            pattern.endswith((".bpmn", ".bpmn20.xml", ".dmn", ".dmn11.xml"))
-            and model_type(pattern) not in kinds
+            pattern.endswith((".bpmn", ".bpmn20.xml", ".dmn", ".dmn11.xml", ".form"))
+            and deployment_resource_type(pattern) not in kinds
         ):
             raise EvidenceError(f"{key}: each Spring resource entry must match one resource type")
-    if set(seen) != expected["models"]:
-        raise EvidenceError(f"{key}: Spring resources must cover every inventoried model")
+    if set(seen) != expected["resources"]:
+        raise EvidenceError(f"{key}: Spring resources must cover every inventoried model and accepted form")
     if len(seen) != len(set(seen)):
         raise EvidenceError(f"{key}: each model must match exactly one @Deployment entry")
 

@@ -22,7 +22,12 @@ import org.springframework.boot.test.context.SpringBootTest;
     classes = Application.class,
     properties = "camunda.client.deployment.enabled=false")
 @CamundaSpringProcessTest
-@TestDeployment(resources = {"converted-c8-process.bpmn", "converted-c8-decision.dmn"})
+@TestDeployment(
+    resources = {
+      "converted-c8-process.bpmn",
+      "converted-c8-decision.dmn",
+      "converted-c8-request.form"
+    })
 class ExplicitTestDeploymentIT {
 
   @Autowired private CamundaClient client;

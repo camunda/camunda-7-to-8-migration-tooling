@@ -8,8 +8,9 @@ construct the Camunda client.
 
 `DeploymentResourcesTest` reads the application annotation and resolves each entry through
 Spring's `PathMatchingResourcePatternResolver`. It parses the actual BPMN and DMN bytes by XML
-namespace. It emits `CAMUNDA_DEPLOYMENT_RESOURCES` with one SHA-256 value per matched model.
+namespace. It emits `CAMUNDA_DEPLOYMENT_RESOURCES` with one SHA-256 value per matched resource.
 The BPMN entry matches two converted processes. The DMN entry matches one decision.
+The `.form` entry matches one accepted form and records its type and SHA-256.
 The test also checks that a comma-joined entry resolves to zero files. The missing-file,
 original-model, and mixed-resource controls must fail the check.
 
@@ -20,8 +21,9 @@ mvn test -f agentic-migration-skills/fixtures/process-test-migration/spring-depl
 ```
 
 The independent `ExplicitTestDeploymentIT` disables application annotation deployment.
-Its `@TestDeployment` deploys the converted BPMN and DMN instead. It starts the actual process,
-evaluates the actual decision, and asserts both results. Run it with Docker:
+Its `@TestDeployment` deploys the converted BPMN, DMN, and accepted form instead.
+It starts the actual process, evaluates the actual decision, and asserts both results.
+Run it with Docker:
 
 ```bash
 mvn test -f agentic-migration-skills/fixtures/process-test-migration/spring-deployment/pom.xml \

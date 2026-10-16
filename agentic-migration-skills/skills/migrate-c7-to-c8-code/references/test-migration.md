@@ -488,17 +488,17 @@ The default Java runtime uses Testcontainers and needs a Docker-compatible runti
 ### Process-test user-task API compatibility
 
 This check applies to ordinary process tests, Spring process tests, and Scenario tests.
-Before selecting a CPT user-task action, namespace-parse the exact converted BPMN copy.
+When the skill selects a CPT user-task action, it namespace-parses the exact converted BPMN copy.
 Find the `bpmn:process` and `bpmn:userTask` by their IDs.
 Check for `bpmn:extensionElements/zeebe:userTask` inside that task.
 A marker on another task or in another XML namespace does not count.
 
-| Test action | Required converted task | Response when the marker is absent |
+| Test action | Required converted task | Missing marker response |
 |---|---|---|
 | Search for a process-backed user task or assert its fields | The exact `bpmn:userTask` contains `zeebe:userTask`. | Block the test/model pairing. Do not call the CPT User Task API. |
 | Assign or complete a process-backed user task | The exact `bpmn:userTask` contains `zeebe:userTask`. | Block the test/model pairing. Do not call `completeUserTask(...)` or client User Task API commands. |
 | Use the intended job-worker implementation | The exact `bpmn:userTask` lacks `zeebe:userTask`. | Require approval for the job-worker test path. Complete its job and verify the downstream behavior. Do not call the User Task API. |
-| The test cannot identify its converted task | The task or process ID is unknown. | Block the pairing until the skill identifies the exact task. |
+| The test cannot identify its converted task | The task or process ID is unknown. | Block the pairing. Identify the exact task before selecting a CPT API. |
 
 Where a marker is absent, record the blocked C7 test ID and converted task ID in `MIGRATION_REPORT.md`.
 Select an approved model follow-up or the intended job-worker test path.
@@ -619,25 +619,59 @@ This also exercises Step 4 check 13.
 Use `20-client-code/10-process-engine/handle-resources.md` for the selected starter's exact import.
 Compile the application and test sources before reporting the CPT harness as ready.
 Derive each `resources` entry from this run's converted files.
-Keep BPMN and DMN patterns in separate array entries.
+Keep BPMN, DMN, and accepted `.form` patterns in separate array entries.
 Never join two patterns with a comma inside one entry.
+Never include draft or declined forms.
 
 For each application `@Deployment`, run a Java test with Spring's
 `PathMatchingResourcePatternResolver`.
 Read the actual annotation's `resources` array through reflection.
 Resolve each entry separately. Require nonempty matches of one resource type.
-Match every inventoried converted BPMN or DMN to exactly one entry.
-Reject original C7 models and matches whose bytes differ from the converted copy.
+Match every resource in that application's inventory to exactly one entry.
+Check SHA-256 hashes against the actual converted models and accepted forms.
+Reject original C7 models and unaccepted forms.
 The fixture at `fixtures/process-test-migration/spring-deployment` runs this check for Boot 3 and Boot 4.
 
-Record the executable resolver check with `validate_migration_evidence.py run --type module
---target <module> --kind deployment_resources --scenario <application Java path> -- <command>`.
+Declare an `application_deployments` record for each annotated Java source in
+`.camunda-migration/validation/validation-evidence.json`.
+Add it alongside the existing `modules`, `models`, `deployment_sets`, and `checks` fields.
+List only the converted models deployed by that application.
+Include an accepted form's path, owning BPMN, status, and approval reference.
+Never list a form from `.camunda-migration/generated-form-drafts/`.
+The model deployment checks remain required for every model in a deployment set.
+A module that only calls a model does not need an application deployment record.
+
+```json
+{
+  "application_deployments": [{
+    "module": "app",
+    "source": "app/src/main/java/example/Application.java",
+    "models": ["app/src/main/resources/converted-c8-order.bpmn"],
+    "forms": [{
+      "path": "app/src/main/resources/converted-c8-request.form",
+      "status": "accepted",
+      "model_path": "app/src/main/resources/converted-c8-order.bpmn",
+      "approval_reference": "MIGRATION_REPORT.md#accepted-request"
+    }]
+  }]
+}
+```
+
+Record the executable resolver check:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run \
+  --type module --target app --kind deployment_resources \
+  --scenario app/src/main/java/example/Application.java -- \
+  mvn -f app/pom.xml -Dtest=DeploymentResourcesTest test
+```
+
 The command prints one `CAMUNDA_DEPLOYMENT_RESOURCES` JSON line.
-Each match records its project-relative converted model path and SHA-256 of the resolved bytes.
-The validator compares those values with the Model Inventory and the actual Java annotation:
+Each match records its project-relative path, resource type, and SHA-256 of its resolved bytes.
+The validator compares those values with the application inventory and actual Java annotation:
 
 ```text
-CAMUNDA_DEPLOYMENT_RESOURCES {"source":"app/src/main/java/example/Application.java","resolver":"org.springframework.core.io.support.PathMatchingResourcePatternResolver","entries":[{"pattern":"classpath*:/converted-c8-*.bpmn","matches":[{"model":"app/src/main/resources/converted-c8-order.bpmn","sha256":"<64 lowercase hex characters>"}]}]}
+CAMUNDA_DEPLOYMENT_RESOURCES {"source":"app/src/main/java/example/Application.java","resolver":"org.springframework.core.io.support.PathMatchingResourcePatternResolver","entries":[{"pattern":"classpath*:/converted-c8-*.bpmn","matches":[{"resource":"app/src/main/resources/converted-c8-order.bpmn","type":"bpmn","sha256":"<64 lowercase hex characters>"}]},{"pattern":"classpath*:/converted-c8-*.form","matches":[{"resource":"app/src/main/resources/converted-c8-request.form","type":"form","sha256":"<64 lowercase hex characters>"}]}]}
 ```
 
 When a test needs a resource set that differs from the application's deployment, the skill adds
