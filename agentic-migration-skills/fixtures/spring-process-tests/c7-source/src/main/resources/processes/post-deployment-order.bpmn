@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Post_Deployment_Order"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="post-deployment-order" name="Post-deployment order" isExecutable="true"
+                camunda:historyTimeToLive="P1D">
+    <bpmn:startEvent id="StartEvent_PostDeployment" />
+    <bpmn:sequenceFlow id="Flow_PostDeployment_Work" sourceRef="StartEvent_PostDeployment" targetRef="Task_PostDeploymentWork" />
+    <bpmn:serviceTask id="Task_PostDeploymentWork" name="Post-deployment work"
+                      camunda:asyncBefore="true" camunda:delegateExpression="${postDeploymentOrderDelegate}" />
+    <bpmn:sequenceFlow id="Flow_PostDeployment_End" sourceRef="Task_PostDeploymentWork" targetRef="EndEvent_PostDeployment" />
+    <bpmn:endEvent id="EndEvent_PostDeployment" />
+  </bpmn:process>
+</bpmn:definitions>

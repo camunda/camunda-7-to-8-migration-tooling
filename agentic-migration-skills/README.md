@@ -161,6 +161,11 @@ At least one test in the Test Inventory must have **Migrate**, **Migrate to CPT*
 The question shows test counts by kind and **Report only** tests with their reasons.
 It also shows module test commands from project documentation and the CI inventory, plus whether
 `docker info` succeeds.
+For an unattended run, explicitly select **Run tests** or **Migrate tests only** in the request
+or execution configuration. The skill also offers an early choice when it detects test candidates
+and the user has limited time for questions. The skill still inventories every test and shows the
+results after Step 2. It asks Question 8 only if no earlier choice applies.
+The phrase "fully autonomous" does not authorize either test mode.
 
 | Option | What happens |
 |---|---|
@@ -170,6 +175,8 @@ It also shows module test commands from project documentation and the CI invento
 By default, CPT starts the Camunda 8 runtime in Docker through Testcontainers. You can configure CPT
 to use a dedicated local Camunda 8 test runtime in remote mode. CPT deletes runtime data between
 tests, so do not use a shared or production runtime.
+For Docker-based suites, the validation gate runs a mapped CPT method before the full repeat run.
+This catches Java Docker-client incompatibilities that `docker info` alone cannot detect.
 
 ### Code + models walkthrough
 
@@ -297,6 +304,9 @@ The `fixtures/validation-evidence` tests preserve a nine-module, ten-model repor
 readiness despite failed and missing checks. They generate synthetic logs in a temporary directory
 and test command capture, run isolation, process coverage, and timer safety. The regressions also
 cover JUnit baselines, test parity, frozen tests, repeat runs, mock approvals, and coverage drops.
+The [`fixtures/cpt-runtime-preflight`](fixtures/cpt-runtime-preflight) tests check the early test
+choice and the Docker-dependent CPT runtime gate. They reject skipped and unrelated JUnit methods,
+and they classify an incompatible Java Docker client without treating the daemon as unavailable.
 The `fixtures/validation-evidence/live-timer-fixture/` Maven reactor combines the two-module
 `Sample` deployment case with an
 already-active timer that receives two date updates through fresh child process instances on a
