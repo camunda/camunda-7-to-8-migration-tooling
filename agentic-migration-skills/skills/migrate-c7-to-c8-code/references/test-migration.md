@@ -279,15 +279,16 @@ When the target version is Camunda 8.8, the skill detects every test.
 A migratable test is a Test Inventory test with handling `Migrate`, `Migrate to CPT`, or
 `Migrate (lower priority)`.
 
-Ask Question 8 from `references/interview-questions.md` after the Step 2 Test Inventory is complete.
-The conditions for asking it are in that file.
+Resolve the test choice with the decision table in `references/interview-questions.md` after the
+Step 2 Test Inventory is complete. When that table requires a new answer, ask Question 8.
+An early choice does not skip the Test Inventory or its summary.
 
 When the user selects Assessment only and the inventory includes a migratable test, explain both
 Question 8 options in `MIGRATION_REPORT.md`. Do not ask Question 8 or record a test run mode.
 
-The skill runs `docker info` before the options and states whether it succeeds.
+The skill runs `docker info` during Step 2 and states whether it succeeds.
 If no test command was found for a module, then the skill does not invent one.
-If `docker info` fails, then the skill still offers both options.
+When the Docker probe fails, the skill still offers both options in Question 8.
 
 | User choice | Baseline step | Step 3 and Step 4 | Test verification |
 |---|---|---|---|
@@ -314,8 +315,9 @@ When the user selects **Migrate tests only**, apply these rules:
 - The validation gate reports `NOT READY`. The project-readiness verdict is `needs review`, as
   defined in `references/project-readiness.md`.
 
-Record the Question 8 answer in the `MIGRATION_REPORT.md` decision log. Also record it as
-`test_run_mode` in `.camunda-migration/validation/step2-inventory.json`, as described in
+Record the explicit test choice and its origin in the `MIGRATION_REPORT.md` decision log.
+Record the choice as `test_run_mode` in `.camunda-migration/validation/step2-inventory.json`,
+as described in
 `references/validation-evidence.md`.
 Where the Test Inventory has a migratable test, the validator requires `test_run_mode`.
 
@@ -401,6 +403,8 @@ When the change adds a file, use `null` for the old hash. When the change remove
 
 ## CPT repeat and parity checks
 
+For each Docker-dependent CPT suite, first run `cpt_runtime_preflight` from
+`references/validation-evidence.md`. Use the resolved test classpath and one mapped CPT method.
 Run the `test_repeat` check for each migrated suite.
 Record one `assertion_strength` review per migrated test class.
 Record one `mock_boundary` review per migrated C7 test.

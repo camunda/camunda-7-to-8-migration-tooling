@@ -30,6 +30,8 @@ documents one.
 Where the run is non-interactive, take each choice, including the Step 3 confirmation, only from an
 explicit statement in the request, the conversation, or the execution configuration. A default, a
 recommended option, or a tool-trust setting never counts as a choice by itself.
+The user can explicitly choose **Run tests** or **Migrate tests only** before Step 2.
+Never interpret "fully autonomous" as either test choice.
 If a non-interactive run lacks a required choice, then stop before the action that needs it. Record
 the missing choice as an open item in `MIGRATION_REPORT.md`. While the project root is unconfirmed,
 report it only in the response and write no files.
@@ -74,10 +76,14 @@ See `references/interview-questions.md` for the question set and the batching ru
 
 1. Detect the project root, the build tool (`pom.xml`, or `build.gradle` / `build.gradle.kts`), and
    the model files (`*.bpmn`, `*.bpmn20.xml`, `*.dmn`, `*.dmn11.xml`).
+   Check whether configured test source sets contain C7 test candidates. This preliminary check
+   controls the early test choice, not the Step 2 Test Inventory.
 2. Ask Question 1 (project location).
 3. If the confirmed root differs from the candidate, then scan the confirmed root again.
 4. Ask Questions 2 and 3 (target version, scope) together.
 5. Ask Questions 4 to 6, including Question 5a where it applies.
+   When the user requests an unattended run and the project has test candidates, offer the early
+   test choice in `references/interview-questions.md` before Step 2.
 6. When the user accepts the defaults, continue without repeating Questions 1 to 6.
    After Step 2, ask Question 7 whenever its trigger applies, even if the user accepted those defaults.
    When Question 7 applies, do not continue to Step 3 until the user confirms every decision.
@@ -305,8 +311,10 @@ Present the test counts, CPT eligibility, `Report only` findings, and Camunda 8.
 Present blockers that need a manual decision. Include the Step 0 preflight result and any user acknowledgment.
 State that running instances, history, and audit data are out of scope. Point the user to the Data Migrator.
 When the Test Inventory includes a test with handling **Migrate**, **Migrate to CPT**, or
-**Migrate (lower priority)**, ask Question 8 in a separate prompt when its conditions in
-`references/interview-questions.md` apply. Wait for the user's answer before Step 3.
+**Migrate (lower priority)**, apply the Question 8 decision table in
+`references/interview-questions.md`. Present its test and runtime context even when an early choice
+applies. Ask Question 8 in a separate prompt when the choice is missing or no longer applies.
+Wait for the user's answer before Step 3 when Question 8 is asked.
 
 Write the assessment to `MIGRATION_REPORT.md`. Ask the user to confirm before Step 3.
 

@@ -38,7 +38,9 @@ ASSERTIONS = (
 GATE_HEADING = "## Aggregate validation gate"
 TEST_PARITY_HEADING = "## Test Parity"
 TEST_COVERAGE_HEADING = "## Test Coverage"
-RUNTIME_CHECKS = ("spring_boot_run", "executable_jar", "external_launcher")
+RUNTIME_CHECKS = (
+    "spring_boot_run", "executable_jar", "external_launcher", "cpt_runtime_preflight",
+)
 SAFE_ENVIRONMENTS = ("local", "non-production")
 SKIP_SOURCE_DIRS = {".camunda-migration", ".claude", ".git", ".gradle",
                     ".venv", ".worktree", ".worktrees", "__pycache__",
@@ -81,8 +83,9 @@ DEFAULT_C7_COVERAGE_REPORTS = (
     "target/process_test_coverage/**/*.json",
 )
 DEFAULT_CPT_COVERAGE_REPORTS = ("target/coverage-report/report.json",)
-TEST_EXECUTION_KINDS = {"tests", "process_path"}
+TEST_EXECUTION_KINDS = {"tests", "process_path", "cpt_runtime_preflight"}
 TEST_LEDGER_CHECK_KINDS = {
+    "cpt_runtime_preflight",
     "test_freeze",
     "test_repeat",
     "test_parity",
@@ -93,6 +96,11 @@ TEST_LEDGER_CHECK_KINDS = {
 TEST_RUN_MODES = {"run", "migrate_only"}
 QUESTION_8_DECLINE_REASON = "declined by user (Question 8)"
 TEST_SOURCE_COMPILE_GOALS = {"test-compile", "testClasses"}
+DOCKER_API_MISMATCH = re.compile(
+    r"client version\s+(\d+(?:\.\d+)*)\s+is too old\."
+    r"\s+Minimum supported API version is\s+(\d+(?:\.\d+)*)",
+    re.I,
+)
 
 
 @dataclass
@@ -2067,6 +2075,35 @@ def suite_has_cpt_tests(suite, mapping):
     return suite_has_added_cpt_tests(suite.get("module"), suite.get("name"), mapping)
 
 
+def suite_cpt_test_ids(suite, mapping):
+    rows = test_rows_by_id(mapping)
+    source_ids = set(suite["test_ids"])
+    for baseline_suite in mapping["baseline"].get("suites", []):
+        if (
+            baseline_suite.get("module") == suite["module"]
+            and baseline_suite.get("suite") == suite["name"]
+        ):
+            source_ids.update(baseline_suite.get("test_results", {}))
+    expected = set()
+    for source_id in source_ids:
+        test = rows.get(source_id)
+        if test is not None and test.get("status") == "migrated":
+            expected.update(
+                strings(test.get("c8_ids"), f"{source_id} mapped CPT test IDs")
+            )
+    for test in mapping["tests"]:
+        if (
+            test.get("status") == "added"
+            and test.get("suite") == suite["name"]
+        ):
+            expected.update(
+                test_id for test_id in strings(
+                    test.get("c8_ids"), "added CPT test IDs"
+                ) if test_id.startswith(f"{suite['module']}:")
+            )
+    return expected
+
+
 def normalized_mock(value):
     if not isinstance(value, str) or not value.strip():
         raise EvidenceError("Each mock entry must be a non-blank string")
@@ -2764,6 +2801,66 @@ def run_cpt_test_suite(
     }
 
 
+def record_cpt_runtime_preflight(root, plan, args, mapping):
+    suite_key = (args.target, args.scenario)
+    suite = plan.test_contract["suites"].get(suite_key)
+    suite_config = plan.test_contract["cpt_suites"].get(suite_key)
+    if suite is None or suite_config is None:
+        raise EvidenceError(f"{suite_key}: CPT test suite is not in the validation scope")
+    expected = suite_cpt_test_ids(suite, mapping)
+    if not expected:
+        raise EvidenceError(f"{suite_key}: runtime probe needs a mapped CPT test")
+    command = list(args.command or [])
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command or not command[0]:
+        raise EvidenceError("Supply a CPT test command after --")
+    run = run_cpt_test_suite(
+        root,
+        args.target,
+        args.scenario,
+        command,
+        args.timeout,
+        0,
+        suite_config,
+        expected_cpt_test_ids(mapping),
+    )
+    result = run["result"]
+    reason = run["reason"]
+    if result == "failed" and reason is None and run["exit_code"] is not None:
+        reason = f"CPT runtime probe exited with code {run['exit_code']}"
+    if result == "passed" and not any(
+        run["test_results"].get(test_id, {}).get("result") == "passed"
+        for test_id in expected
+    ):
+        result = "failed"
+        reason = "The CPT runtime probe did not execute a passing mapped CPT method"
+    return {
+        "command": command,
+        "exit_code": run["exit_code"],
+        "result": result,
+        "reason": reason,
+        "output": run["output"],
+        "test_ids": sorted(run["test_results"]),
+        "test_mapping_digest": test_mapping_digest(mapping, "all"),
+    }
+
+
+def cpt_docker_failure(output):
+    mismatch = DOCKER_API_MISMATCH.search(output)
+    if mismatch:
+        return (
+            "compatibility",
+            f"CPT Docker client API {mismatch[1]} is older than daemon minimum {mismatch[2]}",
+        )
+    if (
+        "Could not find a valid Docker environment" in output
+        or "ContainerFetchException" in output
+    ):
+        return "testcontainers", "CPT Testcontainers could not start the runtime"
+    return None
+
+
 def test_runs_match(first, second):
     if set(first) != set(second):
         return False
@@ -2991,6 +3088,13 @@ def requirements(root, evidence):
             check_key = ("module", path, check_kind, name)
             need("module", path, check_kind, name)
             docker_suites[check_key] = suite["requires_docker"]
+            if (
+                test_run_mode == "run"
+                and suite["requires_docker"]
+                and check_kind == "test_repeat"
+            ):
+                runtime_key = need("module", path, "cpt_runtime_preflight", name)
+                docker_suites[runtime_key] = True
         if len(names) != len(set(names)):
             issues.append(f"{path}: duplicate test suite")
         runtime = module.get("runtime_mode")
@@ -4142,6 +4246,21 @@ def prerequisites(plan, key):
         dependencies.extend(
             check for check in plan.required if check[2] == "c7_baseline"
         )
+    if category == "module" and kind == "cpt_runtime_preflight":
+        dependencies.extend((
+            ("project", ".", "docker_info", None),
+            ("module", target, "compile", None),
+        ))
+        freeze_check = ("project", ".", "test_freeze", None)
+        baseline_check = ("module", target, "c7_baseline", scenario)
+        if freeze_check in plan.required:
+            dependencies.append(freeze_check)
+        if baseline_check in plan.required:
+            dependencies.append(baseline_check)
+    if category == "module" and kind in ("tests", "test_repeat"):
+        runtime_check = ("module", target, "cpt_runtime_preflight", scenario)
+        if runtime_check in plan.required:
+            dependencies.append(runtime_check)
     if category == "module" and kind == "test_repeat":
         freeze_check = ("project", ".", "test_freeze", None)
         baseline_check = ("module", target, "c7_baseline", scenario)
@@ -4945,6 +5064,17 @@ def record(root, args):
         reason = "; ".join(computed_issues) if computed_issues else None
         output = json.dumps(details, indent=2, ensure_ascii=False)
         extra["test_mapping_digest"] = test_mapping_digest(mapping, "all")
+    elif args.action == "run" and key[2] == "cpt_runtime_preflight":
+        if args.timeout is not None and args.timeout <= 0:
+            raise EvidenceError("Command timeout must be positive")
+        probe = record_cpt_runtime_preflight(root, plan, args, mapping)
+        command = probe["command"]
+        exit_code = probe["exit_code"]
+        result = probe["result"]
+        reason = probe["reason"]
+        output = probe["output"]
+        extra["test_ids"] = probe["test_ids"]
+        extra["test_mapping_digest"] = probe["test_mapping_digest"]
     elif args.action == "run" and key[2] == "test_repeat":
         if args.timeout is not None and args.timeout <= 0:
             raise EvidenceError("Command timeout must be positive")
@@ -5067,8 +5197,13 @@ def record(root, args):
             and previous.get(("project", ".", "docker_info", None), (None, {}))[1].get("result") == "failed"
         ):
             check["failure_class"] = "docker_unavailable"
-        elif args.kind in ("tests", "test_repeat") and "Could not find a valid Docker environment" in output:
-            check["failure_class"] = "testcontainers"
+        elif args.kind in ("tests", "test_repeat", "cpt_runtime_preflight") and (
+            diagnostic := cpt_docker_failure(output)
+        ):
+            check["failure_class"], diagnostic_reason = diagnostic
+            check["reason"] = (
+                f"{diagnostic_reason}. {reason}" if reason else diagnostic_reason
+            )
         else:
             check["failure_class"] = "unclassified"
     else:

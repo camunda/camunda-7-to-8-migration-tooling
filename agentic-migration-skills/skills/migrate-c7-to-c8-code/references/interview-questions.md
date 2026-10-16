@@ -7,6 +7,8 @@ Every instruction in this reference is mandatory. "Never" means MUST NOT. A pref
 Pick a candidate project root from the provided argument or the current working directory. Then run
 the Step 1 detection in `SKILL.md`. The detection shapes the scope question. The confirmed scan after
 Q1 gates whether to offer C7 engine options.
+For an unattended run, check configured test source sets for candidate files before the early
+test choice. Step 2 still classifies every test method.
 
 ## Question Batching Rules
 
@@ -17,8 +19,8 @@ Q1 gates whether to offer C7 engine options.
 Ask Question 7 in a separate prompt after Step 2 identifies an HTTP topology. Do not add it to
 Prompt 3 because that prompt can already contain four questions.
 
-Ask Question 8 in a separate prompt after the Step 2 Test Inventory. Do not add it to an earlier
-prompt.
+Ask Question 8 in a separate prompt after the Step 2 Test Inventory when no applicable early
+test choice exists. Do not ask Question 8 in an earlier prompt.
 
 ---
 
@@ -98,6 +100,32 @@ Options:
 
 Include only if scope includes code, approach is A, and detection was ambiguous (both Maven and Gradle found, or neither). If exactly one detected, state it rather than asking.
 
+## Early Test Choice - Unattended Runs
+
+The user can explicitly select **Run tests** or **Migrate tests only** in the initial request or
+execution configuration. Record whether the choice came from either source.
+
+When the user requests an unattended run or a limited question window, offer an early test choice
+in a separate prompt after Questions 4 to 6. Offer it only when all these conditions hold:
+
+- The target is Camunda 8.9 or later.
+- The scope includes code, and the code approach is A or B.
+- The detected project contains a candidate C7 test source.
+
+Explain that Step 2 has not classified the tests yet. Explain the C7 baseline and CPT runtime
+requirements from Question 8. Offer these options:
+
+- **Run tests** — run the C7 baseline before migration, then run the migrated CPT suites.
+- **Migrate tests only** — compile migrated tests without running either test suite.
+- **Decide after assessment** — ask Question 8 if Step 2 finds a migratable test.
+
+Do not select an option for the user. A form default or a request to run autonomously does not
+authorize either test mode. Record an explicit early answer as `early prompt` in the
+`MIGRATION_REPORT.md` decision log after Step 2.
+
+Keep an explicit initial-request or execution-configuration answer without an early prompt.
+Never treat silence, a tool-trust setting, or **Decide after assessment** as a test mode.
+
 ## Question 7 - Application and Engine HTTP Topology
 
 Ask after the Step 2 code inventory only when the production-source inventory identifies a Spring
@@ -137,6 +165,14 @@ Ask only when every condition in the first row below applies:
 | Any | A or B | 8.8 | Any | No |
 | Any | A or B | 8.9 or later | No test has handling **Migrate**, **Migrate to CPT**, or **Migrate (lower priority)** | No |
 
+The **Yes** row means that the skill needs a test choice. Resolve it with this table after Step 2:
+
+| Step 2 trigger | Earlier explicit test choice | Action |
+|---|---|---|
+| No | Any | Discard the early choice. Omit `test_run_mode`. |
+| Yes | Run tests or Migrate tests only, with unchanged target, scope, and code approach | Present the context below. Record the choice and its origin. Do not ask again. |
+| Yes | Missing, deferred, declined, or invalidated by a changed target, scope, or code approach | Present the context below. Ask Question 8 in a separate prompt. |
+
 Show this context before the options:
 
 - The number of tests to migrate, grouped by test kind.
@@ -144,6 +180,8 @@ Show this context before the options:
 - The test commands found for each module in project documentation and the CI inventory.
 - That CPT starts the Camunda 8 runtime in Docker through Testcontainers by default.
 - Whether `docker info` succeeds and that a remote CPT runtime is an alternative.
+- That the skill will test the resolved CPT runtime after migration. `docker info` alone cannot
+  check the Java Docker client's compatibility.
 
 Ask:
 
@@ -158,6 +196,9 @@ Options:
 
 Require the user to select an option explicitly. A recommendation or preselected default is not an
 answer.
+An explicit earlier choice satisfies this requirement only when the table above preserves it.
+Record `initial request`, `execution configuration`, `early prompt`, or `Question 8` as its origin
+in `MIGRATION_REPORT.md`. Never write the full request or configuration into that decision log.
 
 ## Question 8 runtime notice for decision tests
 

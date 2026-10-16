@@ -17,6 +17,8 @@ When the user approves a full migration, save the in-scope Step 2 paths in
 
 When Question 8 applies, also record `"test_run_mode": "run"` or
 `"test_run_mode": "migrate_only"` in this inventory. Omit the field when Question 8 does not apply.
+An earlier explicit answer can supply the mode when the Step 2 decision table confirms it applies.
+Record its origin in `MIGRATION_REPORT.md`, not as a second inventory field.
 
 Where E1 fetches a model, add its original path after retrieval and before conversion.
 Then start a new validation run before recording checks:
@@ -309,6 +311,26 @@ starts. The validator stores the original freeze digest in its `test_freeze` che
 `freeze.files` unchanged after the first freeze. If the ledger differs from the logged digest, then
 the validator rejects it. The validator rejects each changed hash without a matching approval in
 `test_changes`.
+
+**CPT runtime preflight.** After the C7 baseline, test freeze, module compile, and `docker info`,
+run one mapped CPT method from every Docker-dependent CPT suite. Use the suite's actual test runner
+and active test profile. The probe must use the same resolved dependencies as the full CPT suite:
+
+```sh
+python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-root . run --type module --target examples/web --kind cpt_runtime_preflight --scenario unit --environment local -- mvn -B -pl examples/web -Dtest=OrderCptTest#testOrder test
+```
+
+The recorder requires a fresh JUnit report with a passing mapped CPT method from that suite.
+Select a method that starts the CPT runtime through `@CamundaProcessTest` or
+`@CamundaSpringProcessTest` and asserts runtime behavior. A plain unit test is not a runtime probe.
+An initialization error, skipped method, unrelated test, or missing report fails the preflight.
+Run the full suite only after the preflight passes. A successful `docker info` does not prove
+Testcontainers compatibility.
+
+When Docker rejects the resolved Java client's API version, the recorder classifies the failure as
+`compatibility` and keeps readiness blocked. Check the selected starter, BOM, and test dependency
+family before changing versions. Never replace this command with plugin help or a print-only probe.
+Use a dedicated local or non-production runtime. Never run a CPT probe against production.
 
 **Repeat runs.** For each migrated suite, run the CPT command twice with `test_repeat`:
 
@@ -636,6 +658,7 @@ python3 "<skill-directory>/scripts/validate_migration_evidence.py" --project-roo
 |---|---|
 | Project `.` | In `run` mode, require `docker_info` before the first Docker-dependent suite when any suite needs Docker. Use exactly `docker info`. |
 | Each module | `compile`, `review`, and `active_timer_updates` review or blocker. |
+| Each Docker-dependent CPT suite | In `run` mode, require `cpt_runtime_preflight` after its C7 baseline, freeze, module compile, and `docker_info`. Execute one mapped CPT method with the suite's real runtime before `test_repeat`. |
 | Each module test suite | In `run` mode, record one test check per declared suite. Use `test_repeat` for a suite with mapped migrated or added CPT tests. The validator runs that suite twice. Use `tests` for other suites. In `migrate_only` mode, block every `tests` check with the reason `declined by user (Question 8)`. |
 | Each applicable Test Inventory suite | `c7_baseline` before Step 3 changes any file. |
 | Each migrated test class | `assertion_strength` review. |
@@ -725,9 +748,11 @@ review.
 Refresh stale checks before a dependent command or readiness claim. The recorder rejects a
 dependent command before it runs when its review, lint, or timer preflight is stale.
 
-When a Docker probe fails, block its Docker-dependent suites and run the other suites. When Docker
-responds but Testcontainers fails, classify the suite as `testcontainers`, not
-`docker_unavailable`. Never attribute an unrelated test failure to Docker.
+When a Docker probe fails, block its Docker-dependent suites and run the other suites.
+When Docker responds but Testcontainers fails, classify the suite as `testcontainers` instead of
+`docker_unavailable`. Classify a Java Docker-client API below the daemon minimum as
+`compatibility` instead. Leave either suite blocked. Never attribute an unrelated test failure to
+Docker.
 
 ## Generate the gate
 
