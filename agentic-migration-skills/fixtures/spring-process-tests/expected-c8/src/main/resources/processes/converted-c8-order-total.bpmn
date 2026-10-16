@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_Order_Total" targetNamespace="http://camunda.org/examples" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.9.0">
+  <bpmn:process id="order-total" name="Calculate order total" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_Total" name="Order received">
+      <bpmn:outgoing>Flow_Total_Calculate</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_Total_Calculate" sourceRef="StartEvent_Total" targetRef="Task_CalculateTotal" />
+    <bpmn:serviceTask id="Task_CalculateTotal" name="Calculate total">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="calculate-total" />
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_Total_Calculate</bpmn:incoming>
+      <bpmn:outgoing>Flow_Total_End</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_Total_End" sourceRef="Task_CalculateTotal" targetRef="EndEvent_Total" />
+    <bpmn:endEvent id="EndEvent_Total" name="Total calculated">
+      <bpmn:incoming>Flow_Total_End</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Order_Total">
+    <bpmndi:BPMNPlane id="BPMNPlane_Order_Total" bpmnElement="order-total">
+      <bpmndi:BPMNShape id="StartEvent_Total_di" bpmnElement="StartEvent_Total">
+        <dc:Bounds x="100" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_CalculateTotal_di" bpmnElement="Task_CalculateTotal">
+        <dc:Bounds x="210" y="108" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_Total_di" bpmnElement="EndEvent_Total">
+        <dc:Bounds x="360" y="130" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_Total_Calculate_di" bpmnElement="Flow_Total_Calculate">
+        <di:waypoint x="136" y="148" />
+        <di:waypoint x="210" y="148" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Total_End_di" bpmnElement="Flow_Total_End">
+        <di:waypoint x="310" y="148" />
+        <di:waypoint x="360" y="148" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  id="Definitions_Rollback_Order"
+                  targetNamespace="http://camunda.org/examples">
+  <bpmn:process id="rollback-order" name="Rollback order" isExecutable="true"
+                camunda:historyTimeToLive="P1D">
+    <bpmn:startEvent id="StartEvent_Rollback" />
+    <bpmn:sequenceFlow id="Flow_Reserve" sourceRef="StartEvent_Rollback" targetRef="Task_Reserve" />
+    <bpmn:serviceTask id="Task_Reserve" camunda:delegateExpression="${reserveInventory}" />
+    <bpmn:sequenceFlow id="Flow_Charge" sourceRef="Task_Reserve" targetRef="Task_ChargeRollback" />
+    <bpmn:serviceTask id="Task_ChargeRollback" camunda:delegateExpression="${chargePayment}" />
+    <bpmn:sequenceFlow id="Flow_Fail" sourceRef="Task_ChargeRollback" targetRef="Task_Fail" />
+    <bpmn:serviceTask id="Task_Fail" camunda:delegateExpression="${failAfterPayment}" />
+    <bpmn:sequenceFlow id="Flow_RollbackEnd" sourceRef="Task_Fail" targetRef="EndEvent_Rollback" />
+    <bpmn:endEvent id="EndEvent_Rollback" />
+  </bpmn:process>
+</bpmn:definitions>

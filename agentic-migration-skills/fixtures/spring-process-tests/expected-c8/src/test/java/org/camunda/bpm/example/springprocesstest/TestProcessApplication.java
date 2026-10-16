@@ -19,6 +19,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @Deployment(
     resources = {
       "classpath:processes/converted-c8-order.bpmn",
+      "classpath:processes/converted-c8-order-total.bpmn",
+      "classpath:processes/converted-c8-post-deployment-order.bpmn",
+      "classpath:processes/converted-c8-rollback-order.bpmn",
       "classpath:processes/converted-c8-startup-order.bpmn"
     })
 public class TestProcessApplication {}

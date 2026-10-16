@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.camunda.bpm.engine.ProcessEngine;
@@ -70,6 +71,17 @@ public class SpringProcessTest {
         .isWaitingAt("Task_Review");
     verify(paymentService).charge(100);
     verify(shipOrderDelegate).execute(any(DelegateExecution.class));
+  }
+
+  @Test
+  public void returnsComputedTotalFromTheApplicationEndpoint() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/orders/total")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":100}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(120));
   }
 
   @Test

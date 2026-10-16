@@ -1,7 +1,8 @@
-from pathlib import Path
+import re
 import subprocess
 import unittest
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 
 FIXTURE = Path(__file__).resolve().parent
@@ -109,6 +110,31 @@ EXPECTED_APPLICATION = (
     FIXTURE
     / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/SpringProcessApplication.java"
 )
+SOURCE_POST_DEPLOYMENT = (
+    FIXTURE
+    / "c7-source/src/main/java/org/camunda/bpm/example/springprocess/startup/PostDeploymentOrderInitializer.java"
+)
+EXPECTED_POST_DEPLOYMENT = (
+    FIXTURE
+    / "expected-c8/src/main/java/org/camunda/bpm/example/springprocess/startup/PostDeploymentOrderInitializer.java"
+)
+SOURCE_POST_DEPLOYMENT_TEST = (
+    FIXTURE
+    / "c7-source/src/test/java/org/camunda/bpm/example/springprocess/PostDeploymentOrderTest.java"
+)
+EXPECTED_POST_DEPLOYMENT_TEST = (
+    FIXTURE
+    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/PostDeploymentOrderTest.java"
+)
+SOURCE_ROLLBACK_TEST = (
+    FIXTURE
+    / "c7-source/src/test/java/org/camunda/bpm/example/springprocess/RollbackProcessTest.java"
+)
+EXPECTED_ROLLBACK_TEST = (
+    FIXTURE
+    / "expected-c8/src/test/java/org/camunda/bpm/example/springprocess/RollbackProcessTest.java"
+)
+ROLLBACK_PARITY_REPORT = FIXTURE / "expected-c8/MIGRATION_REPORT.md"
 
 
 TEST_KINDS = (
@@ -121,6 +147,13 @@ TEST_KINDS = (
     "process test",
     "out of scope",
 )
+
+
+def test_method(source, name):
+    method = re.search(r"(?m)^  (?:public )?void " + name + r"\(", source)
+    if method is None:
+        raise AssertionError(f"Missing test method {name}")
+    return source[method.start() :].split("\n  @Test", 1)[0]
 
 
 class ManualSpringFixtureTest(unittest.TestCase):
@@ -162,6 +195,109 @@ class ManualSpringFixtureTest(unittest.TestCase):
 
 
 class SpringProcessTestFixtureTest(unittest.TestCase):
+    def test_computed_response_stays_at_the_original_http_call_site(self):
+        for test_path in (SOURCE_TEST, EXPECTED_TEST):
+            with self.subTest(test=test_path):
+                method = test_method(
+                    test_path.read_text(), "returnsComputedTotalFromTheApplicationEndpoint"
+                )
+                self.assertIn('post("/api/orders/total")', method)
+                self.assertIn(".andExpect(status().isOk())", method)
+                self.assertIn('.andExpect(jsonPath("$.total").value(120))', method)
+                self.assertNotIn("newCreateInstanceCommand()", method)
+        self.assertIn('"order-total"', SOURCE_CONTROLLER.read_text())
+        self.assertIn('"order-total"', EXPECTED_CONTROLLER.read_text())
+
+    def test_post_deployment_test_replays_listener_and_checks_its_instance(self):
+        source_listener = SOURCE_POST_DEPLOYMENT.read_text()
+        migrated_listener = EXPECTED_POST_DEPLOYMENT.read_text()
+        source_test = test_method(
+            SOURCE_POST_DEPLOYMENT_TEST.read_text(),
+            "completesPostDeploymentOrderFromItsListener",
+        )
+        migrated_class = EXPECTED_POST_DEPLOYMENT_TEST.read_text()
+        migrated_test = test_method(migrated_class, "completesPostDeploymentOrderFromItsListener")
+        before_each = migrated_class.split("@BeforeEach", 1)[1].split("@Test", 1)[0]
+
+        self.assertIn("@EventListener(PostDeployEvent.class)", source_listener)
+        self.assertIn(
+            "@EventListener(CamundaPostDeploymentEvent.class)", migrated_listener
+        )
+        self.assertIn("postDeploymentOrderInitializer.startProcessAfterDeployment(", source_test)
+        self.assertIn("postDeploymentOrderInitializer.lastStartedProcessInstanceId()", source_test)
+        self.assertIn("managementService.executeJob(", source_test)
+        self.assertIn(
+            "postDeploymentOrderInitializer.startProcessAfterDeployment(", before_each
+        )
+        self.assertIn(
+            "postDeploymentOrderInitializer.lastStartedProcessInstanceKey()", migrated_test
+        )
+        self.assertIn("ProcessInstanceSelectors.byKey(processInstanceKey)", migrated_test)
+        self.assertNotIn("newCreateInstanceCommand()", migrated_test)
+
+    def test_inverted_database_effects_block_rollback_parity(self):
+        source_test = SOURCE_ROLLBACK_TEST.read_text()
+        migrated_test = EXPECTED_ROLLBACK_TEST.read_text()
+        source_model = (
+            FIXTURE / "c7-source/src/main/resources/processes/rollback-order.bpmn"
+        ).read_text()
+        report = ROLLBACK_PARITY_REPORT.read_text()
+
+        for delegate in ("reserveInventory", "chargePayment", "failAfterPayment"):
+            self.assertIn("${" + delegate + "}", source_model)
+        source_effects = {
+            stage: int(count)
+            for count, stage in re.findall(
+                r'assertEquals\((\d+), orderEffects\.count\("([^"]+)"\)\)', source_test
+            )
+        }
+        migrated_effects = {
+            stage: int(count)
+            for stage, count in re.findall(
+                r'assertThat\(orderEffects\.count\("([^"]+)"\)\)\.isEqualTo\((\d+)\)',
+                migrated_test,
+            )
+        }
+        self.assertEqual(source_effects, {"inventory": 0, "payment": 0})
+        self.assertEqual(migrated_effects, {"inventory": 1, "payment": 1})
+        self.assertNotEqual(source_effects, migrated_effects)
+        self.assertIn("hasActiveIncidents()", migrated_test)
+        row = next(
+            line
+            for line in report.splitlines()
+            if line.startswith("| `org.camunda.bpm.example.springprocess.RollbackProcessTest#")
+        )
+        cells = [cell.strip() for cell in row.split("|")[1:-1]]
+        self.assertEqual(cells[2], "C7: inventory=0, payment=0")
+        self.assertEqual(cells[3], "C8: inventory=1, payment=1")
+        self.assertEqual(cells[4], "not verified (semantic delta)")
+        self.assertEqual(cells[5], "no approval")
+        self.assertIn("NOT READY", report)
+
+    def test_semantic_review_requires_original_assertions_and_positive_completion(self):
+        reference = REFERENCE.read_text()
+        database_effects = reference.split("### Failure-path database effects", 1)[1].split(
+            "### Dependency changes", 1
+        )[0]
+        endpoint = reference.split("## Endpoint-driven tests", 1)[1].split(
+            "## Startup hooks and transaction state", 1
+        )[0]
+        polling = reference.split("## Secondary-storage polling", 1)[1].split(
+            "## Test Parity record", 1
+        )[0]
+        migrated_test = EXPECTED_POST_DEPLOYMENT_TEST.read_text()
+
+        self.assertIn("Block the review.", database_effects)
+        self.assertIn("both sets of effects", database_effects)
+        self.assertIn("approver", database_effects)
+        self.assertIn("status and computed body", endpoint)
+        self.assertIn("API-contract parity unverified", endpoint)
+        self.assertIn("original observation point", endpoint)
+        self.assertIn("created instance key", polling)
+        self.assertIn("An empty result", polling)
+        self.assertIn("fails on timeout", polling)
+        self.assertIn("ProcessInstanceSearchWaiter.awaitCompleted(", migrated_test)
+
     def test_readme_documents_maven_fixture_test_prerequisites(self):
         readme = (FIXTURE / "README.md").read_text()
 
@@ -660,11 +796,12 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
         models = sorted(EXPECTED_MODELS.glob("converted-c8-*.bpmn"))
 
         self.assertTrue(models, "Expected at least one converted Camunda 8 BPMN model")
+        user_task_models = 0
         for model in models:
             with self.subTest(model=model.name):
                 root = ET.parse(model).getroot()
                 user_tasks = root.findall(".//bpmn:userTask", namespace)
-                self.assertTrue(user_tasks, "Expected a converted user task")
+                user_task_models += bool(user_tasks)
                 for user_task in user_tasks:
                     extensions = user_task.find("bpmn:extensionElements", namespace)
                     self.assertIsNotNone(extensions, user_task.get("id"))
@@ -673,6 +810,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
                         1,
                         user_task.get("id"),
                     )
+        self.assertGreater(user_task_models, 0)
 
     def test_test_parity_record_redirects_to_the_authoritative_ledger(self):
         reference = REFERENCE.read_text()
@@ -749,7 +887,7 @@ class SpringProcessTestFixtureTest(unittest.TestCase):
             ("org.springframework.boot", "test"),
         )
         self.assertNotIn("camunda-bpm-spring-boot-starter-test", dependencies)
-        self.assertNotIn("h2", dependencies)
+        self.assertEqual(dependencies["h2"], ("com.h2database", "runtime"))
         self.assertNotIn("camunda-spring-boot-3-starter", dependencies)
         self.assertNotIn("camunda-process-test-spring-boot-3", dependencies)
         self.assertNotIn("camunda-process-test-java", dependencies)

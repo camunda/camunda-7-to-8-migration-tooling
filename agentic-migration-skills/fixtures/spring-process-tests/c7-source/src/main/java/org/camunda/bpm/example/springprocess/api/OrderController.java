@@ -9,6 +9,7 @@ package org.camunda.bpm.example.springprocess.api;
 
 import java.util.Map;
 import org.camunda.bpm.engine.RuntimeService;
+import org.camunda.bpm.engine.runtime.ProcessInstanceWithVariables;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,5 +32,18 @@ public class OrderController {
     return ResponseEntity.accepted().build();
   }
 
+  @PostMapping("/total")
+  public ResponseEntity<OrderTotalResponse> calculateTotal(@RequestBody OrderRequest request) {
+    ProcessInstanceWithVariables instance =
+        runtimeService
+            .createProcessInstanceByKey("order-total")
+            .setVariables(Map.of("amount", request.amount()))
+            .executeWithVariablesInReturn();
+    return ResponseEntity.ok(
+        new OrderTotalResponse(instance.getVariables().getValue("total", Integer.class)));
+  }
+
   public record OrderRequest(int amount) {}
+
+  public record OrderTotalResponse(int total) {}
 }

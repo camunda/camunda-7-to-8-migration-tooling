@@ -11,6 +11,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.camunda.client.CamundaClient;
@@ -61,6 +62,20 @@ class SpringProcessTest {
         .hasCompletedElements("Task_Charge", "Task_Ship")
         .hasActiveElements("Task_Review");
     verify(paymentService, timeout(10_000)).charge(100);
+  }
+
+  @Test
+  void returnsComputedTotalFromTheApplicationEndpoint() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/orders/total")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"amount\":100}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(120));
+    CamundaAssert.assertThatProcessInstance(ProcessInstanceSelectors.byProcessId("order-total"))
+        .isCompleted()
+        .hasVariable("total", 120);
   }
 
   @Test

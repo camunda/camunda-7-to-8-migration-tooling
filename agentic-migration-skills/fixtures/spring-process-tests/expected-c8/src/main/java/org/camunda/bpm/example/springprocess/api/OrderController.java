@@ -8,6 +8,7 @@
 package org.camunda.bpm.example.springprocess.api;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.response.ProcessInstanceResult;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,5 +38,22 @@ public class OrderController {
     return ResponseEntity.accepted().build();
   }
 
+  @PostMapping("/total")
+  public ResponseEntity<OrderTotalResponse> calculateTotal(@RequestBody OrderRequest request) {
+    ProcessInstanceResult instance =
+        camundaClient
+            .newCreateInstanceCommand()
+            .bpmnProcessId("order-total")
+            .latestVersion()
+            .variables(Map.of("amount", request.amount()))
+            .withResult()
+            .send()
+            .join();
+    int total = ((Number) instance.getVariablesAsMap().get("total")).intValue();
+    return ResponseEntity.ok(new OrderTotalResponse(total));
+  }
+
   public record OrderRequest(int amount) {}
+
+  public record OrderTotalResponse(int total) {}
 }
