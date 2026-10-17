@@ -11,7 +11,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
-    <version.jackson-bom>2.22.3</version.jackson-bom>
+    <version.jackson-bom>2.22.4</version.jackson-bom>
     <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
   </properties>
 
