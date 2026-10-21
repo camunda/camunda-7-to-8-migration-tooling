@@ -2,6 +2,8 @@
 
 This repository contains a collection of tools to help you migrate from Camunda 7 to Camunda 8.
 
+![Cartoon castle showing the repository structure: the data-migrator keep in the middle, flanked by the diagram-converter, code-conversion and agentic-migration-skills towers, with docs, .github, license, AGENTS.md, pom.xml and .mvn in the castle wall](./docs/images/repo-structure.svg)
+
 ## CI Status
 
 
