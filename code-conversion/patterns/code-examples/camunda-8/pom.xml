@@ -29,8 +29,8 @@
 	<properties>
 		<java.version>17</java.version>
 		<version.spring-boot>4.1.1</version.spring-boot>
-		<version.jackson-bom>2.22.3</version.jackson-bom>
-		<version.jackson-3-bom>3.2.3</version.jackson-3-bom>
+		<version.jackson-bom>2.22.4</version.jackson-bom>
+		<version.jackson-3-bom>3.2.4</version.jackson-3-bom>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
