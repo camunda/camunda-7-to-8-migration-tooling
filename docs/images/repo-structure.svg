@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 722" width="1100" height="722" role="img" aria-labelledby="t d">
+<title id="t">Repository structure of camunda-7-to-8-migration-tooling</title>
+<desc id="d">Tree diagram of the repository root with its four tool directories (data-migrator, diagram-converter, code-conversion, agentic-migration-skills) and their subdirectories, plus shared root items (.github, license, docs, AGENTS.md, pom.xml, .mvn).</desc>
+<rect x="0.75" y="0.75" width="1098.5" height="720.5" rx="16" fill="#FFFFFF" stroke="#D5DBE4" stroke-width="1.5"/>
+<rect x="310.0" y="36" width="480" height="52" rx="10" fill="#0D1724"/>
+<path d="M332.0 58.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+<text x="362.0" y="68.0" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="17" font-weight="bold" fill="#fff" text-anchor="start" >camunda-7-to-8-migration-tooling/</text>
+<path d="M550.0 88 V420" stroke="#B4BECC" stroke-width="1.5" fill="none"/>
+<path d="M530 160 H570" stroke="#B4BECC" stroke-width="1.5" fill="none"/>
+<circle cx="550.0" cy="160" r="3.5" fill="#FFFFFF" stroke="#B4BECC" stroke-width="1.5"/>
+<path d="M530 420 H570" stroke="#B4BECC" stroke-width="1.5" fill="none"/>
+<circle cx="550.0" cy="420" r="3.5" fill="#FFFFFF" stroke="#B4BECC" stroke-width="1.5"/>
+<clipPath id="b00"><rect x="60" y="124" width="470" height="232" rx="10"/></clipPath>
+<rect x="60" y="124" width="470" height="232" rx="10" fill="#F6F7F9" stroke="#D5DBE4" stroke-width="1.5"/>
+<rect x="60" y="124" width="470" height="4" fill="#FC5D0D" clip-path="url(#b00)"/>
+<text x="86" y="166" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="17" font-weight="bold" fill="#0D1724" text-anchor="start" >data-migrator/</text>
+<text x="86" y="190" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="normal" fill="#4A566B" text-anchor="start" >Runtime and history data migration</text>
+<path d="M86 210 H504" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M86 232.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="241" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >core/</text>
+<path d="M296 232.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="322" y="241" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >distro/</text>
+<path d="M86 260.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="269" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >plugins/cockpit/</text>
+<path d="M296 260.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="322" y="269" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >qa/</text>
+<path d="M86 288.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="297" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >examples/</text>
+<path d="M296 288.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="322" y="297" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >assembly/</text>
+<path d="M86 316.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="325" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >mvn/</text>
+<clipPath id="b10"><rect x="570" y="124" width="470" height="232" rx="10"/></clipPath>
+<rect x="570" y="124" width="470" height="232" rx="10" fill="#F6F7F9" stroke="#D5DBE4" stroke-width="1.5"/>
+<rect x="570" y="124" width="470" height="4" fill="#FC5D0D" clip-path="url(#b10)"/>
+<text x="596" y="166" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="17" font-weight="bold" fill="#0D1724" text-anchor="start" >diagram-converter/</text>
+<text x="596" y="190" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="normal" fill="#4A566B" text-anchor="start" >BPMN/DMN model analysis and conversion</text>
+<path d="M596 210 H1014" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M596 232.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="622" y="241" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >core/</text>
+<path d="M806 232.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="832" y="241" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >cli/</text>
+<path d="M596 260.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="622" y="269" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >webapp/</text>
+<path d="M806 260.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="832" y="269" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >extension-example/</text>
+<clipPath id="b01"><rect x="60" y="384" width="470" height="176" rx="10"/></clipPath>
+<rect x="60" y="384" width="470" height="176" rx="10" fill="#F6F7F9" stroke="#D5DBE4" stroke-width="1.5"/>
+<rect x="60" y="384" width="470" height="4" fill="#FC5D0D" clip-path="url(#b01)"/>
+<text x="86" y="426" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="17" font-weight="bold" fill="#0D1724" text-anchor="start" >code-conversion/</text>
+<text x="86" y="450" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="normal" fill="#4A566B" text-anchor="start" >Patterns, OpenRewrite recipes and API mapping</text>
+<path d="M86 470 H504" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M86 492.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="501" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >patterns/</text>
+<path d="M296 492.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="322" y="501" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >recipes/</text>
+<path d="M86 520.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="112" y="529" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >api-mapping/</text>
+<path d="M296 520.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="322" y="529" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >examples/</text>
+<clipPath id="b11"><rect x="570" y="384" width="470" height="176" rx="10"/></clipPath>
+<rect x="570" y="384" width="470" height="176" rx="10" fill="#F6F7F9" stroke="#D5DBE4" stroke-width="1.5"/>
+<rect x="570" y="384" width="470" height="4" fill="#FC5D0D" clip-path="url(#b11)"/>
+<text x="596" y="426" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="17" font-weight="bold" fill="#0D1724" text-anchor="start" >agentic-migration-skills/</text>
+<text x="596" y="450" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="normal" fill="#4A566B" text-anchor="start" >Agent Skill for guided migration</text>
+<path d="M596 470 H1014" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M596 492.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="622" y="501" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >skills/</text>
+<path d="M806 492.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="832" y="501" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >fixtures/</text>
+<path d="M597.5 516.5 h7 l4.5 4.5 v9 q0 1.5 -1.5 1.5 h-10 q-1.5 0 -1.5 -1.5 v-12 q0 -1.5 1.5 -1.5 Z M604.5 516.5 v4.5 h4.5" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="622" y="529" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >plugin.json</text>
+<text x="60" y="594" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="bold" fill="#6B778C" text-anchor="start" letter-spacing="1.2">SHARED ROOT ITEMS</text>
+<rect x="60" y="608" width="980" height="72" rx="10" fill="#FFFFFF" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M80.0 630.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="106.0" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >.github/</text>
+<text x="106.0" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >CI/CD, templates</text>
+<path d="M223.33333333333334 622 V666" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M243.33333333333334 630.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="269.33333333333337" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >license/</text>
+<text x="269.33333333333337" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >License, headers</text>
+<path d="M386.6666666666667 622 V666" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M406.6666666666667 630.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="432.6666666666667" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >docs/</text>
+<text x="432.6666666666667" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >Project guides</text>
+<path d="M550.0 622 V666" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M571.5 626.5 h7 l4.5 4.5 v9 q0 1.5 -1.5 1.5 h-10 q-1.5 0 -1.5 -1.5 v-12 q0 -1.5 1.5 -1.5 Z M578.5 626.5 v4.5 h4.5" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="596.0" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >AGENTS.md</text>
+<text x="596.0" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >Agent guidance</text>
+<path d="M713.3333333333334 622 V666" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M734.8333333333334 626.5 h7 l4.5 4.5 v9 q0 1.5 -1.5 1.5 h-10 q-1.5 0 -1.5 -1.5 v-12 q0 -1.5 1.5 -1.5 Z M741.8333333333334 626.5 v4.5 h4.5" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="759.3333333333334" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >pom.xml</text>
+<text x="759.3333333333334" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >Maven reactor</text>
+<path d="M876.6666666666667 622 V666" stroke="#D5DBE4" stroke-width="1.5"/>
+<path d="M896.6666666666667 630.0 q0 -2.5 2.5 -2.5 h3.5 l2 2 h5.5 q2.5 0 2.5 2.5 v6 q0 2.5 -2.5 2.5 h-11 q-2.5 0 -2.5 -2.5 Z" fill="none" stroke="#5B6B85" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="922.6666666666667" y="639" font-family="Menlo, Consolas, 'Courier New', monospace" font-size="14.5" font-weight="normal" fill="#0D1724" text-anchor="start" >.mvn/</text>
+<text x="922.6666666666667" y="662" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#6B778C" text-anchor="start" >Maven config</text>
+</svg>
