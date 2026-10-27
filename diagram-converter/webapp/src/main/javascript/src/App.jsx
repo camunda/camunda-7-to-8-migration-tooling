@@ -6,6 +6,7 @@
  * except in compliance with the Camunda License 1.0.
  */
 import {
+  Component,
   lazy,
   Suspense,
   useState,
@@ -73,6 +74,22 @@ const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
+
+class PreviewErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error(`${this.props.previewName} preview failed to load:`, error);
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 function useAccessibleModal(
   isOpen,
@@ -1643,18 +1660,30 @@ function App() {
                     description={previewDmnError}
                   />
                 ) : (
-                  <Suspense
+                  <PreviewErrorBoundary
+                    key={`dmn-${previewFileIndex}`}
+                    previewName="DMN"
                     fallback={
-                      <p className="preview-loading" role="status">
-                        Loading preview…
-                      </p>
+                      <Alert
+                        variant="destructive"
+                        title="DMN preview unavailable"
+                        description="The DMN preview could not be loaded. Reload the page to try again."
+                      />
                     }
                   >
-                    <DmnPreview
-                      xml={previewModelXml}
-                      onError={setPreviewDmnError}
-                    />
-                  </Suspense>
+                    <Suspense
+                      fallback={
+                        <p className="preview-loading" role="status">
+                          Loading preview…
+                        </p>
+                      }
+                    >
+                      <DmnPreview
+                        xml={previewModelXml}
+                        onError={setPreviewDmnError}
+                      />
+                    </Suspense>
+                  </PreviewErrorBoundary>
                 ))}
               {(previewType === "other" ||
                 (previewType === "bpmn" && previewDiagramError)) && (
@@ -1694,18 +1723,30 @@ function App() {
                   description={previewFormError}
                 />
               ) : (
-                <Suspense
+                <PreviewErrorBoundary
+                  key={`form-${previewFileIndex}`}
+                  previewName="Form"
                   fallback={
-                    <p className="preview-loading" role="status">
-                      Loading preview…
-                    </p>
+                    <Alert
+                      variant="destructive"
+                      title="Form preview unavailable"
+                      description="The form preview could not be loaded. Reload the page to try again."
+                    />
                   }
                 >
-                  <FormPreview
-                    schema={previewFormSchema}
-                    onError={setPreviewFormError}
-                  />
-                </Suspense>
+                  <Suspense
+                    fallback={
+                      <p className="preview-loading" role="status">
+                        Loading preview…
+                      </p>
+                    }
+                  >
+                    <FormPreview
+                      schema={previewFormSchema}
+                      onError={setPreviewFormError}
+                    />
+                  </Suspense>
+                </PreviewErrorBoundary>
               )}
               {currentPreviewResult?.checkResponseJson != null && (
                 <FindingsSection
