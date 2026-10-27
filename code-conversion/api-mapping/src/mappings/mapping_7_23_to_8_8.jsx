@@ -5,19 +5,17 @@
  * Licensed under the Camunda License 1.0. You may not use this file
  * except in compliance with the Camunda License 1.0.
  */
-import { c7_23 } from "../openapi/camunda7/c7_23";
-import { c8_8 } from "../openapi/camunda8/c8_8";
-import * as mappings from "./mapping_details_7_23_to_8_8/index.js";
+import c7SpecUrl from "../openapi/camunda7/c7_23.js?url";
+import c8SpecUrl from "../openapi/camunda8/c8_8.js?url";
+import { loadOpenApiSpec } from "../openapi/loadOpenApiSpec.js";
 
-export const mapping_7_23_to_8_8 = {
+const mapping = {
 	id: "7_23_to_8_8",
 	tabName: "7.23 to 8.8",
 	c7BaseUrl:
 		"https://docs.camunda.org/rest/camunda-bpm-platform/7.23-SNAPSHOT/#tag/",
 	c8BaseUrl:
 		"https://docs.camunda.io/docs/8.8/apis-tools/camunda-api-rest/specifications/",
-	c7_specification: c7_23,
-	c8_specification: c8_8,
 	introduction: (
 		<>
 			<p>
@@ -434,57 +432,75 @@ export const mapping_7_23_to_8_8 = {
 			</p>
 		</>
 	),
-	mappings: [
-		...mappings.authorization,
-		...mappings.batch,
-		...mappings.condition,
-		...mappings.decision_definition,
-		...mappings.decision_requirements_definition,
-		...mappings.deployment,
-		...mappings.engine,
-		...mappings.event_subscription,
-		...mappings.execution,
-		...mappings.external_task,
-		...mappings.filter,
-		...mappings.group,
-		...mappings.historic_activity_instance,
-		...mappings.historic_batch,
-		...mappings.historic_decision_definition,
-		...mappings.historic_decision_instance,
-		...mappings.historic_decision_requirements_definition,
-		...mappings.historic_detail,
-		...mappings.historic_external_task_log,
-		...mappings.historic_identity_link_log,
-		...mappings.historic_incident,
-		...mappings.historic_job_log,
-		...mappings.historic_process_definition,
-		...mappings.historic_process_instance,
-		...mappings.historic_task_instance,
-		...mappings.historic_user_operation_log,
-		...mappings.historic_variable_instance,
-		...mappings.history_cleanup,
-		...mappings.identity,
-		...mappings.incident,
-		...mappings.job,
-		...mappings.job_definition,
-		...mappings.message,
-		...mappings.metrics,
-		...mappings.migration,
-		...mappings.modification,
-		...mappings.process_definition,
-		...mappings.process_instance,
-		...mappings.signal,
-		...mappings.schema_log,
-		...mappings.task,
-		...mappings.task_attachment,
-		...mappings.task_comment,
-		...mappings.task_identity_link,
-		...mappings.task_local_variable,
-		...mappings.task_variable,
-		...mappings.telemetry,
-		...mappings.tenant,
-		...mappings.user,
-		...mappings.variable_instance,
-		...mappings.version,
-	],
+};
+
+export const mapping_7_23_to_8_8 = {
+	id: mapping.id,
+	tabName: mapping.tabName,
+	load: async () => {
+		const [c7Specification, c8Specification, mappings] = await Promise.all([
+			loadOpenApiSpec(c7SpecUrl, "c7_23"),
+			loadOpenApiSpec(c8SpecUrl, "c8_8"),
+			import("./mapping_details_7_23_to_8_8/index.js"),
+		]);
+
+		return {
+			...mapping,
+			mappings: [
+				...mappings.authorization,
+				...mappings.batch,
+				...mappings.condition,
+				...mappings.decision_definition,
+				...mappings.decision_requirements_definition,
+				...mappings.deployment,
+				...mappings.engine,
+				...mappings.event_subscription,
+				...mappings.execution,
+				...mappings.external_task,
+				...mappings.filter,
+				...mappings.group,
+				...mappings.historic_activity_instance,
+				...mappings.historic_batch,
+				...mappings.historic_decision_definition,
+				...mappings.historic_decision_instance,
+				...mappings.historic_decision_requirements_definition,
+				...mappings.historic_detail,
+				...mappings.historic_external_task_log,
+				...mappings.historic_identity_link_log,
+				...mappings.historic_incident,
+				...mappings.historic_job_log,
+				...mappings.historic_process_definition,
+				...mappings.historic_process_instance,
+				...mappings.historic_task_instance,
+				...mappings.historic_user_operation_log,
+				...mappings.historic_variable_instance,
+				...mappings.history_cleanup,
+				...mappings.identity,
+				...mappings.incident,
+				...mappings.job,
+				...mappings.job_definition,
+				...mappings.message,
+				...mappings.metrics,
+				...mappings.migration,
+				...mappings.modification,
+				...mappings.process_definition,
+				...mappings.process_instance,
+				...mappings.signal,
+				...mappings.schema_log,
+				...mappings.task,
+				...mappings.task_attachment,
+				...mappings.task_comment,
+				...mappings.task_identity_link,
+				...mappings.task_local_variable,
+				...mappings.task_variable,
+				...mappings.telemetry,
+				...mappings.tenant,
+				...mappings.user,
+				...mappings.variable_instance,
+				...mappings.version,
+			],
+			c7_specification: c7Specification,
+			c8_specification: c8Specification,
+		};
+	},
 };
