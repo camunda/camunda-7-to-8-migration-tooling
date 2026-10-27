@@ -95,6 +95,19 @@ public class DistributionSmokeTest {
   }
 
   @Test
+  void shouldOnlyPackageSupportedOgnlVersions() throws IOException {
+    Set<String> inspectedArtifacts = new HashSet<>();
+    var application = extractedDistributionPath.resolve("internal/camunda-7-to-8-data-migrator.jar");
+
+    try (var input = Files.newInputStream(application)) {
+      assertPackagedOgnlVersions(
+          input, application.getFileName().toString(), Runtime.Version.parse("3.4.13"), inspectedArtifacts);
+    }
+
+    assertThat(inspectedArtifacts).contains("ognl:ognl");
+  }
+
+  @Test
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldShowUsageWhenInvalidFlagProvided() throws Exception {
     // given
@@ -571,6 +584,31 @@ public class DistributionSmokeTest {
                 .as("Jackson version in %s", path)
                 .isEqualTo(expectedVersions.get(groupId));
             inspectedArtifacts.add(groupId + ":" + artifactId);
+          }
+        }
+      }
+    }
+  }
+
+  protected void assertPackagedOgnlVersions(
+      InputStream input, String archivePath, Runtime.Version minimumVersion, Set<String> inspectedArtifacts)
+      throws IOException {
+    try (var archive = new ZipInputStream(input)) {
+      ZipEntry entry;
+      while ((entry = archive.getNextEntry()) != null) {
+        var path = archivePath + "!/" + entry.getName();
+        if (entry.getName().endsWith(".jar")) {
+          assertPackagedOgnlVersions(
+              new ByteArrayInputStream(archive.readAllBytes()), path, minimumVersion, inspectedArtifacts);
+        } else if (entry.getName().endsWith("/pom.properties")) {
+          var properties = new Properties();
+          properties.load(archive);
+          if ("ognl".equals(properties.getProperty("groupId"))
+              && "ognl".equals(properties.getProperty("artifactId"))) {
+            assertThat(Runtime.Version.parse(properties.getProperty("version")))
+                .as("OGNL version in %s", path)
+                .isGreaterThanOrEqualTo(minimumVersion);
+            inspectedArtifacts.add("ognl:ognl");
           }
         }
       }
