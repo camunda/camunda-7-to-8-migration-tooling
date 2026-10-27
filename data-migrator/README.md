@@ -146,13 +146,15 @@ rejects that bundle and known affected Jackson Core/Databind versions.
 
 `SpinDataFormatsTest` checks JSON/XML round trips and that Spin uses the managed
 Jackson implementation. The distribution smoke test also checks Jackson metadata
-inside every nested JAR against the configured BOM versions. Run these checks from
-the repository root:
+inside every nested JAR against the configured BOM versions and rejects embedded
+OGNL versions older than 3.4.13. MyBatis shades OGNL, so update MyBatis itself;
+managing a standalone `ognl:ognl` dependency cannot replace the embedded classes.
+Run these checks from the repository root:
 
 ```bash
 mvn test -pl data-migrator/core -am -Dtest=SpinDataFormatsTest -Dsurefire.failIfNoSpecifiedTests=false
-mvn install -pl data-migrator/assembly -am -DskipTests
-mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=DistributionSmokeTest#shouldOnlyPackageManagedJacksonVersions
+mvn clean install -pl data-migrator/assembly -am -DskipTests
+mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=DistributionSmokeTest#shouldOnlyPackageManagedJacksonAndFixedOgnlVersions
 ```
 
 Published release archives are immutable. A dependency fix must be included in a
