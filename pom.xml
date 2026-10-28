@@ -146,7 +146,7 @@
       <dependency>
         <groupId>io.micrometer</groupId>
         <artifactId>micrometer-core</artifactId>
-        <version>1.17.1</version>
+        <version>1.17.2</version>
       </dependency>
       <!-- CVE-2026-47883 / CVE-2026-47884 / CVE-2026-47885 / CVE-2026-47886 / CVE-2026-47889 / CVE-2026-59281 / CVE-2026-59282 / CVE-2026-59283: pin Spring artifacts explicitly so imported BOMs cannot select affected versions. -->
       <dependency>
