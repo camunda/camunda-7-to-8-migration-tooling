@@ -13,6 +13,7 @@
     <maven.compiler.release>17</maven.compiler.release>
     <version.jackson-bom>2.22.3</version.jackson-bom>
     <version.jackson-3-bom>3.2.3</version.jackson-3-bom>
+    <tomcat.version>11.0.27</tomcat.version>
   </properties>
 
   <dependencyManagement>
@@ -46,6 +47,23 @@
         <version>7.24.5-ee</version>
         <scope>import</scope>
         <type>pom</type>
+      </dependency>
+
+      <!-- Keep the standalone sample aligned with the root Tomcat pin. -->
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-core</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-el</artifactId>
+        <version>${tomcat.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.tomcat.embed</groupId>
+        <artifactId>tomcat-embed-websocket</artifactId>
+        <version>${tomcat.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
