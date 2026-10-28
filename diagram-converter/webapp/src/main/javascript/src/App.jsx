@@ -6,6 +6,9 @@
  * except in compliance with the Camunda License 1.0.
  */
 import {
+  Component,
+  lazy,
+  Suspense,
   useState,
   useEffect,
   useLayoutEffect,
@@ -46,9 +49,6 @@ import {
   summarizeFindings,
 } from "./findings";
 import FindingsSection from "./FindingsSection";
-import BpmnJS from 'bpmn-js/lib/NavigatedViewer';
-import DmnPreview from "./DmnPreview";
-import FormPreview from "./FormPreview";
 import { parseFormSchema } from "./formSchema";
 import { getPreviewType } from "./modelType";
 import {
@@ -56,6 +56,9 @@ import {
   getPlatformVersionAriaLabel,
   SUPPORTED_PLATFORM_VERSIONS,
 } from "./platformVersions";
+
+const DmnPreview = lazy(() => import("./DmnPreview"));
+const FormPreview = lazy(() => import("./FormPreview"));
 
 // Combined batch actions send the files selected for that action plus the
 // config fields in a single multipart request.
@@ -71,6 +74,22 @@ const MAX_BATCH_FILES = MAX_MULTIPART_PARTS - FIXED_FORM_FIELD_COUNT;
 
 const LOCAL_CONVERTER_DOCS_URL =
   "https://docs.camunda.io/docs/guides/migrating-from-camunda-7/migration-tooling/diagram-converter/#local-web-application";
+
+class PreviewErrorBoundary extends Component {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    console.error(`${this.props.previewName} preview failed to load:`, error);
+  }
+
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 function useAccessibleModal(
   isOpen,
@@ -293,110 +312,144 @@ function App() {
     ) {
       return;
     }
-
-    const viewer = new BpmnJS({ container: bpmnPreviewRef.current });
     let isActive = true;
+    let viewer;
     let eventBus;
     let handleSelectionChanged;
-    viewer.importXML(previewModelXml).then(() => {
-      if (!isActive) return;
 
-        const canvas = viewer.get('canvas');
-        const elementRegistry = viewer.get('elementRegistry');
-        canvas.zoom('fit-viewport');
+    import("bpmn-js/lib/NavigatedViewer")
+      .then(({ default: BpmnJS }) => {
+        if (!isActive) return;
 
-        const elementsWithMessages =
-          (Array.isArray(previewCheckJson) ? previewCheckJson : [])
-            .flatMap((item) => (Array.isArray(item?.results) ? item.results : []))
-            .filter((el) => Array.isArray(el?.messages) && el.messages.length > 0);
+        viewer = new BpmnJS({ container: bpmnPreviewRef.current });
+        return viewer.importXML(previewModelXml).then(() => {
+          if (!isActive) return;
 
-        elementsWithMessages.forEach((el) => {
-          if (el.elementId && elementRegistry.get(el.elementId)) {
-            const severityStyleKey = getSeverityStyleKey(getHighestSeverity(el.messages));
-            canvas.addMarker(el.elementId, `highlight-${severityStyleKey}`);
-          }
-        });
+          const canvas = viewer.get("canvas");
+          const elementRegistry = viewer.get("elementRegistry");
+          canvas.zoom("fit-viewport");
 
-        const selectedElementId = selectedFindingElementIdRef.current;
-        if (selectedElementId) {
-          const selectedElement = viewer
-            .get("elementRegistry")
-            .get(selectedElementId);
-          if (selectedElement) {
-            canvas.addMarker(selectedElementId, "finding-selected");
-            canvas.scrollToElement(selectedElement);
-            viewer.get("selection").select(selectedElement);
-            selectedMarkerElementIdRef.current = selectedElementId;
-          } else {
-            selectedFindingElementIdRef.current = null;
-            setSelectedFindingElementId(null);
-          }
-        }
+          const elementsWithMessages = (
+            Array.isArray(previewCheckJson) ? previewCheckJson : []
+          )
+            .flatMap((item) =>
+              Array.isArray(item?.results) ? item.results : []
+            )
+            .filter(
+              (element) =>
+                Array.isArray(element?.messages) &&
+                element.messages.length > 0
+            );
 
-        bpmnViewerRef.current = viewer;
-        eventBus = viewer.get('eventBus');
-        // Mirror direct BPMN selections in the table by stable element ID.
-        handleSelectionChanged = ({ newSelection }) => {
-          const selectedElement =
-            Array.isArray(newSelection) && newSelection.length === 1
-              ? newSelection[0]
-              : null;
-          const elementId = selectedElement?.id;
-          const hasFindings = previewTableRows.some(
-            (row) => row.elementId === elementId && elementId !== '-'
-          );
+          elementsWithMessages.forEach((element) => {
+            if (element.elementId && elementRegistry.get(element.elementId)) {
+              const severityStyleKey = getSeverityStyleKey(
+                getHighestSeverity(element.messages)
+              );
+              canvas.addMarker(
+                element.elementId,
+                `highlight-${severityStyleKey}`
+              );
+            }
+          });
 
-          try {
-            const previousMarkerElementId = selectedMarkerElementIdRef.current;
-            if (!hasFindings || !viewer.get('elementRegistry').get(elementId)) {
-              if (previousMarkerElementId) {
-                canvas.removeMarker(previousMarkerElementId, 'finding-selected');
-              }
-              selectedMarkerElementIdRef.current = null;
+          const selectedElementId = selectedFindingElementIdRef.current;
+          if (selectedElementId) {
+            const selectedElement = viewer
+              .get("elementRegistry")
+              .get(selectedElementId);
+            if (selectedElement) {
+              canvas.addMarker(selectedElementId, "finding-selected");
+              canvas.scrollToElement(selectedElement);
+              viewer.get("selection").select(selectedElement);
+              selectedMarkerElementIdRef.current = selectedElementId;
+            } else {
               selectedFindingElementIdRef.current = null;
               setSelectedFindingElementId(null);
-              return;
             }
-
-            if (previousMarkerElementId && previousMarkerElementId !== elementId) {
-              canvas.removeMarker(previousMarkerElementId, 'finding-selected');
-            }
-            if (previousMarkerElementId !== elementId) {
-              canvas.addMarker(elementId, 'finding-selected');
-            }
-            selectedMarkerElementIdRef.current = elementId;
-            selectedFindingElementIdRef.current = elementId;
-            setSelectedFindingElementId(elementId);
-          } catch (error) {
-            console.error("Unable to synchronize the selected finding with the diagram:", error);
           }
-        };
-        eventBus.on('selection.changed', handleSelectionChanged);
-        setBpmnPreviewReady(true);
-      }).catch((error) => {
+
+          bpmnViewerRef.current = viewer;
+          eventBus = viewer.get("eventBus");
+          handleSelectionChanged = ({ newSelection }) => {
+            const selectedElement =
+              Array.isArray(newSelection) && newSelection.length === 1
+                ? newSelection[0]
+                : null;
+            const elementId = selectedElement?.id;
+            const hasFindings = previewTableRows.some(
+              (row) => row.elementId === elementId && elementId !== "-"
+            );
+
+            try {
+              const previousMarkerElementId =
+                selectedMarkerElementIdRef.current;
+              if (
+                !hasFindings ||
+                !viewer.get("elementRegistry").get(elementId)
+              ) {
+                if (previousMarkerElementId) {
+                  canvas.removeMarker(
+                    previousMarkerElementId,
+                    "finding-selected"
+                  );
+                }
+                selectedMarkerElementIdRef.current = null;
+                selectedFindingElementIdRef.current = null;
+                setSelectedFindingElementId(null);
+                return;
+              }
+
+              if (
+                previousMarkerElementId &&
+                previousMarkerElementId !== elementId
+              ) {
+                canvas.removeMarker(
+                  previousMarkerElementId,
+                  "finding-selected"
+                );
+              }
+              if (previousMarkerElementId !== elementId) {
+                canvas.addMarker(elementId, "finding-selected");
+              }
+              selectedMarkerElementIdRef.current = elementId;
+              selectedFindingElementIdRef.current = elementId;
+              setSelectedFindingElementId(elementId);
+            } catch (error) {
+              console.error(
+                "Unable to synchronize the selected finding with the diagram:",
+                error
+              );
+            }
+          };
+          eventBus.on("selection.changed", handleSelectionChanged);
+          setBpmnPreviewReady(true);
+        });
+      })
+      .catch((error) => {
         if (isActive) {
           console.error("Unable to render BPMN preview:", error);
           setPreviewDiagramError(true);
         }
       });
 
-      return () => {
-        isActive = false;
-        if (eventBus && handleSelectionChanged) {
-          eventBus.off('selection.changed', handleSelectionChanged);
-        }
-        bpmnViewerRef.current = null;
-        selectedMarkerElementIdRef.current = null;
-        viewer.destroy();
-      };
-    }, [
-      isPreviewOpen,
-      previewType,
-      previewDiagramError,
-      previewModelXml,
-      previewCheckJson,
-      previewTableRows,
-    ]);
+    return () => {
+      isActive = false;
+      if (eventBus && handleSelectionChanged) {
+        eventBus.off("selection.changed", handleSelectionChanged);
+      }
+      bpmnViewerRef.current = null;
+      selectedMarkerElementIdRef.current = null;
+      viewer?.destroy();
+    };
+  }, [
+    isPreviewOpen,
+    previewType,
+    previewDiagramError,
+    previewModelXml,
+    previewCheckJson,
+    previewTableRows,
+  ]);
 
   // Locates a finding's element in the rendered BPMN diagram: scrolls it
   // into view, applies bpmn-js's own selection outline, and layers an
@@ -1608,10 +1661,30 @@ function App() {
                     description={previewDmnError}
                   />
                 ) : (
-                  <DmnPreview
-                    xml={previewModelXml}
-                    onError={setPreviewDmnError}
-                  />
+                  <PreviewErrorBoundary
+                    key={`dmn-${previewFileIndex}`}
+                    previewName="DMN"
+                    fallback={
+                      <Alert
+                        variant="destructive"
+                        title="DMN preview unavailable"
+                        description="The DMN preview could not be loaded. Reload the page to try again."
+                      />
+                    }
+                  >
+                    <Suspense
+                      fallback={
+                        <p className="preview-loading" role="status">
+                          Loading preview…
+                        </p>
+                      }
+                    >
+                      <DmnPreview
+                        xml={previewModelXml}
+                        onError={setPreviewDmnError}
+                      />
+                    </Suspense>
+                  </PreviewErrorBoundary>
                 ))}
               {(previewType === "other" ||
                 (previewType === "bpmn" && previewDiagramError)) && (
@@ -1651,10 +1724,30 @@ function App() {
                   description={previewFormError}
                 />
               ) : (
-                <FormPreview
-                  schema={previewFormSchema}
-                  onError={setPreviewFormError}
-                />
+                <PreviewErrorBoundary
+                  key={`form-${previewFileIndex}`}
+                  previewName="Form"
+                  fallback={
+                    <Alert
+                      variant="destructive"
+                      title="Form preview unavailable"
+                      description="The form preview could not be loaded. Reload the page to try again."
+                    />
+                  }
+                >
+                  <Suspense
+                    fallback={
+                      <p className="preview-loading" role="status">
+                        Loading preview…
+                      </p>
+                    }
+                  >
+                    <FormPreview
+                      schema={previewFormSchema}
+                      onError={setPreviewFormError}
+                    />
+                  </Suspense>
+                </PreviewErrorBoundary>
               )}
               {currentPreviewResult?.checkResponseJson != null && (
                 <FindingsSection
