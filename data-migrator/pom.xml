@@ -34,6 +34,12 @@
         <artifactId>hibernate-validator</artifactId>
         <version>${version.hibernate-validator}</version>
       </dependency>
+      <!-- CVE-2026-116486: pin Objenesis to the fixed version. -->
+      <dependency>
+        <groupId>org.objenesis</groupId>
+        <artifactId>objenesis</artifactId>
+        <version>3.6</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
