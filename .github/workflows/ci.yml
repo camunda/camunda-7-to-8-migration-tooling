@@ -158,8 +158,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      id-token: write
       contents: read
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -184,7 +189,17 @@ jobs:
         working-directory: data-migrator/qa/e2e-tests
         run: npm audit --audit-level=high
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   distro:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -195,6 +210,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -235,7 +254,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   code-conversion:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     # Gradle Tooling API dependency resolution can exceed 30 minutes on cold runners.
@@ -247,6 +276,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -323,12 +356,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   code-conversion-windows:
     needs: [detect-changes]
     runs-on: windows-latest
     # Gradle Tooling API dependency resolution can exceed 30 minutes on cold Windows runners.
     timeout-minutes: 45
     permissions:
+      id-token: write
       contents: read
     if: |
       github.event_name != 'pull_request' ||
@@ -337,6 +378,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Enable long paths for Git on Windows
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
@@ -374,7 +419,17 @@ jobs:
           "-Dtest=!ProcessPaymentsApplicationTests,!MyExecutionListenerTest,!StandaloneProcessTest"
           "-Dsurefire.failIfNoSpecifiedTests=false"
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   diagram-converter:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -385,6 +440,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -426,7 +485,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   diagram-converter-frontend:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -435,6 +504,10 @@ jobs:
       needs.detect-changes.outputs.diagram-converter-frontend == 'true' ||
       needs.detect-changes.outputs.shared == 'true'
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -449,11 +522,19 @@ jobs:
           npm ci
           npm test
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   diagram-converter-windows:
     needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
+      id-token: write
       contents: read
     if: |
       github.event_name != 'pull_request' ||
@@ -462,6 +543,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Enable long paths for Git on Windows
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
@@ -496,9 +581,19 @@ jobs:
         # The distro profile is active by default; only checkFormat is omitted on Windows.
         run: mvn verify --batch-mode
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Compile-check all modules against the previous Camunda 8 version
   # to catch API-level incompatibilities before merge.
   compile-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -509,6 +604,10 @@ jobs:
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -544,7 +643,17 @@ jobs:
           -pl '!data-migrator/plugins/cockpit,!data-migrator/assembly'
           --batch-mode
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   it-runtime-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -576,6 +685,10 @@ jobs:
         )
       )
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -605,7 +718,18 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+          job_name_override: it-runtime-h2/${{ matrix.shard }}
+
   it-history-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -623,6 +747,10 @@ jobs:
         )
       ))
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -651,6 +779,13 @@ jobs:
       - name: Run history tests with H2
         working-directory: data-migrator
         run: mvn verify -Pintegration,history-only
+
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
 
   # Determine which databases to test based on PR labels
   prepare-db-matrix:
@@ -708,6 +843,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
+      id-token: write
       contents: read
     strategy:
       fail-fast: false
@@ -716,6 +852,10 @@ jobs:
         # Keep every runtime test fork below Surefire's 65-minute timeout.
         suite: [core, element, jobtype, variables]
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -744,18 +884,31 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,runtime-${{ matrix.suite }}
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+          job_name_override: it-runtime-db/${{ matrix.database }}/${{ matrix.suite }}
+
   # History integration tests for non-H2 databases (label-gated on PRs)
   it-history-db:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
+      id-token: write
       contents: read
     strategy:
       fail-fast: false
       matrix:
         database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -784,12 +937,21 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,history-only
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+          job_name_override: it-history-db/${{ matrix.database }}
+
   # Cross-vendor history integration tests: Camunda 7 on MS SQL Server, Camunda 8 on PostgreSQL.
   # Not part of the single-vendor DB matrix; label-gated on PRs, runs on schedule and manual dispatch.
   it-history-cross-vendor:
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
+      id-token: write
       contents: read
     if: |
       github.event_name == 'schedule' ||
@@ -799,6 +961,10 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'ci:db:all')
       ))
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -827,7 +993,17 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Psqlserver-to-postgresql,integration,history-only
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   it-history-h2-windows:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 70
@@ -845,6 +1021,10 @@ jobs:
         )
       ))
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Enable long paths for Git on Windows
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
@@ -878,8 +1058,17 @@ jobs:
         working-directory: data-migrator
         run: mvn clean install -P'windows,integration' --batch-mode
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
 
   it-identity-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -897,6 +1086,10 @@ jobs:
         )
       ))
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -926,18 +1119,30 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -Pintegration,identity-only
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Identity integration tests for non-H2 databases (label-gated on PRs)
   it-identity-db:
     needs: prepare-db-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
+      id-token: write
       contents: read
     strategy:
       fail-fast: false
       matrix:
         database: ${{ fromJSON(needs.prepare-db-matrix.outputs.databases) }}
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -966,11 +1171,20 @@ jobs:
         working-directory: data-migrator
         run: mvn verify -P${{ matrix.database }},integration,identity-only
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+          job_name_override: it-identity-db/${{ matrix.database }}
+
   e2e:
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      id-token: write
       contents: read
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
@@ -985,6 +1199,10 @@ jobs:
         needs.detect-changes.outputs.run-e2e == 'true'
       ))
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1050,8 +1268,18 @@ jobs:
           path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Nightly: verify code-conversion against previous Camunda 8 version
   code-conversion-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1062,6 +1290,10 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1102,8 +1334,18 @@ jobs:
           -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
           --batch-mode
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Nightly: verify diagram-converter against previous Camunda 8 version
   diagram-converter-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1114,6 +1356,10 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1145,12 +1391,20 @@ jobs:
           -Dversion.camunda-8=${{ needs.read-versions.outputs.camunda-8-previous-version }}
           --batch-mode
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Nightly: run E2E tests against previous Camunda 8 version
   e2e-previous-version:
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
+      id-token: write
       contents: read
     if: |
       github.event_name == 'schedule' ||
@@ -1159,6 +1413,10 @@ jobs:
         contains(github.event.pull_request.labels.*.name, 'ci:previous-c8-version')
       )
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1218,12 +1476,20 @@ jobs:
           path: data-migrator/qa/e2e-tests/test-results/
           retention-days: 7
 
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+
   # Database and Camunda version compatibility matrix testing - runs daily on main branch
   it-database-camunda-matrix:
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
+      id-token: write
       contents: read
     if: |
       github.event_name == 'schedule' ||
@@ -1246,6 +1512,10 @@ jobs:
             camunda-docker-image-version: ${{ needs.read-versions.outputs.camunda-8-previous-docker-image-version }}
             c8-api: previous
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1277,6 +1547,14 @@ jobs:
           -Dversion.camunda-8=${{ matrix.camunda-version }}
           -Dc8.api=${{ matrix.c8-api }}
           -Dcamunda.process-test.camunda-docker-image-version=${{ matrix.camunda-docker-image-version }}
+
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
+          job_name_override: it-database-camunda-matrix/${{ matrix.database }}/${{ matrix.camunda-version }}/${{ matrix.suite }}
 
   ci-summary:
     name: CI Summary Gate
@@ -1468,6 +1746,9 @@ jobs:
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
+    permissions:
+      contents: read
+      id-token: write
     needs:
       - npm-audit
       - distro
@@ -1486,6 +1767,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Retrigger job
         uses: camunda/infra-global-github-actions/rerun-failed-run@main
         with:
@@ -1499,3 +1784,10 @@ jobs:
           vault-addr: ${{ secrets.VAULT_ADDR }}
           vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
           vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
