@@ -6,7 +6,6 @@
  * except in compliance with the Camunda License 1.0.
  */
 import { useEffect, useRef } from "react";
-import DmnJS from "dmn-js";
 
 export default function DmnPreview({ xml, onError }) {
   const containerRef = useRef(null);
@@ -16,17 +15,24 @@ export default function DmnPreview({ xml, onError }) {
       return;
     }
 
-    const viewer = new DmnJS({ container: containerRef.current });
     let isActive = true;
+    let viewer;
 
-    viewer
-      .importXML(xml)
+    import("dmn-js/lib/Viewer")
+      .then(({ default: DmnJS }) => {
+        if (!isActive) {
+          return;
+        }
+
+        viewer = new DmnJS({ container: containerRef.current });
+        return viewer.importXML(xml);
+      })
       .then(() => {
         if (!isActive) {
           return;
         }
 
-        const canvas = viewer.getActiveViewer?.()?.get?.("canvas");
+        const canvas = viewer?.getActiveViewer?.()?.get?.("canvas");
         canvas?.zoom?.("fit-viewport");
       })
       .catch((error) => {
@@ -38,7 +44,7 @@ export default function DmnPreview({ xml, onError }) {
 
     return () => {
       isActive = false;
-      viewer.destroy();
+      viewer?.destroy();
     };
   }, [xml, onError]);
 
