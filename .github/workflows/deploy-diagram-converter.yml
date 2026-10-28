@@ -53,6 +53,10 @@ jobs:
     environment: diagram-converter-production
 
     steps:
+      - name: Start build monitor
+        uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+        continue-on-error: true
+
       - name: Import secrets
         id: secrets
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
@@ -268,3 +272,10 @@ jobs:
           echo "| **ECS Service** | \`${ECS_SERVICE}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Region** | \`${AWS_REGION}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **URL** | https://diagram-converter.camunda.io |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Submit build status
+        if: always()
+        continue-on-error: true
+        uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+        with:
+          build_status: ${{ job.status }}
