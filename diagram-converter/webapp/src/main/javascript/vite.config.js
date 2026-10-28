@@ -25,6 +25,19 @@ export default defineConfig({
   },
   build: {
     cssMinify: "esbuild",
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "dmn",
+              test: /node_modules[\\/]dmn-js(?:-[^\\/]+)?[\\/]/,
+              maxSize: 400 * 1024,
+            },
+          ],
+        },
+      },
+    },
   },
   resolve: {
     alias: {

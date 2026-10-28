@@ -15,7 +15,21 @@ import styles from "./app.module.css";
 import { EndpointNavigation } from "./components/EndpointNavigation";
 
 function App() {
-	const [selectedMapping, setSelectedMapping] = useState(mappingIndex[0]);
+	const [selectedMappingId, setSelectedMappingId] = useState(
+		mappingIndex[0].id
+	);
+	const [mappingLoad, setMappingLoad] = useState({
+		id: mappingIndex[0].id,
+		status: "loading",
+	});
+	const selectedMapping =
+		mappingLoad.id === selectedMappingId &&
+		mappingLoad.status === "loaded"
+			? mappingLoad.mapping
+			: null;
+	const mappingLoadError =
+		mappingLoad.id === selectedMappingId &&
+		mappingLoad.status === "error";
 	const [selectedMethod, setSelectedMethod] = useState("all");
 	const [searchText, setSearchText] = useState("");
 	const [hideTBDEndpoints, setHideTBDEndpoints] = useState(true);
@@ -27,6 +41,39 @@ function App() {
 	const [scrollPosition, setScrollPosition] = useState(0);
 	const sectionRefs = useRef([]);
 	const refScrollUp = useRef();
+
+	useEffect(() => {
+		let isActive = true;
+		Promise.resolve()
+			.then(() => {
+				const mappingEntry = mappingIndex.find(
+					(mapping) => mapping.id === selectedMappingId
+				);
+				if (!mappingEntry) {
+					throw new Error(`Unknown API mapping id: ${selectedMappingId}`);
+				}
+				return mappingEntry.load();
+			})
+			.then((mapping) => {
+				if (isActive) {
+					setMappingLoad({
+						id: selectedMappingId,
+						status: "loaded",
+						mapping,
+					});
+				}
+			})
+			.catch((error) => {
+				if (isActive) {
+					console.error("Unable to load API mapping:", error);
+					setMappingLoad({ id: selectedMappingId, status: "error" });
+				}
+			});
+
+		return () => {
+			isActive = false;
+		};
+	}, [selectedMappingId]);
 
 	function scrollToTop() {
 		scrollToRef(refScrollUp.current);
@@ -53,26 +100,27 @@ function App() {
 	});
 
 	function handleSelectionClick(id) {
-		setSelectedMapping(mappingIndex.find((mapping) => mapping.id === id));
+		setSelectedMappingId(id);
 	}
 
-	const mappedC7Endpoints = createMappedC7Endpoints(
-		selectedMapping,
-		selectedMethod,
-		searchText,
-		hideTBDEndpoints,
-		showMappedEndpoints,
-		showRoadmapEndpoints,
-		showDiscontinuedEndpoints,
-		sortAlphabetically
-	);
-
+	const mappedC7Endpoints = selectedMapping
+		? createMappedC7Endpoints(
+				selectedMapping,
+				selectedMethod,
+				searchText,
+				hideTBDEndpoints,
+				showMappedEndpoints,
+				showRoadmapEndpoints,
+				showDiscontinuedEndpoints,
+				sortAlphabetically
+			)
+		: [];
 	return (
 		<>
 			<div className={styles.container}>
 				<details className={styles.introduction}>
 					<summary className={styles.summary}>Introduction</summary>
-					{selectedMapping.introduction}
+					{selectedMapping?.introduction}
 				</details>
 				<div ref={refScrollUp}></div>
 				<h1>Mappings</h1>
@@ -87,26 +135,41 @@ function App() {
 					scrollToSection={scrollToSection}
 					scrollPosition={scrollPosition}
 				/>
-				<EndpointFilter
-					selectedMethod={selectedMethod}
-					setSelectedMethod={setSelectedMethod}
-					searchText={searchText}
-					setSearchText={setSearchText}
-					hideTBDEndpoints={hideTBDEndpoints}
-					setHideTBDEndpoints={setHideTBDEndpoints}
-					sortAlphabetically={sortAlphabetically}
-					setSortAlphabetically={setSortAlphabetically}
-					showMappedEndpoints={showMappedEndpoints}
-					setShowMappedEndpoints={setShowMappedEndpoints}
-					showRoadmapEndpoints={showRoadmapEndpoints}
-					setShowRoadmapEndpoints={setShowRoadmapEndpoints}
-					showDiscontinuedEndpoints={showDiscontinuedEndpoints}
-					setShowDiscontinuedEndpoints={setShowDiscontinuedEndpoints}
-				/>
-				<Tables
-					sectionRefs={sectionRefs}
-					mappedC7Endpoints={mappedC7Endpoints}
-				/>
+				{mappingLoadError ? (
+					<p role="alert">
+						Unable to load the selected API mapping. Reload the page
+						to try again.
+					</p>
+				) : !selectedMapping ? (
+					<p role="status">Loading API mapping…</p>
+				) : (
+					<>
+						<EndpointFilter
+							selectedMethod={selectedMethod}
+							setSelectedMethod={setSelectedMethod}
+							searchText={searchText}
+							setSearchText={setSearchText}
+							hideTBDEndpoints={hideTBDEndpoints}
+							setHideTBDEndpoints={setHideTBDEndpoints}
+							sortAlphabetically={sortAlphabetically}
+							setSortAlphabetically={setSortAlphabetically}
+							showMappedEndpoints={showMappedEndpoints}
+							setShowMappedEndpoints={setShowMappedEndpoints}
+							showRoadmapEndpoints={showRoadmapEndpoints}
+							setShowRoadmapEndpoints={setShowRoadmapEndpoints}
+							showDiscontinuedEndpoints={
+								showDiscontinuedEndpoints
+							}
+							setShowDiscontinuedEndpoints={
+								setShowDiscontinuedEndpoints
+							}
+						/>
+						<Tables
+							sectionRefs={sectionRefs}
+							mappedC7Endpoints={mappedC7Endpoints}
+						/>
+					</>
+				)}
 			</div>
 			<ToTopButton
 				scrollPosition={scrollPosition}
