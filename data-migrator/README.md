@@ -144,15 +144,18 @@ Jackson dependencies. Do not add `camunda-spin-dataformat-all`: it embeds reloca
 Jackson classes that Maven BOM overrides cannot update. The root dependency guard
 rejects that bundle and known affected Jackson Core/Databind versions.
 
+MyBatis shades OGNL into its own JAR. Update MyBatis to update this embedded copy;
+adding or overriding a standalone OGNL dependency does not replace it.
+
 `SpinDataFormatsTest` checks JSON/XML round trips and that Spin uses the managed
 Jackson implementation. The distribution smoke test also checks Jackson metadata
-inside every nested JAR against the configured BOM versions. Run these checks from
-the repository root:
+inside every nested JAR against the configured BOM versions and requires embedded
+OGNL versions to be at least 3.4.13. Run these checks from the repository root:
 
 ```bash
 mvn test -pl data-migrator/core -am -Dtest=SpinDataFormatsTest -Dsurefire.failIfNoSpecifiedTests=false
-mvn install -pl data-migrator/assembly -am -DskipTests
-mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=DistributionSmokeTest#shouldOnlyPackageManagedJacksonVersions
+mvn clean install -pl data-migrator/assembly -am -DskipTests
+mvn test -Pintegration -pl data-migrator/qa/integration-tests -Dtest=DistributionSmokeTest#shouldOnlyPackageManagedJacksonAndSupportedOgnlVersions
 ```
 
 Published release archives are immutable. A dependency fix must be included in a
