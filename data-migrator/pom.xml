@@ -16,6 +16,12 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-113730: MyBatis 3.6.0 embeds OGNL 3.4.16, which contains the fix. -->
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${version.mybatis}</version>
+      </dependency>
       <!-- CVE-2026-89425: align Jackson 3 transitive dependencies across Data Migrator modules. -->
       <dependency>
         <groupId>tools.jackson</groupId>
