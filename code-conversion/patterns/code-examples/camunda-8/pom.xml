@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
+		<version>4.1.2</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>io.camunda.conversion</groupId>
@@ -28,7 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<version.spring-boot>4.1.1</version.spring-boot>
+		<version.spring-boot>4.1.2</version.spring-boot>
 		<version.jackson-bom>2.22.4</version.jackson-bom>
 		<version.jackson-3-bom>3.2.4</version.jackson-3-bom>
 	</properties>
