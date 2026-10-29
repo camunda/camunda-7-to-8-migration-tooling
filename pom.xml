@@ -33,7 +33,7 @@
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
     <version.spring-boot>4.1.1</version.spring-boot>
-    <version.spring-framework>7.0.9</version.spring-framework>
+    <version.spring-framework>7.0.10</version.spring-framework>
     <version.micrometer-core>1.17.2</version.micrometer-core>
     <version.jackson-bom>2.22.4</version.jackson-bom>
     <version.jackson-3-bom>3.2.4</version.jackson-3-bom>
