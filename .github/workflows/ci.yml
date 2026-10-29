@@ -171,7 +171,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Audit diagram-converter frontend dependencies
         working-directory: diagram-converter/webapp/src/main/javascript
@@ -321,7 +321,7 @@ jobs:
       - name: Set up Node.js for pattern validation
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Install pattern dependencies
         working-directory: code-conversion/patterns
@@ -514,7 +514,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Run diagram-converter frontend tests
         working-directory: diagram-converter/webapp/src/main/javascript
