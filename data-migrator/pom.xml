@@ -20,6 +20,12 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-116486: ensure shipped Data Migrator runtime paths use Objenesis 3.6. -->
+      <dependency>
+        <groupId>org.objenesis</groupId>
+        <artifactId>objenesis</artifactId>
+        <version>3.6</version>
+      </dependency>
       <dependency>
         <groupId>org.hibernate.validator</groupId>
         <artifactId>hibernate-validator</artifactId>
