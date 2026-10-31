@@ -34,7 +34,7 @@
     "cross-env": "^10.0.0",
     "livereload": "^0.10.0",
     "npm-run-all2": "^9.0.0",
-    "rollup": "~4.64.0",
+    "rollup": "~4.67.0",
     "rollup-plugin-scss": "~4.0.0",
     "sass": "^1.79.4",
     "typescript": "^7.0.0"
