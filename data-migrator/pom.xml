@@ -15,7 +15,7 @@
   <name>Camunda 7 to 8 Migration Tooling - Data</name>
 
   <properties>
-    <version.hibernate-validator>9.1.5.Final</version.hibernate-validator>
+    <version.hibernate-validator>9.1.6.Final</version.hibernate-validator>
   </properties>
 
   <dependencyManagement>
