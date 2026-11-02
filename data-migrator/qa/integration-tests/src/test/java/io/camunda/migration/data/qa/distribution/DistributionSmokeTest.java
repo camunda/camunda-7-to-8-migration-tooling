@@ -76,7 +76,7 @@ public class DistributionSmokeTest {
   }
 
   @Test
-  void shouldOnlyPackageManagedJacksonVersions() throws IOException {
+  void shouldOnlyPackageManagedJacksonAndFixedOgnlVersions() throws IOException {
     var expectedVersions = Map.of(
         "com.fasterxml.jackson.core", System.getProperty("jackson2Version"),
         "tools.jackson.core", System.getProperty("jackson3Version"));
@@ -84,12 +84,13 @@ public class DistributionSmokeTest {
     var application = extractedDistributionPath.resolve("internal/camunda-7-to-8-data-migrator.jar");
 
     try (var input = Files.newInputStream(application)) {
-      assertPackagedJacksonVersions(input, application.getFileName().toString(), expectedVersions, inspectedArtifacts);
+      assertPackagedDependencyVersions(input, application.getFileName().toString(), expectedVersions, inspectedArtifacts);
     }
 
     assertThat(inspectedArtifacts).contains(
         "com.fasterxml.jackson.core:jackson-core",
-        "com.fasterxml.jackson.core:jackson-databind");
+        "com.fasterxml.jackson.core:jackson-databind",
+        "ognl:ognl");
   }
 
   @Test
@@ -537,7 +538,7 @@ public class DistributionSmokeTest {
     startScriptPath = extractedDistributionPath.resolve(startScriptName);
   }
 
-  protected void assertPackagedJacksonVersions(
+  protected void assertPackagedDependencyVersions(
       InputStream input, String archivePath, Map<String, String> expectedVersions, Set<String> inspectedArtifacts)
       throws IOException {
     try (var archive = new ZipInputStream(input)) {
@@ -545,7 +546,7 @@ public class DistributionSmokeTest {
       while ((entry = archive.getNextEntry()) != null) {
         var path = archivePath + "!/" + entry.getName();
         if (entry.getName().endsWith(".jar")) {
-          assertPackagedJacksonVersions(
+          assertPackagedDependencyVersions(
               new ByteArrayInputStream(archive.readAllBytes()), path, expectedVersions, inspectedArtifacts);
         } else if (entry.getName().endsWith("/pom.properties")) {
           var properties = new Properties();
@@ -558,6 +559,12 @@ public class DistributionSmokeTest {
                 .as("Jackson version in %s", path)
                 .isEqualTo(expectedVersions.get(groupId));
             inspectedArtifacts.add(groupId + ":" + artifactId);
+          }
+          if ("ognl".equals(groupId) && "ognl".equals(artifactId)) {
+            assertThat(Runtime.Version.parse(properties.getProperty("version")))
+                .as("Embedded OGNL version in %s (CVE-2026-113730)", path)
+                .isGreaterThanOrEqualTo(Runtime.Version.parse("3.4.13"));
+            inspectedArtifacts.add("ognl:ognl");
           }
         }
       }
