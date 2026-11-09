@@ -47,8 +47,13 @@ public class DiagramCheckResult {
     return new MutationTrackingList(results);
   }
 
+  /**
+   * Replaces the results with a copy of the given list. The copy is owned by this instance, so
+   * later mutations of the supplied list cannot bypass the tracking view returned by {@link
+   * #getResults()} and leave the lookup index stale.
+   */
   public void setResults(List<ElementCheckResult> results) {
-    this.results = results;
+    this.results = new ArrayList<>(results);
     indexedList = null;
   }
 
