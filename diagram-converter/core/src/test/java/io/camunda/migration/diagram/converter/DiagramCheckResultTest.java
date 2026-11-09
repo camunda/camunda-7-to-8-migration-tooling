@@ -156,4 +156,23 @@ public class DiagramCheckResultTest {
     assertThat(checkResult.getResult("a")).isNull();
     assertThat(checkResult.getResult("b")).isSameAs(added);
   }
+
+  @Test
+  void shouldNotTrackMutationsOfListRetainedByCallerAfterSetResults() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult original = result("a");
+    List<ElementCheckResult> supplied = new ArrayList<>(List.of(original));
+    checkResult.setResults(supplied);
+
+    // populate the index
+    assertThat(checkResult.getResult("a")).isSameAs(original);
+
+    // mutating the caller-retained list must not leak into the check result
+    ElementCheckResult replacement = result("b");
+    supplied.set(0, replacement);
+
+    assertThat(checkResult.getResult("a")).isSameAs(original);
+    assertThat(checkResult.getResult("b")).isNull();
+    assertThat(checkResult.getResults()).containsExactly(original);
+  }
 }
