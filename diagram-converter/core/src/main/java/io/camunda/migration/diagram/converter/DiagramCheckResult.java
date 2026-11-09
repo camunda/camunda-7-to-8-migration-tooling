@@ -8,12 +8,24 @@
 package io.camunda.migration.diagram.converter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DiagramCheckResult {
   private List<ElementCheckResult> results = new ArrayList<>();
   private String filename;
   private String converterVersion;
+
+  /**
+   * Index of {@link #results} by element id, so lookups stay O(1) for large models (see issue
+   * #3695). Results are appended through {@link #getResults()}, so the index catches up lazily with
+   * entries added since the last lookup.
+   */
+  private transient Map<String, ElementCheckResult> resultsById = new HashMap<>();
+
+  private transient List<ElementCheckResult> indexedList;
+  private transient int indexedCount;
 
   public String getConverterVersion() {
     return converterVersion;
@@ -29,13 +41,31 @@ public class DiagramCheckResult {
 
   public void setResults(List<ElementCheckResult> results) {
     this.results = results;
+    indexedList = null;
   }
 
+  /**
+   * Returns the first result with the given element id, or {@code null} if there is none.
+   *
+   * <p>Assumes results are only appended to the list returned by {@link #getResults()}; replacing
+   * the list through {@link #setResults(List)} or shrinking it triggers a full re-index.
+   */
   public ElementCheckResult getResult(String elementId) {
-    return getResults().stream()
-        .filter(element -> element.getElementId().equals(elementId))
-        .findFirst()
-        .orElse(null);
+    if (elementId == null) {
+      return null;
+    }
+    if (indexedList != results || indexedCount > results.size()) {
+      resultsById = new HashMap<>();
+      indexedList = results;
+      indexedCount = 0;
+    }
+    for (; indexedCount < results.size(); indexedCount++) {
+      ElementCheckResult result = results.get(indexedCount);
+      if (result.getElementId() != null) {
+        resultsById.putIfAbsent(result.getElementId(), result);
+      }
+    }
+    return resultsById.get(elementId);
   }
 
   public String getFilename() {
