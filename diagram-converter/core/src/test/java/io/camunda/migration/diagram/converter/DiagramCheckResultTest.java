@@ -175,4 +175,50 @@ public class DiagramCheckResultTest {
     assertThat(checkResult.getResult("b")).isNull();
     assertThat(checkResult.getResults()).containsExactly(original);
   }
+
+  @Test
+  void shouldReindexAfterIndexedResultIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult renamed = result("a");
+    checkResult.getResults().add(renamed);
+
+    // populate the index
+    assertThat(checkResult.getResult("a")).isSameAs(renamed);
+
+    renamed.setElementId("b");
+
+    assertThat(checkResult.getResult("a")).isNull();
+    assertThat(checkResult.getResult("b")).isSameAs(renamed);
+  }
+
+  @Test
+  void shouldIndexIdAssignedAfterLookup() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult unnamed = result(null);
+    checkResult.getResults().add(unnamed);
+
+    // populate the index while the result has no id
+    assertThat(checkResult.getResult("a")).isNull();
+
+    unnamed.setElementId("a");
+
+    assertThat(checkResult.getResult("a")).isSameAs(unnamed);
+  }
+
+  @Test
+  void shouldReturnNextDuplicateAfterFirstIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult first = result("dup");
+    ElementCheckResult second = result("dup");
+    checkResult.getResults().add(first);
+    checkResult.getResults().add(second);
+
+    // populate the index
+    assertThat(checkResult.getResult("dup")).isSameAs(first);
+
+    first.setElementId("other");
+
+    assertThat(checkResult.getResult("dup")).isSameAs(second);
+    assertThat(checkResult.getResult("other")).isSameAs(first);
+  }
 }
