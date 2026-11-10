@@ -41,7 +41,8 @@ import org.camunda.bpm.model.xml.instance.DomElement;
  * reads. Expressions are checked as {@link TextVisitor} converts them to FEEL.
  */
 public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVisitor {
-  private static final Pattern STRING_LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
+  // possessive, so long literals don't recurse once per character and overflow the stack
+  private static final Pattern STRING_LITERAL = Pattern.compile("\"(?:[^\"\\\\]++|\\\\.)*+\"");
   private static final Pattern SIMPLE_NAME = Pattern.compile("[A-Za-z_]\\w*");
 
   /**
@@ -59,6 +60,15 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
   private static final ThreadLocal<CachedResolution> CACHE = new ThreadLocal<>();
 
   private record CachedResolution(int definitionsHash, Resolution resolution) {}
+
+  /** Number of (decision, name, provider, top-level decision) entries the resolution keeps. */
+  static int resolutionSize(DomElement definitions) {
+    return Resolution.of(definitions).visibleOutputs.values().stream()
+        .flatMap(names -> names.values().stream())
+        .flatMap(providers -> providers.values().stream())
+        .mapToInt(Set::size)
+        .sum();
+  }
 
   @Override
   public String localName() {
@@ -222,7 +232,8 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
                   variableName(child),
                   child(child, "decisionTable") != null,
                   outputNamesOf(child),
-                  requiredDecisionIds(child)));
+                  requiredDecisionIds(child),
+                  expressionText(child)));
         }
       }
       Map<String, List<String>> requirements = new HashMap<>();
@@ -255,19 +266,40 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       evaluationOrder(top, requirements, new HashSet<>(), order);
       reached.addAll(order);
       Map<String, String> context = new HashMap<>();
+      Map<String, String> nonSimpleContext = new LinkedHashMap<>();
       for (String id : order) {
+        Decision decision = decisions.get(id);
         Map<String, Map<String, Set<String>>> visible =
             visibleOutputs.computeIfAbsent(id, k -> new LinkedHashMap<>());
-        context.forEach(
-            (name, provider) ->
-                visible
-                    .computeIfAbsent(name, k -> new LinkedHashMap<>())
-                    .computeIfAbsent(provider, k -> new LinkedHashSet<>())
-                    .add(top));
-        for (String name : decisions.get(id).outputNames()) {
+        // Keep only the names the decision mentions, so the resolution doesn't grow with the
+        // square of the number of decisions.
+        for (String name : decision.mentionedNames()) {
+          String provider = context.get(name);
+          if (provider != null) {
+            see(visible, name, provider, top);
+          }
+        }
+        nonSimpleContext.forEach(
+            (name, provider) -> {
+              if (decision.expressionText().contains(name)) {
+                see(visible, name, provider, top);
+              }
+            });
+        for (String name : decision.outputNames()) {
           context.put(name, id);
+          if (!SIMPLE_NAME.matcher(name).matches()) {
+            nonSimpleContext.put(name, id);
+          }
         }
       }
+    }
+
+    private static void see(
+        Map<String, Map<String, Set<String>>> visible, String name, String provider, String top) {
+      visible
+          .computeIfAbsent(name, k -> new LinkedHashMap<>())
+          .computeIfAbsent(provider, k -> new LinkedHashSet<>())
+          .add(top);
     }
 
     /** Depth first, required decisions in document order, each decision once. */
@@ -291,7 +323,56 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       String variableName,
       boolean table,
       List<String> outputNames,
-      List<String> requiredDecisionIds) {}
+      List<String> requiredDecisionIds,
+      String expressionText,
+      Set<String> mentionedNames) {
+
+    Decision(
+        String variableName,
+        boolean table,
+        List<String> outputNames,
+        List<String> requiredDecisionIds,
+        String expressionText) {
+      this(
+          variableName,
+          table,
+          outputNames,
+          requiredDecisionIds,
+          expressionText,
+          simpleNames(expressionText));
+    }
+  }
+
+  /**
+   * The text of all expressions of the decision, before conversion to FEEL. The conversion only
+   * rewrites names that occur in the original text, also inside string literals, as in {@code
+   * execution.getVariable("name")}, so the names in this text include every name the converted
+   * expressions can reference.
+   */
+  private static String expressionText(DomElement decision) {
+    StringBuilder text = new StringBuilder();
+    appendExpressionText(decision, text);
+    return text.toString();
+  }
+
+  private static void appendExpressionText(DomElement element, StringBuilder text) {
+    for (DomElement child : element.getChildElements()) {
+      if ("text".equals(child.getLocalName())) {
+        text.append(child.getTextContent()).append('\n');
+      } else {
+        appendExpressionText(child, text);
+      }
+    }
+  }
+
+  private static Set<String> simpleNames(String text) {
+    Set<String> names = new HashSet<>();
+    Matcher matcher = SIMPLE_NAME.matcher(text);
+    while (matcher.find()) {
+      names.add(matcher.group());
+    }
+    return names;
+  }
 
   private static DomElement findEnclosingDecision(DomElement element) {
     DomElement current = element.getParentElement();

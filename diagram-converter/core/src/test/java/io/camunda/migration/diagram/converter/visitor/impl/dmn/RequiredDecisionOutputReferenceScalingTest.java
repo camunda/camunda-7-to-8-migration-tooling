@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.camunda.bpm.model.dmn.Dmn;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -48,6 +49,29 @@ class RequiredDecisionOutputReferenceScalingTest {
             smallRules,
             small / 1_000_000)
         .isLessThan(8.0);
+  }
+
+  /**
+   * Many decisions with few rules: what the resolution keeps must grow with what the decisions
+   * reference, not with every output evaluated before them. Counted rather than timed, because at
+   * this size the rest of the conversion dominates the time.
+   */
+  @Test
+  void resolutionShouldGrowLinearlyWithDecisions() {
+    int small = resolutionSize(100);
+    int large = resolutionSize(400);
+
+    assertThat((double) large / small)
+        .as("entries for 400 decisions (%d) vs 100 decisions (%d)", large, small)
+        .isLessThan(8.0);
+  }
+
+  private static int resolutionSize(int decisions) {
+    DmnModelInstance model =
+        Dmn.readModelFromStream(
+            new ByteArrayInputStream(drd(decisions, 1).getBytes(StandardCharsets.UTF_8)));
+    return RequiredDecisionOutputReferenceVisitor.resolutionSize(
+        model.getDocument().getRootElement());
   }
 
   private static long bestOf(int runs, int decisions, int rules) {

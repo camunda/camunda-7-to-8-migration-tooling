@@ -70,7 +70,9 @@ class RequiredDecisionOutputReferenceReportTest {
   @Test
   void shouldReportExpectedFindings() throws IOException {
     String expected =
-        new String(resource("c7-style.expected.txt").readAllBytes(), StandardCharsets.UTF_8);
+        new String(resource("c7-style.expected.txt").readAllBytes(), StandardCharsets.UTF_8)
+            // a Windows checkout may convert the file to CRLF
+            .replace("\r\n", "\n");
 
     assertThat(String.join("\n", report("c7-style.dmn")) + "\n").isEqualTo(expected);
   }

@@ -522,6 +522,25 @@ class RequiredDecisionOutputReferenceVisitorTest {
     assertThat(taskMessages(drd)).containsOnlyKeys("e1");
   }
 
+  /**
+   * A long string literal must not overflow the stack while literals are skipped: a {@code
+   * StackOverflowError} isn't caught and would abort the whole conversion.
+   */
+  @Test
+  void shouldReportReferenceNextToLongStringLiteral() {
+    String drd =
+        provider("Base", "limit")
+            + """
+            <decision id="Top" name="Top">
+              <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
+              <literalExpression id="le"><text>limit + "%s"</text></literalExpression>
+            </decision>
+            """
+                .formatted("x".repeat(100_000));
+
+    assertThat(taskMessages(drd)).containsOnlyKeys("le");
+  }
+
   private static String provider(String id, String outputName) {
     return """
         <decision id="%1$s" name="%1$s">
