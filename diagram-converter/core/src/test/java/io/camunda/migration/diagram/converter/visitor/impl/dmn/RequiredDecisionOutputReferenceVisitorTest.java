@@ -23,6 +23,7 @@ import org.camunda.bpm.model.dmn.Dmn;
 import org.camunda.bpm.model.dmn.DmnModelInstance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -86,9 +87,10 @@ class RequiredDecisionOutputReferenceVisitorTest {
     assertThat(messages.get("h"))
         .containsExactlyInAnyOrder(
             "Expression 'rateId + \":\" + string(factor)' references 'rateId', an output of the"
-                + " decision 'Base', which this decision requires only indirectly. Camunda 8 only"
-                + " exposes the results of direct requirements, and not by their output name, so"
-                + " this reference evaluates to null. Add a requirement on 'Base' and use"
+                + " decision 'Base', which this decision does not require directly. Camunda 7"
+                + " evaluates all decisions of a requirement tree in one context, but Camunda 8"
+                + " only exposes the results of direct requirements, and not by their output name,"
+                + " so this reference evaluates to null. Add a requirement on 'Base' and use"
                 + " 'Base.rateId' instead.",
             "Expression 'rateId + \":\" + string(factor)' references 'factor', an output of the"
                 + " required decision 'Middle'. Camunda 8 does not expose the outputs of required"
@@ -159,12 +161,16 @@ class RequiredDecisionOutputReferenceVisitorTest {
     assertThat(messages.get("le3"))
         .singleElement()
         .asString()
-        .contains("requires only indirectly")
+        .contains("does not require directly")
         .contains("Add a requirement on 'Base' and use 'baseRate' instead.");
   }
 
+  /**
+   * Same output name from several required decisions: Camunda 7 evaluates requirements in document
+   * order and the later output overwrites the earlier one.
+   */
   @Test
-  void shouldReportAmbiguousReference() {
+  void shouldSuggestLastEvaluatedOfSeveralProviders() {
     String drd =
         provider("A", "score")
             + provider("B", "score")
@@ -180,7 +186,129 @@ class RequiredDecisionOutputReferenceVisitorTest {
     assertThat(taskMessages(drd).get("le"))
         .singleElement()
         .asString()
-        .contains("which several required decisions output: 'A', 'B'");
+        .contains("an output of the required decision 'B'")
+        .contains("Use 'B' instead.");
+  }
+
+  /**
+   * Camunda 7 evaluates every decision of the top-level decision's requirement tree in one context,
+   * so a decision also sees outputs of decisions evaluated before it that it doesn't require at all
+   * (siblings in the tree).
+   */
+  @Test
+  void shouldReportReferenceToOutputOfSiblingDecision() {
+    String drd =
+        provider("A", "x")
+            + """
+            <decision id="B" name="B">
+              <variable id="vb" name="B"/>
+              <literalExpression id="le"><text>x + 1</text></literalExpression>
+            </decision>
+            <decision id="Top" name="Top">
+              <variable id="vt" name="Top"/>
+              <informationRequirement id="q1"><requiredDecision href="#A"/></informationRequirement>
+              <informationRequirement id="q2"><requiredDecision href="#B"/></informationRequirement>
+              <literalExpression id="lt"><text>B</text></literalExpression>
+            </decision>
+            """;
+
+    assertThat(taskMessages(drd).get("le"))
+        .singleElement()
+        .asString()
+        .contains("references 'x', an output of the decision 'A'")
+        .contains("Add a requirement on 'A' and use 'A' instead.");
+  }
+
+  /** A sibling listed later is evaluated later, so its outputs aren't visible yet. */
+  @Test
+  void shouldNotReportReferenceToSiblingEvaluatedLater() {
+    String drd =
+        provider("A", "x")
+            + """
+            <decision id="B" name="B">
+              <variable id="vb" name="B"/>
+              <literalExpression id="le"><text>x + 1</text></literalExpression>
+            </decision>
+            <decision id="Top" name="Top">
+              <variable id="vt" name="Top"/>
+              <informationRequirement id="q1"><requiredDecision href="#B"/></informationRequirement>
+              <informationRequirement id="q2"><requiredDecision href="#A"/></informationRequirement>
+              <literalExpression id="lt"><text>B</text></literalExpression>
+            </decision>
+            """;
+
+    assertThat(taskMessages(drd)).doesNotContainKey("le");
+  }
+
+  /**
+   * The decision Camunda 7 evaluated last wins, even when it isn't among the referencing decision's
+   * own requirements. Here 'Final' and 'Base' both output 'uid', and 'Sub' requires only 'Base'.
+   */
+  @ParameterizedTest
+  @CsvSource({"Final,Sub,Final", "Sub,Final,Base"})
+  void shouldSuggestDecisionThatCamunda7EvaluatedLast(
+      String firstSibling, String secondSibling, String expectedProvider) {
+    String drd =
+        provider("Base", "uid")
+            + """
+            <decision id="Final" name="Final">
+              <informationRequirement id="qf"><requiredDecision href="#Base"/></informationRequirement>
+              <decisionTable id="tf">
+                <input id="if"><inputExpression id="ef"><text>in</text></inputExpression></input>
+                <output id="of" name="uid" typeRef="string"/>
+              </decisionTable>
+            </decision>
+            <decision id="Sub" name="Sub">
+              <variable id="vs" name="Sub"/>
+              <informationRequirement id="qs"><requiredDecision href="#Base"/></informationRequirement>
+              <literalExpression id="le"><text>uid</text></literalExpression>
+            </decision>
+            <decision id="Top" name="Top">
+              <variable id="vt" name="Top"/>
+              <informationRequirement id="q1"><requiredDecision href="#%s"/></informationRequirement>
+              <informationRequirement id="q2"><requiredDecision href="#%s"/></informationRequirement>
+              <literalExpression id="lt"><text>Sub</text></literalExpression>
+            </decision>
+            """
+                .formatted(firstSibling, secondSibling);
+
+    assertThat(taskMessages(drd).get("le"))
+        .singleElement()
+        .asString()
+        .contains("decision '" + expectedProvider + "'")
+        .containsPattern("[Uu]se '" + expectedProvider + "' instead\\.");
+  }
+
+  /** A decision shared by two top-level decisions can see different providers in each tree. */
+  @Test
+  void shouldReportAmbiguityAcrossTopLevelDecisions() {
+    String drd =
+        provider("A", "score")
+            + provider("B", "score")
+            + """
+            <decision id="Shared" name="Shared">
+              <variable id="vs" name="Shared"/>
+              <literalExpression id="le"><text>score</text></literalExpression>
+            </decision>
+            <decision id="Top1" name="Top1">
+              <variable id="v1" name="Top1"/>
+              <informationRequirement id="q1"><requiredDecision href="#A"/></informationRequirement>
+              <informationRequirement id="q2"><requiredDecision href="#Shared"/></informationRequirement>
+              <literalExpression id="l1"><text>Shared</text></literalExpression>
+            </decision>
+            <decision id="Top2" name="Top2">
+              <variable id="v2" name="Top2"/>
+              <informationRequirement id="q3"><requiredDecision href="#B"/></informationRequirement>
+              <informationRequirement id="q4"><requiredDecision href="#Shared"/></informationRequirement>
+              <literalExpression id="l2"><text>Shared</text></literalExpression>
+            </decision>
+            """;
+
+    assertThat(taskMessages(drd).get("le"))
+        .singleElement()
+        .asString()
+        .contains("'A' (when evaluating 'Top1')")
+        .contains("'B' (when evaluating 'Top2')");
   }
 
   @ParameterizedTest
@@ -225,6 +353,11 @@ class RequiredDecisionOutputReferenceVisitorTest {
     assertThat(taskMessages(drd)).doesNotContainKey("le");
   }
 
+  /**
+   * Camunda 7 rejects cyclic requirements, so there is no evaluation order to reproduce. The cycle
+   * is broken at the first decision in document order: B is evaluated before A, so A sees 'b' but B
+   * doesn't see 'a'. The dangling requirement is ignored.
+   */
   @Test
   void shouldTolerateCyclicAndDanglingRequirements() {
     String drd =
@@ -246,7 +379,7 @@ class RequiredDecisionOutputReferenceVisitorTest {
         </decision>
         """;
 
-    assertThat(taskMessages(drd)).containsOnlyKeys("e1", "e2");
+    assertThat(taskMessages(drd)).containsOnlyKeys("e1");
   }
 
   private static String provider(String id, String outputName) {

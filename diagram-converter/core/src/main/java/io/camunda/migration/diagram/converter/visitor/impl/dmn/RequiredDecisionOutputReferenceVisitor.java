@@ -10,9 +10,9 @@ package io.camunda.migration.diagram.converter.visitor.impl.dmn;
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.visitor.AbstractDmnElementVisitor;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,16 +24,34 @@ import java.util.stream.Collectors;
 import org.camunda.bpm.model.xml.instance.DomElement;
 
 /**
- * Detects expressions that reference the output of a required decision by its bare output name.
+ * Detects expressions that reference the output of another decision by its bare output name.
  *
- * <p>Camunda 7 evaluates the whole requirement tree in one flat variable context, so a decision can
- * read every output of every decision it requires, directly or indirectly, by output name. Camunda
- * 8 only exposes the results of direct requirements, bound to the decision ID (or the {@code
- * variable} name of a literal expression). Such references evaluate to {@code null} after
- * conversion, so they are reported as tasks.
+ * <p>Camunda 7 ({@code DefaultDmnDecisionContext}) evaluates all decisions of the requirement tree
+ * of the called decision in one flat variable context: depth first, required decisions in document
+ * order, each decision once. After each decision, the outputs of its matched rule are put into the
+ * context under their output names, overwriting earlier values. A decision can therefore read the
+ * outputs of every decision evaluated before it, including decisions it doesn't require at all.
+ *
+ * <p>Camunda 8 only exposes the results of direct requirements, bound to the decision ID (or the
+ * {@code variable} name of a literal expression). Such references evaluate to {@code null} after
+ * conversion, so they are reported as tasks, naming the decision Camunda 7 actually reads.
  */
 public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVisitor {
   private static final Pattern STRING_LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
+  private static final Pattern SIMPLE_NAME = Pattern.compile("[A-Za-z_]\\w*");
+
+  /** A name used as a variable: see {@link #isReferenced(String, String)}. */
+  private static final Pattern NAME_REFERENCE =
+      Pattern.compile("(?<![\\w.?])([A-Za-z_]\\w*)(?![\\w?])(?!\\s*[(:])");
+
+  /**
+   * The resolution of the {@code definitions} element visited last on this thread. Elements are
+   * visited depth first, so {@code definitions} is always visited before its expressions. Only the
+   * hash code of the element is kept, so the document isn't retained after the check.
+   */
+  private static final ThreadLocal<CachedResolution> CACHE = new ThreadLocal<>();
+
+  private record CachedResolution(int definitionsHash, Resolution resolution) {}
 
   @Override
   public String localName() {
@@ -41,64 +59,202 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
   }
 
   @Override
+  protected boolean canVisit(DomElementVisitorContext context) {
+    DomElement element = context.getElement();
+    return namespaceUri().contains(element.getNamespaceURI())
+        && ("text".equals(element.getLocalName()) || "definitions".equals(element.getLocalName()));
+  }
+
+  @Override
   protected void visitDmnElement(DomElementVisitorContext context) {
-    DomElement text = context.getElement();
-    DomElement decision = findEnclosingDecision(text);
+    DomElement element = context.getElement();
+    if ("definitions".equals(element.getLocalName())) {
+      CACHE.set(new CachedResolution(element.hashCode(), Resolution.of(element)));
+      return;
+    }
+    DomElement decision = findEnclosingDecision(element);
     if (decision == null) {
       return;
     }
-    Map<String, DomElement> decisions = collectDecisions(decision.getParentElement());
-    List<String> directRequirements = requiredDecisionIds(decision);
-    if (directRequirements.isEmpty()) {
+    Resolution resolution = resolution(decision.getParentElement());
+    String decisionId = decision.getAttribute("id");
+    Map<String, Map<String, Set<String>>> visible = resolution.visibleOutputs(decisionId);
+    if (visible.isEmpty()) {
       return;
     }
-    Set<String> visibleInCamunda8 = new LinkedHashSet<>();
-    for (String id : directRequirements) {
-      visibleInCamunda8.add(id);
-      DomElement required = decisions.get(id);
-      if (required != null) {
-        String variableName = variableName(required);
-        if (variableName != null) {
-          visibleInCamunda8.add(variableName);
-        }
-      }
-    }
-    Map<String, List<String>> providersByName = new LinkedHashMap<>();
-    for (String id : transitiveRequirements(decision, decisions)) {
-      for (String name : outputNames(decisions.get(id))) {
-        providersByName.computeIfAbsent(name, n -> new ArrayList<>()).add(id);
-      }
-    }
-    String expression = text.getTextContent();
+    String expression = element.getTextContent();
     if (expression == null || expression.isBlank()) {
       return;
     }
+    List<String> directRequirements = requiredDecisionIds(decision);
+    Set<String> visibleInCamunda8 = new HashSet<>();
+    for (String id : directRequirements) {
+      visibleInCamunda8.add(id);
+      String variableName = resolution.variableName(id);
+      if (variableName != null) {
+        visibleInCamunda8.add(variableName);
+      }
+    }
     String searchable = blankStringLiterals(expression);
+    Set<String> simpleNames = simpleNameReferences(searchable);
     String trimmedExpression = expression.trim();
-    providersByName.forEach(
+    visible.forEach(
         (name, providers) -> {
-          if (visibleInCamunda8.contains(name) || !isReferenced(searchable, name)) {
+          if (visibleInCamunda8.contains(name)) {
+            return;
+          }
+          boolean referenced =
+              SIMPLE_NAME.matcher(name).matches()
+                  ? simpleNames.contains(name)
+                  : isReferenced(searchable, name);
+          if (!referenced) {
             return;
           }
           if (providers.size() > 1) {
             context.addMessage(
                 MessageFactory.ambiguousRequiredDecisionOutputReference(
-                    trimmedExpression,
-                    name,
-                    providers.stream()
-                        .map(id -> "'" + id + "'")
-                        .collect(Collectors.joining(", "))));
+                    trimmedExpression, name, describeProviders(providers)));
             return;
           }
-          String providerId = providers.get(0);
+          String providerId = providers.keySet().iterator().next();
           context.addMessage(
               MessageFactory.requiredDecisionOutputReference(
                   trimmedExpression,
                   name,
                   providerId,
-                  camunda8Reference(decisions.get(providerId), name),
+                  resolution.camunda8Reference(providerId, name),
                   !directRequirements.contains(providerId)));
         });
+  }
+
+  private static Resolution resolution(DomElement definitions) {
+    CachedResolution cached = CACHE.get();
+    if (cached != null
+        && definitions != null
+        && cached.definitionsHash() == definitions.hashCode()) {
+      return cached.resolution();
+    }
+    return Resolution.of(definitions);
+  }
+
+  private static String describeProviders(Map<String, Set<String>> providers) {
+    return providers.entrySet().stream()
+        .map(
+            e ->
+                "'"
+                    + e.getKey()
+                    + "' (when evaluating "
+                    + e.getValue().stream()
+                        .map(t -> "'" + t + "'")
+                        .collect(Collectors.joining(", "))
+                    + ")")
+        .collect(Collectors.joining(", "));
+  }
+
+  /**
+   * Which outputs each decision sees in Camunda 7, simulated once per {@code definitions} element.
+   */
+  private static final class Resolution {
+    private final Map<String, DomElement> decisions = new LinkedHashMap<>();
+    private final Map<String, List<String>> outputNames = new HashMap<>();
+
+    /** decision id -> output name -> providing decision id -> top-level decisions */
+    private final Map<String, Map<String, Map<String, Set<String>>>> visibleOutputs =
+        new HashMap<>();
+
+    static Resolution of(DomElement definitions) {
+      Resolution resolution = new Resolution();
+      if (definitions != null) {
+        resolution.resolve(definitions);
+      }
+      return resolution;
+    }
+
+    Map<String, Map<String, Set<String>>> visibleOutputs(String decisionId) {
+      return visibleOutputs.getOrDefault(decisionId, Map.of());
+    }
+
+    String variableName(String decisionId) {
+      return RequiredDecisionOutputReferenceVisitor.variableName(decisions.get(decisionId));
+    }
+
+    String camunda8Reference(String decisionId, String outputName) {
+      DomElement decision = decisions.get(decisionId);
+      DomElement table = child(decision, "decisionTable");
+      if (table == null) {
+        // literal expression: Camunda 8 binds the result to the variable name
+        return outputName;
+      }
+      return outputNames.get(decisionId).size() == 1 ? decisionId : decisionId + "." + outputName;
+    }
+
+    private void resolve(DomElement definitions) {
+      for (DomElement child : definitions.getChildElements()) {
+        if ("decision".equals(child.getLocalName()) && child.getAttribute("id") != null) {
+          decisions.putIfAbsent(child.getAttribute("id"), child);
+        }
+      }
+      Map<String, List<String>> requirements = new HashMap<>();
+      Set<String> requiredBySomeDecision = new HashSet<>();
+      decisions.forEach(
+          (id, decision) -> {
+            List<String> required = requiredDecisionIds(decision);
+            requirements.put(id, required);
+            requiredBySomeDecision.addAll(required);
+            outputNames.put(id, outputNamesOf(decision));
+          });
+      // Every decision that no other decision requires can be called. Decisions that are only
+      // reachable through a requirement cycle are treated as callable too.
+      List<String> roots = new ArrayList<>();
+      decisions.keySet().stream()
+          .filter(id -> !requiredBySomeDecision.contains(id))
+          .forEach(roots::add);
+      Set<String> reached = new HashSet<>();
+      for (String root : roots) {
+        simulate(root, requirements, reached);
+      }
+      for (String id : decisions.keySet()) {
+        if (!reached.contains(id)) {
+          simulate(id, requirements, reached);
+        }
+      }
+    }
+
+    /** Camunda 7's evaluation of the given top-level decision. */
+    private void simulate(String top, Map<String, List<String>> requirements, Set<String> reached) {
+      List<String> order = new ArrayList<>();
+      evaluationOrder(top, requirements, new HashSet<>(), order);
+      reached.addAll(order);
+      Map<String, String> context = new HashMap<>();
+      for (String id : order) {
+        Map<String, Map<String, Set<String>>> visible =
+            visibleOutputs.computeIfAbsent(id, k -> new LinkedHashMap<>());
+        context.forEach(
+            (name, provider) ->
+                visible
+                    .computeIfAbsent(name, k -> new LinkedHashMap<>())
+                    .computeIfAbsent(provider, k -> new LinkedHashSet<>())
+                    .add(top));
+        for (String name : outputNames.get(id)) {
+          context.put(name, id);
+        }
+      }
+    }
+
+    /** Depth first, required decisions in document order, each decision once. */
+    private void evaluationOrder(
+        String id,
+        Map<String, List<String>> requirements,
+        Set<String> started,
+        List<String> order) {
+      if (!decisions.containsKey(id) || !started.add(id)) {
+        return;
+      }
+      for (String required : requirements.get(id)) {
+        evaluationOrder(required, requirements, started, order);
+      }
+      order.add(id);
+    }
   }
 
   private static DomElement findEnclosingDecision(DomElement element) {
@@ -114,19 +270,6 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       current = current.getParentElement();
     }
     return null;
-  }
-
-  private static Map<String, DomElement> collectDecisions(DomElement definitions) {
-    Map<String, DomElement> decisions = new LinkedHashMap<>();
-    if (definitions == null) {
-      return decisions;
-    }
-    for (DomElement child : definitions.getChildElements()) {
-      if ("decision".equals(child.getLocalName())) {
-        decisions.put(child.getAttribute("id"), child);
-      }
-    }
-    return decisions;
   }
 
   private static List<String> requiredDecisionIds(DomElement decision) {
@@ -147,21 +290,7 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     return ids;
   }
 
-  private static Set<String> transitiveRequirements(
-      DomElement decision, Map<String, DomElement> decisions) {
-    Set<String> visited = new LinkedHashSet<>();
-    Deque<String> toVisit = new ArrayDeque<>(requiredDecisionIds(decision));
-    while (!toVisit.isEmpty()) {
-      String id = toVisit.pop();
-      DomElement required = decisions.get(id);
-      if (required != null && visited.add(id)) {
-        toVisit.addAll(requiredDecisionIds(required));
-      }
-    }
-    return visited;
-  }
-
-  private static List<String> outputNames(DomElement decision) {
+  private static List<String> outputNamesOf(DomElement decision) {
     List<String> names = new ArrayList<>();
     DomElement table = child(decision, "decisionTable");
     if (table != null) {
@@ -180,18 +309,6 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       names.add(variableName);
     }
     return names;
-  }
-
-  private static String camunda8Reference(DomElement decision, String outputName) {
-    String id = decision.getAttribute("id");
-    DomElement table = child(decision, "decisionTable");
-    if (table == null) {
-      // literal expression: Camunda 8 binds the result to the variable name
-      return outputName;
-    }
-    long outputs =
-        table.getChildElements().stream().filter(e -> "output".equals(e.getLocalName())).count();
-    return outputs == 1 ? id : id + "." + outputName;
   }
 
   private static String variableName(DomElement decision) {
@@ -221,6 +338,16 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     }
     matcher.appendTail(result);
     return result.toString();
+  }
+
+  /** All simple names the expression references as variables, found in one pass. */
+  private static Set<String> simpleNameReferences(String expression) {
+    Set<String> names = new HashSet<>();
+    Matcher matcher = NAME_REFERENCE.matcher(expression);
+    while (matcher.find()) {
+      names.add(matcher.group(1));
+    }
+    return names;
   }
 
   /**
