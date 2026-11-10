@@ -91,6 +91,94 @@ class RequiredDecisionOutputReferenceCamunda7Test {
     assertThat(converterProvider(xml)).as("converter").isEqualTo(expected);
   }
 
+  /**
+   * Names that Camunda 8 binds, but to another value: Camunda 7 reads the output, not the whole
+   * multi-output result or the result of the decision whose variable has that name.
+   */
+  @ParameterizedTest(name = "{0}")
+  @CsvSource(
+      delimiter = '|',
+      value = {
+        "multi-output table named like its output | Base + \"\" | Base,other |  | v-Base | Base.Base",
+        "variable of another requirement | score | score | score | v-score | Base"
+      })
+  void shouldReportNameBoundToAnotherValueInCamunda8(
+      String scenario,
+      String expression,
+      String baseOutputs,
+      String otherVariable,
+      String camunda7Value,
+      String expectedReference) {
+    StringBuilder outputs = new StringBuilder();
+    StringBuilder entries = new StringBuilder();
+    for (String output : baseOutputs.split(",")) {
+      outputs.append("<output id=\"o_%1$s\" name=\"%1$s\" typeRef=\"string\"/>".formatted(output));
+      entries.append(
+          "<outputEntry id=\"oe_%1$s\"><text>\"v-%1$s\"</text></outputEntry>".formatted(output));
+    }
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="drd" name="DRD" namespace="http://camunda.org/schema/1.0/dmn">
+          <decision id="Base" name="Base">
+            <decisionTable id="t_b">
+              <input id="i_b"><inputExpression id="e_b" typeRef="string"><text>"in"</text></inputExpression></input>
+              %s
+              <rule id="r_b"><inputEntry id="ie_b"><text>-</text></inputEntry>%s</rule>
+            </decisionTable>
+          </decision>
+          <decision id="Other" name="Other">
+            %s
+            <decisionTable id="t_o">
+              <input id="i_o"><inputExpression id="e_o" typeRef="string"><text>"in"</text></inputExpression></input>
+              <output id="o_o" name="x" typeRef="string"/>
+              <rule id="r_o"><inputEntry id="ie_o"><text>-</text></inputEntry><outputEntry id="oe_o"><text>"v-x"</text></outputEntry></rule>
+            </decisionTable>
+          </decision>
+          <decision id="Top" name="Top">
+            <variable id="v_t" name="result"/>
+            <informationRequirement id="q_b"><requiredDecision href="#Base"/></informationRequirement>
+            <informationRequirement id="q_o"><requiredDecision href="#Other"/></informationRequirement>
+            <literalExpression id="probe"><text>%s</text></literalExpression>
+          </decision>
+        </definitions>
+        """
+            .formatted(
+                outputs,
+                entries,
+                otherVariable == null
+                    ? ""
+                    : "<variable id=\"v_o\" name=\"%s\"/>".formatted(otherVariable),
+                expression.replace("\"", "&quot;"));
+
+    DmnDecision top =
+        camunda7.parseDecision(
+            "Top", new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+    assertThat((Object) camunda7.evaluateDecision(top, Map.of()).getSingleResult().getSingleEntry())
+        .as("Camunda 7")
+        .isEqualTo(camunda7Value);
+    assertThat(
+            DiagramConverterFactory.getInstance()
+                .get()
+                .check(
+                    "oracle.dmn",
+                    Dmn.readModelFromStream(
+                        new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))),
+                    ConverterPropertiesFactory.getInstance().get())
+                .getResults()
+                .stream()
+                .filter(r -> "probe".equals(r.getElementId()))
+                .flatMap(r -> r.getMessages().stream())
+                .map(ElementCheckMessage::getMessage)
+                .filter(m -> m.contains("required decision"))
+                .toList())
+        .as("converter")
+        .singleElement()
+        .asString()
+        .contains("decision 'Base'")
+        .contains("Use '" + expectedReference + "' instead.");
+  }
+
   private static String camunda7Provider(String xml) {
     DmnDecision top =
         camunda7.parseDecision(

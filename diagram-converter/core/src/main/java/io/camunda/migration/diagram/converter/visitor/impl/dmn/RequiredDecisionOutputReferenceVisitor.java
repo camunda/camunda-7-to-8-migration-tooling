@@ -8,6 +8,8 @@
 package io.camunda.migration.diagram.converter.visitor.impl.dmn;
 
 import io.camunda.migration.diagram.converter.DomElementVisitorContext;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformationResult;
+import io.camunda.migration.diagram.converter.expression.ExpressionTransformer;
 import io.camunda.migration.diagram.converter.message.MessageFactory;
 import io.camunda.migration.diagram.converter.visitor.AbstractDmnElementVisitor;
 import java.util.ArrayList;
@@ -32,22 +34,27 @@ import org.camunda.bpm.model.xml.instance.DomElement;
  * context under their output names, overwriting earlier values. A decision can therefore read the
  * outputs of every decision evaluated before it, including decisions it doesn't require at all.
  *
- * <p>Camunda 8 only exposes the results of direct requirements, bound to the decision ID (or the
- * {@code variable} name of a literal expression). Such references evaluate to {@code null} after
- * conversion, so they are reported as tasks, naming the decision Camunda 7 actually reads.
+ * <p>Camunda 8 only exposes the results of direct requirements, each bound to the {@code variable}
+ * name of the decision, or its ID if it has none. A decision table with several outputs is bound as
+ * a context of its outputs. After conversion, such references evaluate to {@code null}, or to the
+ * value of another decision. They are reported as tasks, naming the decision Camunda 7 actually
+ * reads. Expressions are checked as {@link TextVisitor} converts them to FEEL.
  */
 public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVisitor {
   private static final Pattern STRING_LITERAL = Pattern.compile("\"(?:[^\"\\\\]|\\\\.)*\"");
   private static final Pattern SIMPLE_NAME = Pattern.compile("[A-Za-z_]\\w*");
 
-  /** A name used as a variable: see {@link #isReferenced(String, String)}. */
+  /**
+   * A simple name that isn't part of a longer name, a function call or a context key. Path segments
+   * are excluded separately: see {@link #isPathSegment(String, int)}.
+   */
   private static final Pattern NAME_REFERENCE =
-      Pattern.compile("(?<![\\w.?])([A-Za-z_]\\w*)(?![\\w?])(?!\\s*[(:])");
+      Pattern.compile("(?<![\\w?])([A-Za-z_]\\w*)(?![\\w?])(?!\\s*[(:])");
 
   /**
    * The resolution of the {@code definitions} element visited last on this thread. Elements are
-   * visited depth first, so {@code definitions} is always visited before its expressions. Only the
-   * hash code of the element is kept, so the document isn't retained after the check.
+   * visited depth first, so {@code definitions} is always visited before its expressions. Neither
+   * the key nor the resolution references the document, so it isn't retained after the check.
    */
   private static final ThreadLocal<CachedResolution> CACHE = new ThreadLocal<>();
 
@@ -82,19 +89,11 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     if (visible.isEmpty()) {
       return;
     }
-    String expression = element.getTextContent();
+    String expression = toFeel(element.getTextContent());
     if (expression == null || expression.isBlank()) {
       return;
     }
     List<String> directRequirements = requiredDecisionIds(decision);
-    Set<String> visibleInCamunda8 = new HashSet<>();
-    for (String id : directRequirements) {
-      visibleInCamunda8.add(id);
-      String variableName = resolution.variableName(id);
-      if (variableName != null) {
-        visibleInCamunda8.add(variableName);
-      }
-    }
     String searchable = blankStringLiterals(expression);
     String trimmedExpression = expression.trim();
     // Look up only the names the expression uses, so the cost doesn't grow with the number of
@@ -108,7 +107,7 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     }
     for (String name : referencedNames) {
       Map<String, Set<String>> providers = visible.get(name);
-      if (providers == null || visibleInCamunda8.contains(name)) {
+      if (providers == null) {
         continue;
       }
       if (providers.size() > 1) {
@@ -118,6 +117,11 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
         continue;
       }
       String providerId = providers.keySet().iterator().next();
+      if (directRequirements.contains(providerId)
+          && name.equals(resolution.camunda8Reference(providerId, name))) {
+        // Camunda 8 binds this name to the same value
+        continue;
+      }
       context.addMessage(
           MessageFactory.requiredDecisionOutputReference(
               trimmedExpression,
@@ -126,6 +130,16 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
               resolution.camunda8Reference(providerId, name),
               !directRequirements.contains(providerId)));
     }
+  }
+
+  /** The expression as {@link TextVisitor} converts it. */
+  private static String toFeel(String expression) {
+    ExpressionTransformationResult transformation =
+        ExpressionTransformer.transformToFeelDmn("Text field", expression);
+    if (transformation == null || transformation.result() == null) {
+      return expression;
+    }
+    return transformation.result();
   }
 
   private static Resolution resolution(DomElement definitions) {
@@ -156,8 +170,7 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
    * Which outputs each decision sees in Camunda 7, simulated once per {@code definitions} element.
    */
   private static final class Resolution {
-    private final Map<String, DomElement> decisions = new LinkedHashMap<>();
-    private final Map<String, List<String>> outputNames = new HashMap<>();
+    private final Map<String, Decision> decisions = new LinkedHashMap<>();
 
     /** decision id -> output name -> providing decision id -> top-level decisions */
     private final Map<String, Map<String, Map<String, Set<String>>>> visibleOutputs =
@@ -187,34 +200,37 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
                   .toList());
     }
 
-    String variableName(String decisionId) {
-      return RequiredDecisionOutputReferenceVisitor.variableName(decisions.get(decisionId));
-    }
-
+    /**
+     * How Camunda 8 references the output of the given decision: the variable name of the decision
+     * (or its ID), followed by the output name if a decision table has several outputs.
+     */
     String camunda8Reference(String decisionId, String outputName) {
-      DomElement decision = decisions.get(decisionId);
-      DomElement table = child(decision, "decisionTable");
-      if (table == null) {
-        // literal expression: Camunda 8 binds the result to the variable name
-        return outputName;
-      }
-      return outputNames.get(decisionId).size() == 1 ? decisionId : decisionId + "." + outputName;
+      Decision decision = decisions.get(decisionId);
+      String binding = decision.variableName() != null ? decision.variableName() : decisionId;
+      return decision.table() && decision.outputNames().size() > 1
+          ? binding + "." + outputName
+          : binding;
     }
 
     private void resolve(DomElement definitions) {
       for (DomElement child : definitions.getChildElements()) {
-        if ("decision".equals(child.getLocalName()) && child.getAttribute("id") != null) {
-          decisions.putIfAbsent(child.getAttribute("id"), child);
+        String id = child.getAttribute("id");
+        if ("decision".equals(child.getLocalName()) && id != null && !decisions.containsKey(id)) {
+          decisions.put(
+              id,
+              new Decision(
+                  variableName(child),
+                  child(child, "decisionTable") != null,
+                  outputNamesOf(child),
+                  requiredDecisionIds(child)));
         }
       }
       Map<String, List<String>> requirements = new HashMap<>();
       Set<String> requiredBySomeDecision = new HashSet<>();
       decisions.forEach(
           (id, decision) -> {
-            List<String> required = requiredDecisionIds(decision);
-            requirements.put(id, required);
-            requiredBySomeDecision.addAll(required);
-            outputNames.put(id, outputNamesOf(decision));
+            requirements.put(id, decision.requiredDecisionIds());
+            requiredBySomeDecision.addAll(decision.requiredDecisionIds());
           });
       // Every decision that no other decision requires can be called. Decisions that are only
       // reachable through a requirement cycle are treated as callable too.
@@ -248,7 +264,7 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
                     .computeIfAbsent(name, k -> new LinkedHashMap<>())
                     .computeIfAbsent(provider, k -> new LinkedHashSet<>())
                     .add(top));
-        for (String name : outputNames.get(id)) {
+        for (String name : decisions.get(id).outputNames()) {
           context.put(name, id);
         }
       }
@@ -269,6 +285,13 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       order.add(id);
     }
   }
+
+  /** What the resolution needs to know about a decision, without references to the document. */
+  private record Decision(
+      String variableName,
+      boolean table,
+      List<String> outputNames,
+      List<String> requiredDecisionIds) {}
 
   private static DomElement findEnclosingDecision(DomElement element) {
     DomElement current = element.getParentElement();
@@ -358,7 +381,9 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     Set<String> names = new LinkedHashSet<>();
     Matcher matcher = NAME_REFERENCE.matcher(expression);
     while (matcher.find()) {
-      names.add(matcher.group(1));
+      if (!isPathSegment(expression, matcher.start())) {
+        names.add(matcher.group(1));
+      }
     }
     return names;
   }
@@ -369,7 +394,25 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
    */
   private static boolean isReferenced(String expression, String name) {
     Pattern reference =
-        Pattern.compile("(?<![\\w.?])" + Pattern.quote(name) + "(?![\\w?])(?!\\s*[(:])");
-    return reference.matcher(expression).find();
+        Pattern.compile("(?<![\\w?])" + Pattern.quote(name) + "(?![\\w?])(?!\\s*[(:])");
+    Matcher matcher = reference.matcher(expression);
+    while (matcher.find()) {
+      if (!isPathSegment(expression, matcher.start())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether the name starting at the given index follows a path dot ({@code x.name}, {@code x .
+   * name}). FEEL allows whitespace around the dot. A range ({@code 0..name}) isn't a path.
+   */
+  private static boolean isPathSegment(String expression, int start) {
+    int i = start - 1;
+    while (i >= 0 && Character.isWhitespace(expression.charAt(i))) {
+      i--;
+    }
+    return i >= 0 && expression.charAt(i) == '.' && (i == 0 || expression.charAt(i - 1) != '.');
   }
 }

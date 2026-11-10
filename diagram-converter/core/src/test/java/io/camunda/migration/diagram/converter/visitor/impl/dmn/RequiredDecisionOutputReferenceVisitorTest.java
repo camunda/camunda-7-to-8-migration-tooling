@@ -15,6 +15,7 @@ import io.camunda.migration.diagram.converter.DiagramCheckResult.ElementCheckMes
 import io.camunda.migration.diagram.converter.DiagramCheckResult.Severity;
 import io.camunda.migration.diagram.converter.DiagramConverterFactory;
 import java.io.ByteArrayInputStream;
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.w3c.dom.Node;
 
 /**
  * Covers every expression position in a decision (input expression, input entry, output entry,
@@ -321,8 +323,13 @@ class RequiredDecisionOutputReferenceVisitorTest {
         "\"say \\\"limit\\\"\"",
         "limitValue",
         "x.limit",
+        "x . limit",
+        "x .\n limit",
+        "x\n.limit",
         "limit(1)",
-        "{limit: 1}.limit"
+        "{limit: 1}.limit",
+        // JUEL string literal, converted to the FEEL string "limit"
+        "${'limit'}"
       })
   void shouldNotReportReferencesThatResolveOrAreNotVariables(String expression) {
     String drd =
@@ -337,6 +344,139 @@ class RequiredDecisionOutputReferenceVisitorTest {
                 .formatted(expression.replace("\"", "&quot;"));
 
     assertThat(taskMessages(drd)).doesNotContainKey("le");
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "[0..limit]",
+        "[limit..10]",
+        "[0 .. limit]",
+        "x + limit",
+        // JUEL variable access, converted to the bare FEEL name limit
+        "${execution.getVariable(\"limit\")}"
+      })
+  void shouldReportReferenceAfterConversionToFeel(String expression) {
+    String drd =
+        provider("Base", "limit")
+            + """
+            <decision id="Top" name="Top">
+              <variable id="v1" name="top"/>
+              <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
+              <literalExpression id="le"><text>%s</text></literalExpression>
+            </decision>
+            """
+                .formatted(expression.replace("\"", "&quot;"));
+
+    assertThat(taskMessages(drd).get("le"))
+        .singleElement()
+        .asString()
+        .contains("references 'limit'")
+        .contains("Use 'Base' instead.");
+  }
+
+  /** Camunda 8 binds a decision table's result to its variable name, if it has one. */
+  @ParameterizedTest
+  @CsvSource({"rate, baseResult", "'rate,rateId', baseResult.rate"})
+  void shouldSuggestVariableNameOfDecisionTable(String outputs, String expectedReference) {
+    assertThat(taskMessages(tableAndTop("baseResult", outputs, "rate")).get("le"))
+        .singleElement()
+        .asString()
+        .contains("Use '" + expectedReference + "' instead.");
+  }
+
+  /**
+   * A name that Camunda 8 binds is only correct if it binds the value Camunda 7 read: a
+   * single-output table named like its output is fine, a multi-output table isn't (Camunda 8 binds
+   * the whole result context).
+   */
+  @ParameterizedTest
+  @CsvSource({"Base, ''", "'Base,other', Base.Base"})
+  void shouldReportNameBoundToDifferentValueInCamunda8(String outputs, String expectedReference) {
+    var messages = taskMessages(tableAndTop(null, outputs, "Base + 1"));
+
+    if (expectedReference.isEmpty()) {
+      assertThat(messages).doesNotContainKey("le");
+    } else {
+      assertThat(messages.get("le"))
+          .singleElement()
+          .asString()
+          .contains("Use '" + expectedReference + "' instead.");
+    }
+  }
+
+  /** In Camunda 8, 'score' is the result of 'Other'; Camunda 7 read the output of 'Base'. */
+  @Test
+  void shouldReportNameBoundToAnotherDecisionInCamunda8() {
+    String drd =
+        provider("Base", "score")
+            + """
+            <decision id="Other" name="Other">
+              <variable id="vo" name="score"/>
+              <decisionTable id="t_o">
+                <input id="i_o"><inputExpression id="e_o"><text>in</text></inputExpression></input>
+                <output id="o_o" name="x" typeRef="string"/>
+              </decisionTable>
+            </decision>
+            <decision id="Top" name="Top">
+              <variable id="v1" name="top"/>
+              <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
+              <informationRequirement id="q2"><requiredDecision href="#Other"/></informationRequirement>
+              <literalExpression id="le"><text>score</text></literalExpression>
+            </decision>
+            """;
+
+    assertThat(taskMessages(drd).get("le"))
+        .singleElement()
+        .asString()
+        .contains("an output of the required decision 'Base'")
+        .contains("Use 'Base' instead.");
+  }
+
+  /** The check must not keep the checked document reachable, e.g. from a thread-local cache. */
+  @Test
+  void shouldNotRetainCheckedModel() throws InterruptedException {
+    WeakReference<Node> document = checkAndForget(ISSUE_DRD);
+
+    for (int i = 0; i < 50 && document.get() != null; i++) {
+      System.gc();
+      Thread.sleep(20);
+    }
+    assertThat(document.get()).isNull();
+  }
+
+  private static WeakReference<Node> checkAndForget(String decisions) {
+    DmnModelInstance model = model(decisions);
+    DiagramConverterFactory.getInstance()
+        .get()
+        .check("test.dmn", model, ConverterPropertiesFactory.getInstance().get());
+    return new WeakReference<>(model.getDocument().getDomSource().getNode());
+  }
+
+  private static String tableAndTop(String variable, String outputs, String expression) {
+    StringBuilder outputElements = new StringBuilder();
+    for (String output : outputs.split(",")) {
+      outputElements.append(
+          "<output id=\"o_%1$s\" name=\"%1$s\" typeRef=\"string\"/>".formatted(output));
+    }
+    return """
+        <decision id="Base" name="Base">
+          %s
+          <decisionTable id="t_b">
+            <input id="i_b"><inputExpression id="e_b"><text>in</text></inputExpression></input>
+            %s
+          </decisionTable>
+        </decision>
+        <decision id="Top" name="Top">
+          <variable id="v1" name="top"/>
+          <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
+          <literalExpression id="le"><text>%s</text></literalExpression>
+        </decision>
+        """
+        .formatted(
+            variable == null ? "" : "<variable id=\"v_b\" name=\"%s\"/>".formatted(variable),
+            outputElements,
+            expression);
   }
 
   @Test
@@ -395,6 +535,12 @@ class RequiredDecisionOutputReferenceVisitorTest {
   }
 
   private static DiagramCheckResult check(String decisions) {
+    return DiagramConverterFactory.getInstance()
+        .get()
+        .check("test.dmn", model(decisions), ConverterPropertiesFactory.getInstance().get());
+  }
+
+  private static DmnModelInstance model(String decisions) {
     String xml =
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -403,11 +549,7 @@ class RequiredDecisionOutputReferenceVisitorTest {
         </definitions>
         """
             .formatted(decisions);
-    DmnModelInstance model =
-        Dmn.readModelFromStream(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
-    return DiagramConverterFactory.getInstance()
-        .get()
-        .check("test.dmn", model, ConverterPropertiesFactory.getInstance().get());
+    return Dmn.readModelFromStream(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
   }
 
   /** Required-decision TASK messages, grouped by the element they are reported on. */
