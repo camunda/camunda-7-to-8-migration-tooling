@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  c7-style.dmn with every finding applied: outputs of other decisions are referenced through
+  direct requirements, by decision ID or variable name, as Camunda 8 expects.
+-->
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="pricing" name="Pricing" namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="Customer_Data" name="Customer data">
+    <decisionTable id="Customer_Data_Table" hitPolicy="FIRST">
+      <input id="Customer_Data_In"><inputExpression id="Customer_Data_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Customer_Data_Segment" name="segment" typeRef="string"/>
+      <output id="Customer_Data_Uid" name="uid" typeRef="string"/>
+      <rule id="Customer_Data_R1">
+        <inputEntry id="Customer_Data_R1_In"><text>"C1"</text></inputEntry>
+        <outputEntry id="Customer_Data_R1_Segment"><text>"gold"</text></outputEntry>
+        <outputEntry id="Customer_Data_R1_Uid"><text>"U-" + customerId</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Base_Rate" name="Base rate">
+    <informationRequirement id="Base_Rate_Req1"><requiredDecision href="#Customer_Data"/></informationRequirement>
+    <decisionTable id="Base_Rate_Table" hitPolicy="FIRST">
+      <input id="Base_Rate_In"><inputExpression id="Base_Rate_In_Expr" typeRef="string"><text>Customer_Data.segment</text></inputExpression></input>
+      <output id="Base_Rate_Rate" name="Base Rate Value" typeRef="double"/>
+      <rule id="Base_Rate_R1">
+        <inputEntry id="Base_Rate_R1_In"><text>"gold"</text></inputEntry>
+        <outputEntry id="Base_Rate_R1_Rate"><text>0.05</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Final_Eligibility" name="Final eligibility">
+    <informationRequirement id="Final_Eligibility_Req1"><requiredDecision href="#Customer_Data"/></informationRequirement>
+    <decisionTable id="Final_Eligibility_Table" hitPolicy="FIRST">
+      <input id="Final_Eligibility_In"><inputExpression id="Final_Eligibility_In_Expr" typeRef="string"><text>Customer_Data.uid</text></inputExpression></input>
+      <output id="Final_Eligibility_Uid" name="uid" typeRef="string"/>
+      <rule id="Final_Eligibility_R1">
+        <inputEntry id="Final_Eligibility_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Final_Eligibility_R1_Uid"><text>Customer_Data.uid + "-final"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Discount" name="Discount">
+    <variable id="Discount_Var" name="discountFactor" typeRef="double"/>
+    <informationRequirement id="Discount_Req1"><requiredDecision href="#Customer_Data"/></informationRequirement>
+    <literalExpression id="Discount_Expr"><text>if Customer_Data.segment = "gold" then 0.9 else 1</text></literalExpression>
+  </decision>
+  <decision id="Price" name="Price">
+    <informationRequirement id="Price_Req1"><requiredDecision href="#Base_Rate"/></informationRequirement>
+    <informationRequirement id="Price_Req2"><requiredDecision href="#Customer_Data"/></informationRequirement>
+    <informationRequirement id="Price_Req3"><requiredDecision href="#Final_Eligibility"/></informationRequirement>
+    <informationRequirement id="Price_Req4"><requiredDecision href="#Discount"/></informationRequirement>
+    <decisionTable id="Price_Table" hitPolicy="FIRST">
+      <input id="Price_In1"><inputExpression id="Price_In1_Expr" typeRef="double"><text>Base_Rate</text></inputExpression></input>
+      <input id="Price_In2"><inputExpression id="Price_In2_Expr" typeRef="string"><text>Final_Eligibility</text></inputExpression></input>
+      <output id="Price_Amount" name="amount" typeRef="double"/>
+      <output id="Price_Label" name="label" typeRef="string"/>
+      <rule id="Price_R1">
+        <inputEntry id="Price_R1_In1"><text>&gt; 0</text></inputEntry>
+        <inputEntry id="Price_R1_In2"><text>-</text></inputEntry>
+        <outputEntry id="Price_R1_Amount"><text>Base_Rate * 1000 * discountFactor</text></outputEntry>
+        <outputEntry id="Price_R1_Label"><text>"uid: " + Final_Eligibility + ", segment: " + Customer_Data.segment</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Quote" name="Quote">
+    <variable id="Quote_Var" name="Quote" typeRef="string"/>
+    <informationRequirement id="Quote_Req1"><requiredDecision href="#Final_Eligibility"/></informationRequirement>
+    <informationRequirement id="Quote_Req2"><requiredDecision href="#Discount"/></informationRequirement>
+    <informationRequirement id="Quote_Req3"><requiredDecision href="#Price"/></informationRequirement>
+    <literalExpression id="Quote_Expr"><text>Price.label + " = " + string(decimal(Price.amount, 1))</text></literalExpression>
+  </decision>
+  <decision id="Audit_Source" name="Audit source">
+    <decisionTable id="Audit_Source_Table" hitPolicy="FIRST">
+      <input id="Audit_Source_In"><inputExpression id="Audit_Source_In_Expr" typeRef="string"><text>auditId</text></inputExpression></input>
+      <output id="Audit_Source_Uid" name="uid" typeRef="string"/>
+      <rule id="Audit_Source_R1">
+        <inputEntry id="Audit_Source_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Audit_Source_R1_Uid"><text>"A-" + auditId</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Audit_Log" name="Audit log">
+    <variable id="Audit_Log_Var" name="Audit_Log" typeRef="string"/>
+    <informationRequirement id="Audit_Log_Req1"><requiredDecision href="#Audit_Source"/></informationRequirement>
+    <literalExpression id="Audit_Log_Expr"><text>"audit " + Audit_Source</text></literalExpression>
+  </decision>
+  <decision id="Quote_Audit" name="Quote audit">
+    <variable id="Quote_Audit_Var" name="Quote_Audit" typeRef="string"/>
+    <informationRequirement id="Quote_Audit_Req1"><requiredDecision href="#Final_Eligibility"/></informationRequirement>
+    <informationRequirement id="Quote_Audit_Req2"><requiredDecision href="#Audit_Log"/></informationRequirement>
+    <literalExpression id="Quote_Audit_Expr"><text>Audit_Log</text></literalExpression>
+  </decision>
+  <decision id="Audit_Report" name="Audit report">
+    <variable id="Audit_Report_Var" name="Audit_Report" typeRef="string"/>
+    <informationRequirement id="Audit_Report_Req1"><requiredDecision href="#Audit_Source"/></informationRequirement>
+    <informationRequirement id="Audit_Report_Req2"><requiredDecision href="#Audit_Log"/></informationRequirement>
+    <literalExpression id="Audit_Report_Expr"><text>Audit_Log</text></literalExpression>
+  </decision>
+</definitions>
