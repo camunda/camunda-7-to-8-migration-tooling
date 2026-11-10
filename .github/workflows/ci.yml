@@ -185,6 +185,9 @@ jobs:
         run: npm audit --audit-level=high
 
   distro:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -205,9 +208,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -217,8 +221,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build data-migrator distribution
         working-directory: data-migrator
@@ -236,6 +241,9 @@ jobs:
           retention-days: 7
 
   code-conversion:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     # Gradle Tooling API dependency resolution can exceed 30 minutes on cold runners.
@@ -257,9 +265,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -271,8 +280,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Login to Camunda Registry
         uses: docker/login-action@v4
@@ -330,6 +340,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      id-token: write
     if: |
       github.event_name != 'pull_request' ||
       needs.detect-changes.outputs.code-conversion == 'true' ||
@@ -351,9 +362,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -363,8 +375,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build and test code-conversion module on Windows
         working-directory: code-conversion
@@ -375,6 +388,9 @@ jobs:
           "-Dsurefire.failIfNoSpecifiedTests=false"
 
   diagram-converter:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -395,9 +411,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -407,8 +424,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build and test diagram-converter module
         working-directory: diagram-converter
@@ -455,6 +473,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      id-token: write
     if: |
       github.event_name != 'pull_request' ||
       needs.detect-changes.outputs.diagram-converter == 'true' ||
@@ -476,9 +495,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -488,8 +508,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build and test diagram-converter module on Windows
         working-directory: diagram-converter
@@ -499,6 +520,9 @@ jobs:
   # Compile-check all modules against the previous Camunda 8 version
   # to catch API-level incompatibilities before merge.
   compile-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -519,9 +543,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -531,8 +556,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Compile-check against previous Camunda 8 version
         # Compiles all modules (except cockpit plugin which requires Node.js and
@@ -545,6 +571,9 @@ jobs:
           --batch-mode
 
   it-runtime-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -586,9 +615,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -598,14 +628,18 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run ${{ matrix.shard }} runtime tests with H2
         working-directory: data-migrator
         run: mvn verify -Pintegration,runtime-${{ matrix.shard }}
 
   it-history-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -633,9 +667,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -645,8 +680,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run history tests with H2
         working-directory: data-migrator
@@ -709,6 +745,7 @@ jobs:
     timeout-minutes: 70
     permissions:
       contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -726,9 +763,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -737,8 +775,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run ${{ matrix.suite }} runtime tests with ${{ matrix.database }}
         working-directory: data-migrator
@@ -751,6 +790,7 @@ jobs:
     timeout-minutes: 70
     permissions:
       contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -766,9 +806,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -777,8 +818,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run history tests with ${{ matrix.database }}
         working-directory: data-migrator
@@ -791,6 +833,7 @@ jobs:
     timeout-minutes: 70
     permissions:
       contents: read
+      id-token: write
     if: |
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
@@ -809,9 +852,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -820,14 +864,18 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run history tests with MS SQL Server source and PostgreSQL target
         working-directory: data-migrator
         run: mvn verify -Psqlserver-to-postgresql,integration,history-only
 
   it-history-h2-windows:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: windows-latest
     timeout-minutes: 70
@@ -859,9 +907,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -871,8 +920,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build and run integration tests on Windows
         working-directory: data-migrator
@@ -880,6 +930,9 @@ jobs:
 
 
   it-identity-h2:
+    permissions:
+      contents: read
+      id-token: write
     needs: [detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 70
@@ -907,9 +960,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -919,8 +973,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run identity tests with H2
         working-directory: data-migrator
@@ -933,6 +988,7 @@ jobs:
     timeout-minutes: 70
     permissions:
       contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -948,9 +1004,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -959,8 +1016,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run identity tests with ${{ matrix.database }}
         working-directory: data-migrator
@@ -972,6 +1030,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      id-token: write
     outputs:
       maven-cache-hit: ${{ steps.setup-maven.outputs.maven-cache-hit }}
       e2e_first_pass_rate: ${{ steps.analyze-e2e-retries.outputs.first_pass_rate }}
@@ -995,9 +1054,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -1009,8 +1069,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Login to Camunda Registry
         uses: docker/login-action@v4
@@ -1052,6 +1113,9 @@ jobs:
 
   # Nightly: verify code-conversion against previous Camunda 8 version
   code-conversion-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1072,9 +1136,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -1085,8 +1150,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Login to Camunda Registry
         uses: docker/login-action@v4
@@ -1104,6 +1170,9 @@ jobs:
 
   # Nightly: verify diagram-converter against previous Camunda 8 version
   diagram-converter-previous-version:
+    permissions:
+      contents: read
+      id-token: write
     needs: [read-versions]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1124,9 +1193,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -1135,8 +1205,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Build and test diagram-converter against previous Camunda 8 version
         working-directory: diagram-converter
@@ -1152,6 +1223,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      id-token: write
     if: |
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
@@ -1169,9 +1241,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -1182,8 +1255,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Login to Camunda Registry
         uses: docker/login-action@v4
@@ -1225,6 +1299,7 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
+      id-token: write
     if: |
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
@@ -1256,9 +1331,10 @@ jobs:
         uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/nexus USER | NEXUS_APP_CAMUNDA_COM_USR;
             secret/data/products/cambpm/ci/nexus PASSWORD | NEXUS_APP_CAMUNDA_COM_PSW;
@@ -1267,8 +1343,9 @@ jobs:
         uses: ./.github/actions/setup-maven
         with:
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
       - name: Run ${{ matrix.suite }} tests with ${{ matrix.database }} (Camunda ${{ matrix.camunda-version }})
         working-directory: data-migrator
@@ -1468,6 +1545,9 @@ jobs:
 
   # Rerun failed jobs running on self-hosted runners in case of network issues or node preemption
   rerun-failed-jobs:
+    permissions:
+      contents: read
+      id-token: write
     needs:
       - npm-audit
       - distro
@@ -1497,5 +1577,7 @@ jobs:
           run-id: ${{ github.run_id }}
           repository: ${{ github.repository }}
           vault-addr: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-auth-method: jwt
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
