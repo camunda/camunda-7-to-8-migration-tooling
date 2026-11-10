@@ -27,7 +27,7 @@
     <version.feel-engine>1.22.1</version.feel-engine>
     <!-- Camunda 8 DMN engine for the camunda8-oracle tests; keep in line with Zeebe's version.dmn-scala -->
     <version.dmn-scala>1.12.6</version.dmn-scala>
-    <version.scala>3.10.0</version.scala>
+    <version.scala>3.10.1</version.scala>
     <version.jakarta-xml-bind-api>4.0.5</version.jakarta-xml-bind-api>
     <version.checker-qual>4.4.0</version.checker-qual>
     <version.commons-collections4>4.6.0</version.commons-collections4>
