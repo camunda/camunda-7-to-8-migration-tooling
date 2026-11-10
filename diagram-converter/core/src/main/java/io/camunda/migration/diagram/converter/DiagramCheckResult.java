@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DiagramCheckResult {
   private List<ElementCheckResult> results = new ArrayList<>();
@@ -22,13 +23,16 @@ public class DiagramCheckResult {
    * Index of {@link #results} by element id, so lookups stay O(1) for large models (see issue
    * #3695). Entries appended through {@link #getResults()} are indexed incrementally on the next
    * lookup; any other mutation of the results list (or replacing it through {@link
-   * #setResults(List)}) invalidates the index and triggers a full rebuild on the next lookup.
+   * #setResults(List)}) invalidates the index and triggers a full rebuild on the next lookup. So
+   * does changing the id of an entry that has been indexed: see {@link
+   * ElementCheckResult#setElementId(String)}.
    */
   private transient Map<String, ElementCheckResult> resultsById;
 
   private transient List<ElementCheckResult> indexedList;
   private transient int indexedCount;
   private transient boolean indexDirty;
+  private transient long indexedIdChanges;
 
   public String getConverterVersion() {
     return converterVersion;
@@ -68,14 +72,20 @@ public class DiagramCheckResult {
     if (elementId == null) {
       return null;
     }
-    if (indexedList != results || indexDirty || indexedCount > results.size()) {
+    long idChanges = ElementCheckResult.ID_CHANGES.get();
+    if (indexedList != results
+        || indexDirty
+        || indexedCount > results.size()
+        || indexedIdChanges != idChanges) {
       resultsById = new HashMap<>();
       indexedList = results;
       indexedCount = 0;
       indexDirty = false;
+      indexedIdChanges = idChanges;
     }
     for (; indexedCount < results.size(); indexedCount++) {
       ElementCheckResult result = results.get(indexedCount);
+      result.indexed = true;
       if (result.getElementId() != null) {
         resultsById.putIfAbsent(result.getElementId(), result);
       }
@@ -156,6 +166,14 @@ public class DiagramCheckResult {
   }
 
   public static class ElementCheckResult {
+    /**
+     * Counts id changes of results that have been indexed by some {@link DiagramCheckResult}. A
+     * lookup index built before the latest change is rebuilt. Results get their id before they are
+     * added, so during a conversion this stays unchanged and lookups stay O(1).
+     */
+    private static final AtomicLong ID_CHANGES = new AtomicLong();
+
+    private transient volatile boolean indexed;
     private List<ElementCheckMessage> messages = new ArrayList<>();
     private List<String> references = new ArrayList<>();
     private List<String> referencedBy = new ArrayList<>();
@@ -177,6 +195,9 @@ public class DiagramCheckResult {
 
     public void setElementId(String elementId) {
       this.elementId = elementId;
+      if (indexed) {
+        ID_CHANGES.incrementAndGet();
+      }
     }
 
     public String getElementName() {
