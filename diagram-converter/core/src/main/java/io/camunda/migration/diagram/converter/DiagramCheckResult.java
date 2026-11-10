@@ -7,11 +7,13 @@
  */
 package io.camunda.migration.diagram.converter;
 
+import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.WeakHashMap;
 
 public class DiagramCheckResult {
   private List<ElementCheckResult> results = new ArrayList<>();
@@ -22,13 +24,26 @@ public class DiagramCheckResult {
    * Index of {@link #results} by element id, so lookups stay O(1) for large models (see issue
    * #3695). Entries appended through {@link #getResults()} are indexed incrementally on the next
    * lookup; any other mutation of the results list (or replacing it through {@link
-   * #setResults(List)}) invalidates the index and triggers a full rebuild on the next lookup.
+   * #setResults(List)}) invalidates the index and triggers a full rebuild on the next lookup. So
+   * does changing the id of an entry that has been indexed: see {@link
+   * ElementCheckResult#setElementId(String)}.
    */
   private transient Map<String, ElementCheckResult> resultsById;
 
   private transient List<ElementCheckResult> indexedList;
   private transient int indexedCount;
   private transient boolean indexDirty;
+  private transient int indexBuilds;
+
+  /** Whether the current lookup index is the one from the given build. */
+  private boolean isIndexedIn(int build) {
+    return indexedList == results && indexBuilds == build;
+  }
+
+  /** How often the lookup index was built from scratch, for tests. */
+  int indexBuilds() {
+    return indexBuilds;
+  }
 
   public String getConverterVersion() {
     return converterVersion;
@@ -70,12 +85,14 @@ public class DiagramCheckResult {
     }
     if (indexedList != results || indexDirty || indexedCount > results.size()) {
       resultsById = new HashMap<>();
+      indexBuilds++;
       indexedList = results;
       indexedCount = 0;
       indexDirty = false;
     }
     for (; indexedCount < results.size(); indexedCount++) {
       ElementCheckResult result = results.get(indexedCount);
+      result.indexedBy(this);
       if (result.getElementId() != null) {
         resultsById.putIfAbsent(result.getElementId(), result);
       }
@@ -156,6 +173,34 @@ public class DiagramCheckResult {
   }
 
   public static class ElementCheckResult {
+    /**
+     * The check results whose lookup index contains this result, each with the index build it was
+     * added in, so an id change invalidates exactly those indexes. A registration from an earlier
+     * build is obsolete: the result was removed or the list replaced, and results still present
+     * register again on every build. Check results are held weakly, so a result doesn't keep them
+     * alive. Nearly every result belongs to one check result, so the map is only created for a
+     * second one. Results get their id before they are added, so during a conversion no index is
+     * invalidated this way.
+     */
+    private transient WeakReference<DiagramCheckResult> indexedBy;
+
+    private transient int indexedInBuild;
+
+    private transient WeakHashMap<DiagramCheckResult, Integer> alsoIndexedBy;
+
+    private void indexedBy(DiagramCheckResult checkResult) {
+      DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
+      if (first == null || first == checkResult || !first.isIndexedIn(indexedInBuild)) {
+        indexedBy = new WeakReference<>(checkResult);
+        indexedInBuild = checkResult.indexBuilds;
+      } else {
+        if (alsoIndexedBy == null) {
+          alsoIndexedBy = new WeakHashMap<>();
+        }
+        alsoIndexedBy.put(checkResult, checkResult.indexBuilds);
+      }
+    }
+
     private List<ElementCheckMessage> messages = new ArrayList<>();
     private List<String> references = new ArrayList<>();
     private List<String> referencedBy = new ArrayList<>();
@@ -177,6 +222,16 @@ public class DiagramCheckResult {
 
     public void setElementId(String elementId) {
       this.elementId = elementId;
+      DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
+      if (first != null && first.isIndexedIn(indexedInBuild)) {
+        first.indexDirty = true;
+      }
+      if (alsoIndexedBy != null) {
+        alsoIndexedBy
+            .entrySet()
+            .removeIf(registration -> !registration.getKey().isIndexedIn(registration.getValue()));
+        alsoIndexedBy.keySet().forEach(checkResult -> checkResult.indexDirty = true);
+      }
     }
 
     public String getElementName() {
