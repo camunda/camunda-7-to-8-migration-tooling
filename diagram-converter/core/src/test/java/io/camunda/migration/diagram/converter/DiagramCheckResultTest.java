@@ -175,4 +175,126 @@ public class DiagramCheckResultTest {
     assertThat(checkResult.getResult("b")).isNull();
     assertThat(checkResult.getResults()).containsExactly(original);
   }
+
+  @Test
+  void shouldReindexAfterIndexedResultIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult renamed = result("a");
+    checkResult.getResults().add(renamed);
+
+    // populate the index
+    assertThat(checkResult.getResult("a")).isSameAs(renamed);
+
+    renamed.setElementId("b");
+
+    assertThat(checkResult.getResult("a")).isNull();
+    assertThat(checkResult.getResult("b")).isSameAs(renamed);
+  }
+
+  @Test
+  void shouldIndexIdAssignedAfterLookup() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult unnamed = result(null);
+    checkResult.getResults().add(unnamed);
+
+    // populate the index while the result has no id
+    assertThat(checkResult.getResult("a")).isNull();
+
+    unnamed.setElementId("a");
+
+    assertThat(checkResult.getResult("a")).isSameAs(unnamed);
+  }
+
+  @Test
+  void shouldReturnNextDuplicateAfterFirstIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult first = result("dup");
+    ElementCheckResult second = result("dup");
+    checkResult.getResults().add(first);
+    checkResult.getResults().add(second);
+
+    // populate the index
+    assertThat(checkResult.getResult("dup")).isSameAs(first);
+
+    first.setElementId("other");
+
+    assertThat(checkResult.getResult("dup")).isSameAs(second);
+    assertThat(checkResult.getResult("other")).isSameAs(first);
+  }
+
+  @Test
+  void shouldNotRebuildIndexWhenResultOfAnotherCheckIsRenamed() {
+    DiagramCheckResult renaming = new DiagramCheckResult();
+    ElementCheckResult renamed = result("r");
+    renaming.getResults().add(renamed);
+    DiagramCheckResult unrelated = new DiagramCheckResult();
+    unrelated.getResults().add(result("a"));
+    renaming.getResult("r");
+    unrelated.getResult("a");
+    int builds = unrelated.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      renamed.setElementId("r" + i);
+      assertThat(unrelated.getResult("a")).isNotNull();
+    }
+
+    assertThat(unrelated.indexBuilds()).isEqualTo(builds);
+    assertThat(renaming.getResult("r9")).isSameAs(renamed);
+  }
+
+  @Test
+  void shouldReindexEveryCheckContainingRenamedSharedResult() {
+    ElementCheckResult shared = result("a");
+    DiagramCheckResult first = new DiagramCheckResult();
+    DiagramCheckResult second = new DiagramCheckResult();
+    first.getResults().add(shared);
+    second.getResults().add(shared);
+    first.getResult("a");
+    second.getResult("a");
+
+    shared.setElementId("b");
+
+    assertThat(first.getResult("b")).isSameAs(shared);
+    assertThat(second.getResult("b")).isSameAs(shared);
+    assertThat(first.getResult("a")).isNull();
+    assertThat(second.getResult("a")).isNull();
+  }
+
+  @Test
+  void shouldNotRebuildIndexWhenRemovedResultIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult removed = result("r");
+    checkResult.getResults().add(removed);
+    checkResult.getResults().add(result("a"));
+    checkResult.getResult("a");
+    checkResult.getResults().remove(removed);
+    checkResult.getResult("a");
+    int builds = checkResult.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      removed.setElementId("r" + i);
+      assertThat(checkResult.getResult("a")).isNotNull();
+    }
+
+    assertThat(checkResult.indexBuilds()).isEqualTo(builds);
+  }
+
+  @Test
+  void shouldNotRebuildIndexWhenResultOfReplacedListIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult replaced = result("r");
+    checkResult.getResults().add(replaced);
+    checkResult.getResult("r");
+    checkResult.setResults(List.of(result("a")));
+    checkResult.getResult("a");
+    int builds = checkResult.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      replaced.setElementId("r" + i);
+      assertThat(checkResult.getResult("a")).isNotNull();
+    }
+
+    assertThat(checkResult.indexBuilds()).isEqualTo(builds);
+    assertThat(checkResult.getResult("r9")).isNull();
+  }
 }
