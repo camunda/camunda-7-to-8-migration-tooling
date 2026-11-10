@@ -10,11 +10,9 @@ package io.camunda.migration.diagram.converter;
 import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.WeakHashMap;
 
 public class DiagramCheckResult {
@@ -36,6 +34,11 @@ public class DiagramCheckResult {
   private transient int indexedCount;
   private transient boolean indexDirty;
   private transient int indexBuilds;
+
+  /** Whether the current lookup index is the one from the given build. */
+  private boolean isIndexedIn(int build) {
+    return indexedList == results && indexBuilds == build;
+  }
 
   /** How often the lookup index was built from scratch, for tests. */
   int indexBuilds() {
@@ -171,24 +174,30 @@ public class DiagramCheckResult {
 
   public static class ElementCheckResult {
     /**
-     * The check results whose lookup index contains this result, so an id change invalidates
-     * exactly those indexes. Held weakly, so a result doesn't keep them alive. Nearly every result
-     * belongs to one check result, so the set is only created for a second one. Results get their
-     * id before they are added, so during a conversion no index is invalidated this way.
+     * The check results whose lookup index contains this result, each with the index build it was
+     * added in, so an id change invalidates exactly those indexes. A registration from an earlier
+     * build is obsolete: the result was removed or the list replaced, and results still present
+     * register again on every build. Check results are held weakly, so a result doesn't keep them
+     * alive. Nearly every result belongs to one check result, so the map is only created for a
+     * second one. Results get their id before they are added, so during a conversion no index is
+     * invalidated this way.
      */
     private transient WeakReference<DiagramCheckResult> indexedBy;
 
-    private transient Set<DiagramCheckResult> alsoIndexedBy;
+    private transient int indexedInBuild;
+
+    private transient WeakHashMap<DiagramCheckResult, Integer> alsoIndexedBy;
 
     private void indexedBy(DiagramCheckResult checkResult) {
       DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
-      if (first == null) {
+      if (first == null || first == checkResult || !first.isIndexedIn(indexedInBuild)) {
         indexedBy = new WeakReference<>(checkResult);
-      } else if (first != checkResult) {
+        indexedInBuild = checkResult.indexBuilds;
+      } else {
         if (alsoIndexedBy == null) {
-          alsoIndexedBy = Collections.newSetFromMap(new WeakHashMap<>());
+          alsoIndexedBy = new WeakHashMap<>();
         }
-        alsoIndexedBy.add(checkResult);
+        alsoIndexedBy.put(checkResult, checkResult.indexBuilds);
       }
     }
 
@@ -214,11 +223,14 @@ public class DiagramCheckResult {
     public void setElementId(String elementId) {
       this.elementId = elementId;
       DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
-      if (first != null) {
+      if (first != null && first.isIndexedIn(indexedInBuild)) {
         first.indexDirty = true;
       }
       if (alsoIndexedBy != null) {
-        alsoIndexedBy.forEach(checkResult -> checkResult.indexDirty = true);
+        alsoIndexedBy
+            .entrySet()
+            .removeIf(registration -> !registration.getKey().isIndexedIn(registration.getValue()));
+        alsoIndexedBy.keySet().forEach(checkResult -> checkResult.indexDirty = true);
       }
     }
 
