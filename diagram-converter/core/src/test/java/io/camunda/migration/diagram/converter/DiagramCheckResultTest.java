@@ -259,4 +259,42 @@ public class DiagramCheckResultTest {
     assertThat(first.getResult("a")).isNull();
     assertThat(second.getResult("a")).isNull();
   }
+
+  @Test
+  void shouldNotRebuildIndexWhenRemovedResultIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult removed = result("r");
+    checkResult.getResults().add(removed);
+    checkResult.getResults().add(result("a"));
+    checkResult.getResult("a");
+    checkResult.getResults().remove(removed);
+    checkResult.getResult("a");
+    int builds = checkResult.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      removed.setElementId("r" + i);
+      assertThat(checkResult.getResult("a")).isNotNull();
+    }
+
+    assertThat(checkResult.indexBuilds()).isEqualTo(builds);
+  }
+
+  @Test
+  void shouldNotRebuildIndexWhenResultOfReplacedListIsRenamed() {
+    DiagramCheckResult checkResult = new DiagramCheckResult();
+    ElementCheckResult replaced = result("r");
+    checkResult.getResults().add(replaced);
+    checkResult.getResult("r");
+    checkResult.setResults(List.of(result("a")));
+    checkResult.getResult("a");
+    int builds = checkResult.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      replaced.setElementId("r" + i);
+      assertThat(checkResult.getResult("a")).isNotNull();
+    }
+
+    assertThat(checkResult.indexBuilds()).isEqualTo(builds);
+    assertThat(checkResult.getResult("r9")).isNull();
+  }
 }
