@@ -96,35 +96,36 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       }
     }
     String searchable = blankStringLiterals(expression);
-    Set<String> simpleNames = simpleNameReferences(searchable);
     String trimmedExpression = expression.trim();
-    visible.forEach(
-        (name, providers) -> {
-          if (visibleInCamunda8.contains(name)) {
-            return;
-          }
-          boolean referenced =
-              SIMPLE_NAME.matcher(name).matches()
-                  ? simpleNames.contains(name)
-                  : isReferenced(searchable, name);
-          if (!referenced) {
-            return;
-          }
-          if (providers.size() > 1) {
-            context.addMessage(
-                MessageFactory.ambiguousRequiredDecisionOutputReference(
-                    trimmedExpression, name, describeProviders(providers)));
-            return;
-          }
-          String providerId = providers.keySet().iterator().next();
-          context.addMessage(
-              MessageFactory.requiredDecisionOutputReference(
-                  trimmedExpression,
-                  name,
-                  providerId,
-                  resolution.camunda8Reference(providerId, name),
-                  !directRequirements.contains(providerId)));
-        });
+    // Look up only the names the expression uses, so the cost doesn't grow with the number of
+    // visible outputs. Names that aren't simple identifiers can't be tokenized and are matched
+    // one by one; they are rare.
+    Set<String> referencedNames = simpleNameReferences(searchable);
+    for (String name : resolution.nonSimpleNames(decisionId)) {
+      if (isReferenced(searchable, name)) {
+        referencedNames.add(name);
+      }
+    }
+    for (String name : referencedNames) {
+      Map<String, Set<String>> providers = visible.get(name);
+      if (providers == null || visibleInCamunda8.contains(name)) {
+        continue;
+      }
+      if (providers.size() > 1) {
+        context.addMessage(
+            MessageFactory.ambiguousRequiredDecisionOutputReference(
+                trimmedExpression, name, describeProviders(providers)));
+        continue;
+      }
+      String providerId = providers.keySet().iterator().next();
+      context.addMessage(
+          MessageFactory.requiredDecisionOutputReference(
+              trimmedExpression,
+              name,
+              providerId,
+              resolution.camunda8Reference(providerId, name),
+              !directRequirements.contains(providerId)));
+    }
   }
 
   private static Resolution resolution(DomElement definitions) {
@@ -162,6 +163,8 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
     private final Map<String, Map<String, Map<String, Set<String>>>> visibleOutputs =
         new HashMap<>();
 
+    private final Map<String, List<String>> nonSimpleNames = new HashMap<>();
+
     static Resolution of(DomElement definitions) {
       Resolution resolution = new Resolution();
       if (definitions != null) {
@@ -172,6 +175,16 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
 
     Map<String, Map<String, Set<String>>> visibleOutputs(String decisionId) {
       return visibleOutputs.getOrDefault(decisionId, Map.of());
+    }
+
+    /** Visible names that aren't simple identifiers, such as names with spaces. */
+    List<String> nonSimpleNames(String decisionId) {
+      return nonSimpleNames.computeIfAbsent(
+          decisionId,
+          id ->
+              visibleOutputs(id).keySet().stream()
+                  .filter(name -> !SIMPLE_NAME.matcher(name).matches())
+                  .toList());
     }
 
     String variableName(String decisionId) {
@@ -342,7 +355,7 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
 
   /** All simple names the expression references as variables, found in one pass. */
   private static Set<String> simpleNameReferences(String expression) {
-    Set<String> names = new HashSet<>();
+    Set<String> names = new LinkedHashSet<>();
     Matcher matcher = NAME_REFERENCE.matcher(expression);
     while (matcher.find()) {
       names.add(matcher.group(1));
