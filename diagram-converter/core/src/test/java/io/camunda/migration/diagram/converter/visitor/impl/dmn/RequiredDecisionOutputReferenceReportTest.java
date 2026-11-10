@@ -25,7 +25,7 @@ import org.camunda.bpm.dmn.engine.DmnEngineConfiguration;
 import org.camunda.bpm.model.dmn.Dmn;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.CsvFileSource;
 
 /**
  * Pins the complete required-decision report for a realistic DRD, so that any change in what is
@@ -36,25 +36,31 @@ class RequiredDecisionOutputReferenceReportTest {
   private static final String LINK =
       "https://docs.camunda.io/docs/components/modeler/dmn/decision-requirements-graph/#required-decisions";
 
-  /** The fixture must stay a DRD that Camunda 7 evaluates, with the values the report relies on. */
-  @ParameterizedTest
-  @CsvSource(
+  /**
+   * The fixtures must stay DRDs that Camunda 7 evaluates, with the values pinned in {@code
+   * camunda7-results.txt}. The Camunda 8 oracle module relies on the same file.
+   */
+  @ParameterizedTest(name = "{0} {1}")
+  @CsvFileSource(
+      resources = "/required-decision-outputs/camunda7-results.txt",
       delimiter = '|',
-      value = {
-        // Price requires Customer_Data, but reads the uid that Final_Eligibility overwrote
-        "Quote | uid: U-C1-final, segment: gold = 45.0",
-        // Audit_Log reads uid from Final_Eligibility here ...
-        "Quote_Audit | audit U-C1-final",
-        // ... and from Audit_Source here
-        "Audit_Report | audit A-X"
-      })
-  void fixtureShouldBehaveAsDescribedInCamunda7(String decisionId, String expected) {
+      ignoreLeadingAndTrailingWhitespace = true)
+  void fixtureShouldBehaveAsPinnedInCamunda7(
+      String fixture, String decisionId, String expected, String marker) {
     DmnEngine camunda7 = DmnEngineConfiguration.createDefaultDmnEngineConfiguration().buildEngine();
     Object result =
         camunda7
             .evaluateDecision(
-                camunda7.parseDecision(decisionId, resource("c7-style.dmn")),
-                Map.of("customerId", "C1", "auditId", "X"))
+                camunda7.parseDecision(decisionId, resource(fixture)),
+                Map.of(
+                    "customerId",
+                    "C1",
+                    "auditId",
+                    "X",
+                    "customer",
+                    Map.of("limit", 3),
+                    "points",
+                    4))
             .getSingleResult()
             .getSingleEntry();
 
