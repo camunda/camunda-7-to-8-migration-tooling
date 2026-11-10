@@ -7,12 +7,15 @@
  */
 package io.camunda.migration.diagram.converter;
 
+import java.lang.ref.WeakReference;
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 public class DiagramCheckResult {
   private List<ElementCheckResult> results = new ArrayList<>();
@@ -32,7 +35,12 @@ public class DiagramCheckResult {
   private transient List<ElementCheckResult> indexedList;
   private transient int indexedCount;
   private transient boolean indexDirty;
-  private transient long indexedIdChanges;
+  private transient int indexBuilds;
+
+  /** How often the lookup index was built from scratch, for tests. */
+  int indexBuilds() {
+    return indexBuilds;
+  }
 
   public String getConverterVersion() {
     return converterVersion;
@@ -72,20 +80,16 @@ public class DiagramCheckResult {
     if (elementId == null) {
       return null;
     }
-    long idChanges = ElementCheckResult.ID_CHANGES.get();
-    if (indexedList != results
-        || indexDirty
-        || indexedCount > results.size()
-        || indexedIdChanges != idChanges) {
+    if (indexedList != results || indexDirty || indexedCount > results.size()) {
       resultsById = new HashMap<>();
+      indexBuilds++;
       indexedList = results;
       indexedCount = 0;
       indexDirty = false;
-      indexedIdChanges = idChanges;
     }
     for (; indexedCount < results.size(); indexedCount++) {
       ElementCheckResult result = results.get(indexedCount);
-      result.indexed = true;
+      result.indexedBy(this);
       if (result.getElementId() != null) {
         resultsById.putIfAbsent(result.getElementId(), result);
       }
@@ -167,13 +171,27 @@ public class DiagramCheckResult {
 
   public static class ElementCheckResult {
     /**
-     * Counts id changes of results that have been indexed by some {@link DiagramCheckResult}. A
-     * lookup index built before the latest change is rebuilt. Results get their id before they are
-     * added, so during a conversion this stays unchanged and lookups stay O(1).
+     * The check results whose lookup index contains this result, so an id change invalidates
+     * exactly those indexes. Held weakly, so a result doesn't keep them alive. Nearly every result
+     * belongs to one check result, so the set is only created for a second one. Results get their
+     * id before they are added, so during a conversion no index is invalidated this way.
      */
-    private static final AtomicLong ID_CHANGES = new AtomicLong();
+    private transient WeakReference<DiagramCheckResult> indexedBy;
 
-    private transient volatile boolean indexed;
+    private transient Set<DiagramCheckResult> alsoIndexedBy;
+
+    private void indexedBy(DiagramCheckResult checkResult) {
+      DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
+      if (first == null) {
+        indexedBy = new WeakReference<>(checkResult);
+      } else if (first != checkResult) {
+        if (alsoIndexedBy == null) {
+          alsoIndexedBy = Collections.newSetFromMap(new WeakHashMap<>());
+        }
+        alsoIndexedBy.add(checkResult);
+      }
+    }
+
     private List<ElementCheckMessage> messages = new ArrayList<>();
     private List<String> references = new ArrayList<>();
     private List<String> referencedBy = new ArrayList<>();
@@ -195,8 +213,12 @@ public class DiagramCheckResult {
 
     public void setElementId(String elementId) {
       this.elementId = elementId;
-      if (indexed) {
-        ID_CHANGES.incrementAndGet();
+      DiagramCheckResult first = indexedBy == null ? null : indexedBy.get();
+      if (first != null) {
+        first.indexDirty = true;
+      }
+      if (alsoIndexedBy != null) {
+        alsoIndexedBy.forEach(checkResult -> checkResult.indexDirty = true);
       }
     }
 
