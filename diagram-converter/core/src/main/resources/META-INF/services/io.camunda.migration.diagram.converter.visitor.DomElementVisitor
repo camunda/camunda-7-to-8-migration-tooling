@@ -155,6 +155,7 @@ io.camunda.migration.diagram.converter.visitor.impl.dmn.TypeRefVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.OutputVisitor
 io.camunda.migration.diagram.converter.visitor.impl.DmnDefinitionsVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.TextVisitor
+io.camunda.migration.diagram.converter.visitor.impl.dmn.RequiredDecisionOutputReferenceVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.InputEntryVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.OutputEntryVisitor
 io.camunda.migration.diagram.converter.visitor.impl.dmn.LiteralExpressionVisitor
