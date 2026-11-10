@@ -221,4 +221,42 @@ public class DiagramCheckResultTest {
     assertThat(checkResult.getResult("dup")).isSameAs(second);
     assertThat(checkResult.getResult("other")).isSameAs(first);
   }
+
+  @Test
+  void shouldNotRebuildIndexWhenResultOfAnotherCheckIsRenamed() {
+    DiagramCheckResult renaming = new DiagramCheckResult();
+    ElementCheckResult renamed = result("r");
+    renaming.getResults().add(renamed);
+    DiagramCheckResult unrelated = new DiagramCheckResult();
+    unrelated.getResults().add(result("a"));
+    renaming.getResult("r");
+    unrelated.getResult("a");
+    int builds = unrelated.indexBuilds();
+
+    for (int i = 0; i < 10; i++) {
+      renamed.setElementId("r" + i);
+      assertThat(unrelated.getResult("a")).isNotNull();
+    }
+
+    assertThat(unrelated.indexBuilds()).isEqualTo(builds);
+    assertThat(renaming.getResult("r9")).isSameAs(renamed);
+  }
+
+  @Test
+  void shouldReindexEveryCheckContainingRenamedSharedResult() {
+    ElementCheckResult shared = result("a");
+    DiagramCheckResult first = new DiagramCheckResult();
+    DiagramCheckResult second = new DiagramCheckResult();
+    first.getResults().add(shared);
+    second.getResults().add(shared);
+    first.getResult("a");
+    second.getResult("a");
+
+    shared.setElementId("b");
+
+    assertThat(first.getResult("b")).isSameAs(shared);
+    assertThat(second.getResult("b")).isSameAs(shared);
+    assertThat(first.getResult("a")).isNull();
+    assertThat(second.getResult("a")).isNull();
+  }
 }
