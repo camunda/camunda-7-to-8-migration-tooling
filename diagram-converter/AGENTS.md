@@ -4,7 +4,7 @@ See also the root [AGENTS.md](../AGENTS.md) for repo-wide conventions (commit me
 
 ## Overview
 
-The diagram-converter analyzes and converts BPMN/DMN models from Camunda 7 to Camunda 8 format. Four submodules: `core/` (conversion engine), `cli/` (Picocli command-line tool), `webapp/` (Spring Boot REST API + React SPA), `extension-example/` (SPI reference, not released).
+The diagram-converter analyzes and converts BPMN/DMN models from Camunda 7 to Camunda 8 format. Five submodules: `core/` (conversion engine), `cli/` (Picocli command-line tool), `webapp/` (Spring Boot REST API + React SPA), `extension-example/` (SPI reference, not released), `camunda8-oracle/` (tests against the Camunda 8 DMN engine, not released).
 
 ## Build Commands
 
@@ -25,7 +25,7 @@ mvn verify -Pdistro,checkFormat --batch-mode
 cd diagram-converter/webapp/src/main/javascript && npm install && npm run build
 ```
 
-Key profiles: `autoFormat` (default, auto-fixes formatting), `checkFormat` (CI, fails on violations), `distro` (default, all modules), `central-release` (excludes extension-example).
+Key profiles: `autoFormat` (default, auto-fixes formatting), `checkFormat` (CI, fails on violations), `distro` (default, all modules), `central-release` (excludes extension-example and camunda8-oracle).
 
 ## Architecture: Two-Phase Conversion
 
@@ -65,6 +65,11 @@ See `extension-example/` for a working reference showing both direct `DomElement
 YAML-driven conversion tests in `BpmnConversionTest` are the primary test mechanism. Each case defines `givenBpmn`, `expectedBpmn`, `expectedMessages`, and optional `properties` (e.g., `platformVersion`). New BPMN element support must include test cases here.
 
 `CoverageTest` validates all BPMN element types have corresponding visitors — fails if a new element type is added upstream without a visitor.
+
+When a check claims how Camunda 7 or Camunda 8 behaves, test the claim against the engine, not only against reasoning about the code:
+
+- `core` uses the Camunda 7 DMN engine (`camunda-engine-dmn`, test scope) as an oracle, e.g. `RequiredDecisionOutputReferenceCamunda7Test`. Fixtures in `core/src/test/resources/required-decision-outputs/` pin their Camunda 7 results in `camunda7-results.txt`.
+- `camunda8-oracle` converts those fixtures, applies the report's findings as worded, and checks that the Camunda 8 DMN engine (dmn-scala) returns the pinned Camunda 7 results. To cover a new shape, add a fixture decision and a results line. The two engines ship incompatible FEEL engines, so they can't share a test classpath: keep dmn-scala out of `core`.
 
 ## Deployment
 
