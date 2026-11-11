@@ -241,41 +241,22 @@ public class DiagramConverter {
   }
 
   private List<ElementCheckMessage> getMessages(DomElement element, DiagramCheckResult result) {
-    return result.getResults().stream()
-        .filter(
-            elementCheckResult ->
-                elementCheckResult.getElementId().equals(element.getAttribute("id")))
-        .map(ElementCheckResult::getMessages)
-        .findFirst()
-        .orElseGet(ArrayList::new);
+    return getMessages(element.getAttribute("id"), result);
   }
 
   private List<ElementCheckMessage> getMessages(String elementId, DiagramCheckResult result) {
-    return result.getResults().stream()
-        .filter(elementCheckResult -> elementCheckResult.getElementId().equals(elementId))
-        .map(ElementCheckResult::getMessages)
-        .findFirst()
-        .orElseGet(ArrayList::new);
+    ElementCheckResult elementCheckResult = result.getResult(elementId);
+    return elementCheckResult == null ? new ArrayList<>() : elementCheckResult.getMessages();
   }
 
   private List<String> getReferences(DomElement element, DiagramCheckResult result) {
-    return result.getResults().stream()
-        .filter(
-            elementCheckResult ->
-                elementCheckResult.getElementId().equals(element.getAttribute("id")))
-        .map(ElementCheckResult::getReferences)
-        .findFirst()
-        .orElseGet(ArrayList::new);
+    ElementCheckResult elementCheckResult = result.getResult(element.getAttribute("id"));
+    return elementCheckResult == null ? new ArrayList<>() : elementCheckResult.getReferences();
   }
 
   private List<String> getReferencedBys(DomElement element, DiagramCheckResult result) {
-    return result.getResults().stream()
-        .filter(
-            elementCheckResult ->
-                elementCheckResult.getElementId().equals(element.getAttribute("id")))
-        .map(ElementCheckResult::getReferencedBy)
-        .findFirst()
-        .orElseGet(ArrayList::new);
+    ElementCheckResult elementCheckResult = result.getResult(element.getAttribute("id"));
+    return elementCheckResult == null ? new ArrayList<>() : elementCheckResult.getReferencedBy();
   }
 
   private boolean isBpmn(DomDocument document) {
