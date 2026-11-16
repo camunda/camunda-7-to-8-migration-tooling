@@ -79,6 +79,7 @@
     <dependency>
       <groupId>org.mybatis</groupId>
       <artifactId>mybatis</artifactId>
+      <version>${version.mybatis}</version>
     </dependency>
 
     <dependency>
