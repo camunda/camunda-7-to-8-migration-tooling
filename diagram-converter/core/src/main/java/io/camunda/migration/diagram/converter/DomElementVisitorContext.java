@@ -198,10 +198,10 @@ public interface DomElementVisitorContext {
     }
 
     private ElementCheckResult findBpmnElementCheckResult(DomElement element) {
-      return result.getResults().stream()
-          .filter(r -> r.getElementId().equals(extractId(element)))
-          .findFirst()
-          .orElseGet(() -> findBpmnElementCheckResult(element.getParentElement()));
+      ElementCheckResult elementCheckResult = result.getResult(extractId(element));
+      return elementCheckResult != null
+          ? elementCheckResult
+          : findBpmnElementCheckResult(element.getParentElement());
     }
 
     private String extractId(DomElement element) {
@@ -227,7 +227,7 @@ public interface DomElementVisitorContext {
     }
 
     private boolean containsId(String id) {
-      return result.getResults().stream().anyMatch(r -> r.getElementId().equals(id));
+      return result.getResult(id) != null;
     }
   }
 }

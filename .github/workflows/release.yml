@@ -75,9 +75,10 @@ jobs:
           github-app-id-vault-path: secret/data/products/cambpm/ci/github-workflow
           github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
           github-app-private-key-vault-path: secret/data/products/cambpm/ci/github-workflow
-          vault-auth-method: approle
-          vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID}}
+          vault-auth-method: jwt
+          vault-auth-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-auth-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-auth-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           vault-url: ${{ secrets.VAULT_ADDR }}
 
       - name: Checkout Code
@@ -93,12 +94,13 @@ jobs:
 
       - name: Import Secrets
         id: secrets
-        uses: hashicorp/vault-action@v4.0.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/github.com/organizations/camunda MAVEN_CENTRAL_GPG_SIGNING_KEY_PASSPHRASE;
             secret/data/github.com/organizations/camunda MAVEN_CENTRAL_GPG_SIGNING_KEY_SEC;
@@ -141,8 +143,9 @@ jobs:
                 "password": "${{ steps.secrets.outputs.MAVEN_CENTRAL_DEPLOYMENT_PSW }}"
             }]
           vault-address: ${{ secrets.VAULT_ADDR }}
-          vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-          vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+          vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+          vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+          vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           camunda-nexus: true
 
       - name: Maven Prepare Release
@@ -525,6 +528,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       actions: read
+      id-token: write
 
     steps:
       - name: Validate Docker-only source run
@@ -546,12 +550,13 @@ jobs:
 
       - name: Import Vault Secrets for Registry Auth
         id: vault-secrets
-        uses: hashicorp/vault-action@v4.0.0
+        uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4.0.0
         with:
           url: ${{ secrets.VAULT_ADDR }}
-          method: approle
-          roleId: ${{ secrets.VAULT_ROLE_ID }}
-          secretId: ${{ secrets.VAULT_SECRET_ID }}
+          method: jwt
+          role: ${{ secrets.VAULT_JWT_ROLE }}
+          path: ${{ secrets.VAULT_JWT_PATH }}
+          jwtGithubAudience: ${{ secrets.VAULT_JWT_AUDIENCE }}
           secrets: |
             secret/data/products/cambpm/ci/harbor username | HARBOR_USERNAME;
             secret/data/products/cambpm/ci/harbor password | HARBOR_PASSWORD;

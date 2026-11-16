@@ -12,7 +12,7 @@
 
   <groupId>io.camunda</groupId>
   <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-  <version>0.3.7-SNAPSHOT</version>
+  <version>0.3.11-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
@@ -29,23 +29,24 @@
     <maven.compiler.release>${version.java}</maven.compiler.release>
 
     <version.camunda-7>7.24.11-ee</version.camunda-7>
-    <version.camunda-8>8.9.25</version.camunda-8>
+    <version.camunda-8>8.9.27</version.camunda-8>
     <camunda8.docker.image>camunda/camunda:${version.camunda-8}</camunda8.docker.image>
     <version.elasticsearch>8.19.6</version.elasticsearch>
-    <version.spring-boot>4.1.1</version.spring-boot>
-    <version.spring-framework>7.0.9</version.spring-framework>
-    <version.micrometer-core>1.17.1</version.micrometer-core>
+    <version.spring-boot>4.1.2</version.spring-boot>
+    <version.spring-framework>7.0.10</version.spring-framework>
+    <version.micrometer-core>1.17.2</version.micrometer-core>
     <version.jackson-bom>2.22.4</version.jackson-bom>
     <version.jackson-3-bom>3.2.4</version.jackson-3-bom>
     <version.log4j-bom>2.26.1</version.log4j-bom>
-    <logback.version>1.6.5</logback.version>
+    <logback.version>1.6.6</logback.version>
     <tomcat.version>11.0.27</tomcat.version>
-    <version.netty>4.2.19.Final</version.netty>
+    <version.netty>4.2.20.Final</version.netty>
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.3</version.junit.jupiter>
     <version.h2>2.5.252</version.h2>
+    <version.json-smart>2.6.1</version.json-smart>
     <version.guava>33.7.2-jre</version.guava>
-    <version.errorprone>2.50.0</version.errorprone>
+    <version.errorprone>2.51.0</version.errorprone>
     <version.node>v22.22.2</version.node>
     <version.npm>10.8.2</version.npm>
     <version.httpcore5>5.4.4</version.httpcore5>
@@ -54,11 +55,11 @@
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
     <plugin.version.central-publishing>0.12.0</plugin.version.central-publishing>
     <plugin.version.frontend-maven>2.0.2</plugin.version.frontend-maven>
-    <plugin.version.surefire>3.6.0</plugin.version.surefire>
-    <plugin.version.failsafe>3.6.0</plugin.version.failsafe>
+    <plugin.version.surefire>3.6.1</plugin.version.surefire>
+    <plugin.version.failsafe>3.6.1</plugin.version.failsafe>
     <plugin.version.resources>3.5.0</plugin.version.resources>
     <plugin.version.dependency>3.11.0</plugin.version.dependency>
-    <plugin.version.enforcer>3.6.3</plugin.version.enforcer>
+    <plugin.version.enforcer>3.7.0</plugin.version.enforcer>
 
     <url.source>jdbc:h2:~/Downloads/c8_rdbms-source.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.source>
     <url.target>jdbc:h2:~/Downloads/c8_rdbms-target.db;TRACE_LEVEL_FILE=0;DB_CLOSE_ON_EXIT=FALSE</url.target>
@@ -144,6 +145,13 @@
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-113602: pin json-smart to the release that rejects in-band
+           0x1A as an end-of-input sentinel in strict parsing. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-59296: pin micrometer-core to the fixed version -->
       <dependency>
