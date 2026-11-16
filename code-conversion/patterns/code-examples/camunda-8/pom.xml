@@ -83,6 +83,14 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<version>${version.spring-boot}</version>
 			</plugin>
+			<plugin>
+				<!-- Examples for the pattern collection, not a release artifact -->
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-deploy-plugin</artifactId>
+				<configuration>
+					<skip>true</skip>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
