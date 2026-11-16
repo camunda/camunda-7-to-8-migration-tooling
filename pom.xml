@@ -50,6 +50,7 @@
     <version.kotlin-stdlib>2.4.21</version.kotlin-stdlib>
     <version.httpcore5>5.4.4</version.httpcore5>
     <version.httpclient5>5.6.5</version.httpclient5>
+    <version.json-smart>2.6.1</version.json-smart>
     <version.commons-lang3>3.21.0</version.commons-lang3>
     <plugin.version.compiler>3.16.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
@@ -179,6 +180,13 @@
         <groupId>org.apache.httpcomponents.client5</groupId>
         <artifactId>httpclient5</artifactId>
         <version>${version.httpclient5}</version>
+      </dependency>
+      <!-- CVE-2026-113602: pin json-smart to the version that rejects trailing
+           0x1A characters in strict JSON parsers. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-13006: pin logback to 1.5.37 (a property override alone is a no-op against modules that pull logback in via an imported spring-boot-dependencies BOM) -->
       <dependency>
