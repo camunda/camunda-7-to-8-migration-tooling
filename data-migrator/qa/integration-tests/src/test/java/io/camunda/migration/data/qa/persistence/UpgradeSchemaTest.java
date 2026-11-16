@@ -80,10 +80,11 @@ public class UpgradeSchemaTest {
         dbConfig = createMySqlConfig(MultiDbExtension.MYSQL_PORT);
         break;
       case "mariadb":
-        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_PORT);
+        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_PORT, "");
         break;
       case "mariadb-10":
-        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_10_PORT);
+        // MariaDB 10.6 ships without TLS, but Connector/J 4 requires TLS by default.
+        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_10_PORT, "?sslMode=disable");
         break;
       case "sqlserver":
         dbConfig = createSqlServerConfig(MultiDbExtension.SQLSERVER_PORT);
@@ -372,11 +373,12 @@ public class UpgradeSchemaTest {
    * Creates a MariaDB database configuration.
    *
    * @param port the port number for the MariaDB instance
+   * @param urlParams JDBC URL query string appended to the URL, or empty
    * @return the database configuration
    */
-  protected static DatabaseConfig createMariaDbConfig(int port) {
+  protected static DatabaseConfig createMariaDbConfig(int port, String urlParams) {
     return new DatabaseConfig(
-        "jdbc:mariadb://localhost:" + port + "/process-engine",
+        "jdbc:mariadb://localhost:" + port + "/process-engine" + urlParams,
         "camunda",
         "camunda",
         "org.mariadb.jdbc.Driver"
