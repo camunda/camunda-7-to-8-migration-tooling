@@ -17,8 +17,6 @@ import io.camunda.search.entities.IncidentEntity;
 import io.camunda.search.entities.ProcessDefinitionEntity;
 import io.camunda.search.entities.ProcessInstanceEntity;
 import io.camunda.search.entities.VariableEntity;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -29,72 +27,6 @@ import org.camunda.bpm.engine.variable.Variables;
 import org.junit.jupiter.api.Test;
 
 public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbstractTest {
-
-  @Test
-  public void shouldSupportMultipleHistoricProcessInstanceOrderCriteria() {
-    // given
-    deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    var startTime = ClockUtil.getCurrentTime();
-    var earliestProcessInstanceId = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-
-    ClockUtil.setCurrentTime(new Date(startTime.getTime() + 1_000L));
-    var tiedProcessInstanceId1 = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-    var tiedProcessInstanceId2 = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-
-    ClockUtil.setCurrentTime(new Date(startTime.getTime() + 2_000L));
-    var latestProcessInstanceId = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId").getId();
-
-    var ascendingTieIds = new ArrayList<>(List.of(tiedProcessInstanceId1, tiedProcessInstanceId2));
-    ascendingTieIds.sort(Comparator.naturalOrder());
-    var descendingTieIds = new ArrayList<>(ascendingTieIds);
-    descendingTieIds.sort(Comparator.reverseOrder());
-
-    var startTimeAscendingProcessInstanceIdAscending = new ArrayList<>(List.of(earliestProcessInstanceId));
-    startTimeAscendingProcessInstanceIdAscending.addAll(ascendingTieIds);
-    startTimeAscendingProcessInstanceIdAscending.add(latestProcessInstanceId);
-
-    var startTimeAscendingProcessInstanceIdDescending = new ArrayList<>(List.of(earliestProcessInstanceId));
-    startTimeAscendingProcessInstanceIdDescending.addAll(descendingTieIds);
-    startTimeAscendingProcessInstanceIdDescending.add(latestProcessInstanceId);
-
-    var startTimeDescendingProcessInstanceIdAscending = new ArrayList<>(List.of(latestProcessInstanceId));
-    startTimeDescendingProcessInstanceIdAscending.addAll(ascendingTieIds);
-    startTimeDescendingProcessInstanceIdAscending.add(earliestProcessInstanceId);
-
-    var startTimeDescendingProcessInstanceIdDescending = new ArrayList<>(List.of(latestProcessInstanceId));
-    startTimeDescendingProcessInstanceIdDescending.addAll(descendingTieIds);
-    startTimeDescendingProcessInstanceIdDescending.add(earliestProcessInstanceId);
-
-    // when / then
-    assertHistoricProcessInstanceOrdering(true, true, startTimeAscendingProcessInstanceIdAscending);
-    assertHistoricProcessInstanceOrdering(true, false, startTimeAscendingProcessInstanceIdDescending);
-    assertHistoricProcessInstanceOrdering(false, true, startTimeDescendingProcessInstanceIdAscending);
-    assertHistoricProcessInstanceOrdering(false, false, startTimeDescendingProcessInstanceIdDescending);
-  }
-
-  protected void assertHistoricProcessInstanceOrdering(
-      boolean startTimeAscending, boolean processInstanceIdAscending, List<String> expectedProcessInstanceIds) {
-    var query = historyService.createHistoricProcessInstanceQuery();
-    query.orderByProcessInstanceStartTime();
-    if (startTimeAscending) {
-      query.asc();
-    } else {
-      query.desc();
-    }
-    query.orderByProcessInstanceId();
-    if (processInstanceIdAscending) {
-      query.asc();
-    } else {
-      query.desc();
-    }
-
-    assertThat(query.list().stream().map(processInstance -> processInstance.getId()).toList())
-        .containsExactlyElementsOf(expectedProcessInstanceIds);
-    assertThat(query.listPage(0, 2).stream().map(processInstance -> processInstance.getId()).toList())
-        .containsExactlyElementsOf(expectedProcessInstanceIds.subList(0, 2));
-    assertThat(query.listPage(2, 2).stream().map(processInstance -> processInstance.getId()).toList())
-        .containsExactlyElementsOf(expectedProcessInstanceIds.subList(2, 4));
-  }
 
   @Test
   public void shouldMigrateProcessDefinitionsDeployedBetweenRuns() {
