@@ -93,6 +93,12 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- CVE-2026-113602: override Spring Boot's imported json-smart version. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
+      </dependency>
       <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-bom</artifactId>

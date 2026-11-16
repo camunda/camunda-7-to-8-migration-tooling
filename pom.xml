@@ -44,6 +44,7 @@
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.3</version.junit.jupiter>
     <version.h2>2.5.252</version.h2>
+    <version.json-smart>2.6.1</version.json-smart>
     <version.guava>33.7.2-jre</version.guava>
     <version.errorprone>2.51.0</version.errorprone>
     <version.node>v22.22.2</version.node>
@@ -144,6 +145,13 @@
         <version>${version.junit.jupiter}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-113602: pin json-smart to the release that rejects in-band
+           0x1A as an end-of-input sentinel in strict parsing. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-59296: pin micrometer-core to the fixed version -->
       <dependency>
