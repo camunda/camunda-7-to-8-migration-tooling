@@ -28,6 +28,24 @@ import org.junit.jupiter.api.Test;
 public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbstractTest {
 
   @Test
+  public void shouldSupportMultipleHistoricProcessInstanceOrderCriteria() {
+    // given
+    deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
+    runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+
+    // when
+    var processInstances = historyService.createHistoricProcessInstanceQuery()
+        .orderByProcessInstanceStartTime()
+        .asc()
+        .orderByProcessInstanceId()
+        .asc()
+        .list();
+
+    // then
+    assertThat(processInstances).hasSize(1);
+  }
+
+  @Test
   public void shouldMigrateProcessDefinitionsDeployedBetweenRuns() {
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");

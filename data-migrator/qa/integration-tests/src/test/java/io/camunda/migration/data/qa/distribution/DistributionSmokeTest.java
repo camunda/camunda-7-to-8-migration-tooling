@@ -90,6 +90,22 @@ public class DistributionSmokeTest {
   }
 
   @Test
+  void shouldOnlyPackageOgnlVersionsContainingTheCveFix() throws IOException {
+    Set<String> inspectedVersions = new HashSet<>();
+    var application = extractedDistributionPath.resolve("internal/camunda-7-to-8-data-migrator.jar");
+
+    try (var input = Files.newInputStream(application)) {
+      assertPackagedOgnlVersions(input, inspectedVersions);
+    }
+
+    assertThat(inspectedVersions).isNotEmpty();
+    assertThat(inspectedVersions)
+        .allSatisfy(version -> assertThat(Runtime.Version.parse(version))
+            .as("OGNL version in packaged application")
+            .isGreaterThanOrEqualTo(Runtime.Version.parse("3.4.13")));
+  }
+
+  @Test
   @Timeout(value = 30, unit = TimeUnit.SECONDS)
   void shouldShowUsageWhenInvalidFlagProvided() throws Exception {
     // given
@@ -513,6 +529,24 @@ public class DistributionSmokeTest {
                 .as("Jackson version in %s", path)
                 .isEqualTo(expectedVersions.get(groupId));
             inspectedArtifacts.add(groupId + ":" + artifactId);
+          }
+        }
+      }
+    }
+  }
+
+  protected void assertPackagedOgnlVersions(InputStream input, Set<String> inspectedVersions) throws IOException {
+    try (var archive = new ZipInputStream(input)) {
+      ZipEntry entry;
+      while ((entry = archive.getNextEntry()) != null) {
+        if (entry.getName().endsWith(".jar")) {
+          assertPackagedOgnlVersions(new ByteArrayInputStream(archive.readAllBytes()), inspectedVersions);
+        } else if (entry.getName().endsWith("/pom.properties")) {
+          var properties = new Properties();
+          properties.load(archive);
+          if ("ognl".equals(properties.getProperty("groupId"))
+              && "ognl".equals(properties.getProperty("artifactId"))) {
+            inspectedVersions.add(properties.getProperty("version"));
           }
         }
       }
