@@ -147,18 +147,23 @@ public class MigratorAutoConfiguration {
       config.setDatabaseSchemaUpdate(DB_SCHEMA_UPDATE_TRUE);
     }
 
-    ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
-    if (parentClassLoader == null) {
-      parentClassLoader = getClass().getClassLoader();
-    }
-    config.setClassLoader(createMyBatisClassLoader(parentClassLoader));
-
     return config;
   }
 
-  protected ClassLoader createMyBatisClassLoader(ClassLoader parentClassLoader) {
+  protected static void configureMyBatisClassLoader(ProcessEngineConfigurationImpl config) {
+    ClassLoader parentClassLoader = config.getClassLoader();
+    if (parentClassLoader == null) {
+      parentClassLoader = Thread.currentThread().getContextClassLoader();
+    }
+    if (parentClassLoader == null) {
+      parentClassLoader = MigratorAutoConfiguration.class.getClassLoader();
+    }
+    config.setClassLoader(createMyBatisClassLoader(parentClassLoader));
+  }
+
+  protected static ClassLoader createMyBatisClassLoader(ClassLoader parentClassLoader) {
     URL patchedCommonsResource =
-        getClass().getClassLoader().getResource(MIGRATOR_COMMONS_RESOURCE);
+        MigratorAutoConfiguration.class.getClassLoader().getResource(MIGRATOR_COMMONS_RESOURCE);
     if (patchedCommonsResource == null) {
       throw new IllegalStateException("Missing patched Camunda Commons mapper: " + MIGRATOR_COMMONS_RESOURCE);
     }
@@ -190,6 +195,8 @@ public class MigratorAutoConfiguration {
 
     @Bean
     public ProcessEngineFactoryBean processEngineFactoryBean() {
+      configureMyBatisClassLoader(processEngineConfiguration);
+
       final ProcessEngineFactoryBean factoryBean = new ProcessEngineFactoryBean() {
         @Override
         public ProcessEngine getObject() throws Exception {
