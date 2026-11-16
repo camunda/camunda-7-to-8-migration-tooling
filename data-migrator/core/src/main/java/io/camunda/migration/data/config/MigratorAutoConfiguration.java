@@ -44,7 +44,13 @@ import io.camunda.migration.data.impl.identity.DefinitionLookupService;
 import io.camunda.migration.data.impl.history.PartitionSupplier;
 import io.camunda.migration.data.impl.identity.IdentitySync;
 import io.camunda.migration.data.impl.util.LegacyIdPrefixResolver;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 import liquibase.integration.spring.SpringLiquibase;
+import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;
 import org.camunda.bpm.engine.spring.ProcessEngineFactoryBean;
@@ -99,6 +105,11 @@ import org.springframework.context.annotation.Import;
 @EnableConfigurationProperties(MigratorProperties.class)
 public class MigratorAutoConfiguration {
 
+  protected static final String CAMUNDA_COMMONS_RESOURCE =
+      "org/camunda/bpm/engine/impl/mapping/entity/Commons.xml";
+  protected static final String MIGRATOR_COMMONS_RESOURCE =
+      "io/camunda/migration/data/impl/mybatis/Commons.xml";
+
   protected final MigratorProperties migratorProperties;
 
   public MigratorAutoConfiguration(MigratorProperties migratorProperties) {
@@ -136,7 +147,39 @@ public class MigratorAutoConfiguration {
       config.setDatabaseSchemaUpdate(DB_SCHEMA_UPDATE_TRUE);
     }
 
+    ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
+    if (parentClassLoader == null) {
+      parentClassLoader = getClass().getClassLoader();
+    }
+    config.setClassLoader(createMyBatisClassLoader(parentClassLoader));
+
     return config;
+  }
+
+  protected ClassLoader createMyBatisClassLoader(ClassLoader parentClassLoader) {
+    URL patchedCommonsResource =
+        getClass().getClassLoader().getResource(MIGRATOR_COMMONS_RESOURCE);
+    if (patchedCommonsResource == null) {
+      throw new IllegalStateException("Missing patched Camunda Commons mapper: " + MIGRATOR_COMMONS_RESOURCE);
+    }
+
+    return new ClassLoader(parentClassLoader) {
+      @Override
+      public URL getResource(String name) {
+        if (CAMUNDA_COMMONS_RESOURCE.equals(name)) {
+          return patchedCommonsResource;
+        }
+        return super.getResource(name);
+      }
+
+      @Override
+      public Enumeration<URL> getResources(String name) throws IOException {
+        if (CAMUNDA_COMMONS_RESOURCE.equals(name)) {
+          return Collections.enumeration(List.of(patchedCommonsResource));
+        }
+        return super.getResources(name);
+      }
+    };
   }
 
   @Configuration
@@ -147,7 +190,21 @@ public class MigratorAutoConfiguration {
 
     @Bean
     public ProcessEngineFactoryBean processEngineFactoryBean() {
-      final ProcessEngineFactoryBean factoryBean = new ProcessEngineFactoryBean();
+      final ProcessEngineFactoryBean factoryBean = new ProcessEngineFactoryBean() {
+        @Override
+        public ProcessEngine getObject() throws Exception {
+          ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+          ClassLoader processEngineClassLoader = processEngineConfiguration.getClassLoader();
+          try {
+            if (processEngineClassLoader != null) {
+              Thread.currentThread().setContextClassLoader(processEngineClassLoader);
+            }
+            return super.getObject();
+          } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+          }
+        }
+      };
       factoryBean.setProcessEngineConfiguration(processEngineConfiguration);
 
       return factoryBean;
