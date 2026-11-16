@@ -150,10 +150,12 @@ public class MultiDbExtension implements BeforeAllCallback {
   }
 
   protected static MariaDBContainer createMariaDB10Container() {
+    // MariaDB 10.6 ships without TLS, but Connector/J 4 requires TLS by default.
     MariaDBContainer mariadb = new MariaDBContainer("mariadb:10.6")
         .withDatabaseName("process-engine")
         .withUsername("camunda")
         .withPassword("camunda")
+        .withUrlParam("sslMode", "disable")
         .withConfigurationOverride("mariadb-conf")
         .withExposedPorts(3306);
     mariadb.setPortBindings(List.of(MARIADB_10_PORT + ":3306"));
