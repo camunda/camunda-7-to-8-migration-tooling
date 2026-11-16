@@ -45,6 +45,7 @@
     <version.assertj>3.27.7</version.assertj>
     <version.junit.jupiter>6.1.3</version.junit.jupiter>
     <version.h2>2.5.252</version.h2>
+    <version.json-smart>2.6.1</version.json-smart>
     <version.guava>33.7.2-jre</version.guava>
     <version.errorprone>2.51.0</version.errorprone>
     <version.node>v24.15.0</version.node>
@@ -207,6 +208,12 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
+      </dependency>
+      <!-- CVE-2026-113602: pin json-smart to the fixed version. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-89425: manage Core explicitly as well as Databind, including
            modules that import a competing Spring Boot BOM. -->
