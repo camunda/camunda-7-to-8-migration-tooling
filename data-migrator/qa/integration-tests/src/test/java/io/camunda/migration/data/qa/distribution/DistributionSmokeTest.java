@@ -97,11 +97,14 @@ public class DistributionSmokeTest {
   @Test
   void shouldOnlyPackageSupportedOgnlVersions() throws IOException {
     Set<String> inspectedArtifacts = new HashSet<>();
-    var application = extractedDistributionPath.resolve("internal/camunda-7-to-8-data-migrator.jar");
 
-    try (var input = Files.newInputStream(application)) {
-      assertPackagedOgnlVersions(
-          input, application.getFileName().toString(), Runtime.Version.parse("3.4.13"), inspectedArtifacts);
+    try (var jars = Files.walk(extractedDistributionPath)) {
+      for (var jar : jars.filter(path -> path.toString().endsWith(".jar")).toList()) {
+        try (var input = Files.newInputStream(jar)) {
+          assertPackagedOgnlVersions(
+              input, jar.toString(), Runtime.Version.parse("3.4.13"), inspectedArtifacts);
+        }
+      }
     }
 
     assertThat(inspectedArtifacts).contains("ognl:ognl");
