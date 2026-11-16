@@ -89,6 +89,12 @@
       <scope>test</scope>
     </dependency>
     <dependency>
+      <!-- Camunda 7 DMN engine: oracle for how Camunda 7 resolves required-decision outputs -->
+      <groupId>org.camunda.bpm.dmn</groupId>
+      <artifactId>camunda-engine-dmn</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.yaml</groupId>
       <artifactId>snakeyaml</artifactId>
     </dependency>
