@@ -641,6 +641,31 @@ public class MessageFactory {
     return INSTANCE.staticMessage("number-type");
   }
 
+  public static Message requiredDecisionOutputReference(
+      String expression, String name, String decisionId, String replacement, boolean indirect) {
+    return INSTANCE.composeMessage(
+        indirect
+            ? "required-decision-output-reference-indirect"
+            : "required-decision-output-reference",
+        ContextBuilder.builder()
+            .entry("expression", expression)
+            .entry("name", name)
+            .entry("decisionId", decisionId)
+            .entry("replacement", replacement)
+            .build());
+  }
+
+  public static Message ambiguousRequiredDecisionOutputReference(
+      String expression, String name, String decisionIds) {
+    return INSTANCE.composeMessage(
+        "required-decision-output-reference-ambiguous",
+        ContextBuilder.builder()
+            .entry("expression", expression)
+            .entry("name", name)
+            .entry("decisionIds", decisionIds)
+            .build());
+  }
+
   public static Message dataMigrationStartListenerAdded(
       String listenerJobType, String elementLocalName) {
     return INSTANCE.composeMessage(
