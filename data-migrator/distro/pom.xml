@@ -66,6 +66,12 @@
         <artifactId>hibernate-validator</artifactId>
         <version>${version.hibernate-validator}</version>
       </dependency>
+      <!-- The Zeebe BOM manages MyBatis; retain the patched version in the shipped distro. -->
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${version.mybatis}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 

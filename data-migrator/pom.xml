@@ -34,6 +34,12 @@
         <artifactId>hibernate-validator</artifactId>
         <version>${version.hibernate-validator}</version>
       </dependency>
+      <!-- CVE-2026-113730: MyBatis embeds OGNL, so pin the library that supplies it. -->
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${version.mybatis}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
