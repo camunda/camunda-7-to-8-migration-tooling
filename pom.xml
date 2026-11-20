@@ -52,7 +52,6 @@
     <version.npm>10.8.2</version.npm>
     <version.httpcore5>5.4.4</version.httpcore5>
     <version.httpclient5>5.6.5</version.httpclient5>
-    <version.json-smart>2.6.1</version.json-smart>
     <plugin.version.compiler>3.16.0</plugin.version.compiler>
     <plugin.version.nexus-staging>1.7.0</plugin.version.nexus-staging>
     <plugin.version.central-publishing>0.12.0</plugin.version.central-publishing>
@@ -215,12 +214,6 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
-      </dependency>
-      <!-- CVE-2026-113602: pin json-smart to the fixed version. -->
-      <dependency>
-        <groupId>net.minidev</groupId>
-        <artifactId>json-smart</artifactId>
-        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-89425: manage Core explicitly as well as Databind, including
            modules that import a competing Spring Boot BOM. -->
