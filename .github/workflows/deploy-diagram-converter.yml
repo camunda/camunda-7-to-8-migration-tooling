@@ -127,7 +127,7 @@ jobs:
       - name: Create Dockerfile
         run: |
           cat > docker-context/Dockerfile << 'EOF'
-          FROM eclipse-temurin:21-jre-alpine
+          FROM amazoncorretto:21-alpine-jdk@sha256:600e99e39da14b6a909027a924136c423e9334cb7347a8a77d5908bdaa3011b7
           WORKDIR /app
 
           # Create non-root user
@@ -191,6 +191,22 @@ jobs:
         run: |
           echo "Verifying image manifest..."
           docker buildx imagetools inspect "${{ steps.tags.outputs.image-uri }}"
+
+      - name: Verify Java runtime version
+        id: runtime
+        env:
+          IMAGE_URI: ${{ steps.tags.outputs.image-uri }}
+        run: |
+          JAVA_RUNTIME_VERSION=$(docker run --rm --entrypoint java "${IMAGE_URI}" -version 2>&1 \
+            | sed -n 's/^OpenJDK Runtime Environment \([^ ]*\).*/\1/p')
+          echo "Java runtime version: ${JAVA_RUNTIME_VERSION}"
+
+          if [[ "${JAVA_RUNTIME_VERSION}" != "Corretto-21.0.13.1.2" ]]; then
+            echo "::error::Unexpected Java runtime version '${JAVA_RUNTIME_VERSION}'. Expected Corretto-21.0.13.1.2."
+            exit 1
+          fi
+
+          echo "java-version=${JAVA_RUNTIME_VERSION}" >> "$GITHUB_OUTPUT"
 
       # NOTE: This uses force-new-deployment which relies on the ECS task definition
       # referencing the "latest" tag. If the task definition is changed to pin a specific
@@ -270,6 +286,8 @@ jobs:
           echo "| **Version** | \`${RELEASE_VERSION}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Dry Run** | \`${{ inputs.IS_DRY_RUN }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Image Tag** | \`${{ steps.tags.outputs.image-uri }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image Digest** | \`${{ steps.build.outputs.digest }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Java Runtime** | \`${{ steps.runtime.outputs.java-version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Alias Tag** | \`${{ steps.tags.outputs.alias-uri }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **ECR Repository** | \`${ECR_REPOSITORY}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **ECS Cluster** | \`${ECS_CLUSTER}\` |" >> $GITHUB_STEP_SUMMARY

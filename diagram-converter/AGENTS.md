@@ -73,4 +73,4 @@ When a check claims how Camunda 7 or Camunda 8 behaves, test the claim against t
 
 ## Deployment
 
-The webapp runs at https://diagram-converter.camunda.io (Docker on AWS ECS, `eclipse-temurin:21-jre-alpine`, health check at `/actuator/health`). Deployment via `.github/workflows/deploy-diagram-converter.yml`.
+The webapp runs at https://diagram-converter.camunda.io (Docker on AWS ECS, `amazoncorretto:21-alpine-jdk@sha256:600e99e39da14b6a909027a924136c423e9334cb7347a8a77d5908bdaa3011b7` / Corretto 21.0.13.1.2, health check at `/actuator/health`). Deployment via `.github/workflows/deploy-diagram-converter.yml`.
