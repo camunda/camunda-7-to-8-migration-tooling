@@ -181,9 +181,7 @@ jobs:
           context: ./docker-context
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ steps.tags.outputs.image-uri }}
-            ${{ steps.tags.outputs.alias-uri }}
+          tags: ${{ steps.tags.outputs.image-uri }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -195,7 +193,7 @@ jobs:
       - name: Verify Java runtime version
         id: runtime
         env:
-          IMAGE_URI: ${{ steps.tags.outputs.image-uri }}
+          IMAGE_URI: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
         run: |
           JAVA_RUNTIME_VERSION=$(docker run --rm --entrypoint java "${IMAGE_URI}" -version 2>&1 \
             | sed -n 's/^OpenJDK Runtime Environment \([^ ]*\).*/\1/p')
@@ -207,6 +205,16 @@ jobs:
           fi
 
           echo "java-version=${JAVA_RUNTIME_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Promote verified image
+        env:
+          ALIAS_URI: ${{ steps.tags.outputs.alias-uri }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE_REPOSITORY: ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${ALIAS_URI}" \
+            "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
 
       # NOTE: This uses force-new-deployment which relies on the ECS task definition
       # referencing the "latest" tag. If the task definition is changed to pin a specific
