@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.camunda.bpm.engine.history.HistoricProcessInstance;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.variable.VariableMap;
 import org.camunda.bpm.engine.variable.Variables;
@@ -32,18 +33,54 @@ public class HistoryMigrationOrderedByCreateTimeTest extends HistoryMigrationAbs
   public void shouldSupportMultipleHistoricProcessInstanceOrderCriteria() {
     // given
     deployer.deployCamunda7Process("simpleStartEndProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+    var earliestTime = new Date();
+    var tiedTime = new Date(earliestTime.getTime() + 1_000L);
+    var latestTime = new Date(earliestTime.getTime() + 2_000L);
+
+    ClockUtil.setCurrentTime(latestTime);
+    var latestInstance = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+
+    ClockUtil.setCurrentTime(earliestTime);
+    var earliestInstance = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+
+    ClockUtil.setCurrentTime(tiedTime);
+    var firstTiedInstance = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+    var secondTiedInstance = runtimeService.startProcessInstanceByKey("simpleStartEndProcessId");
+
+    var tiedIdsInAscendingOrder =
+        List.of(firstTiedInstance.getId(), secondTiedInstance.getId()).stream().sorted().toList();
+    var expectedAscendingIds = List.of(
+        earliestInstance.getId(),
+        tiedIdsInAscendingOrder.get(0),
+        tiedIdsInAscendingOrder.get(1),
+        latestInstance.getId());
+    var expectedDescendingIds = List.of(
+        earliestInstance.getId(),
+        tiedIdsInAscendingOrder.get(1),
+        tiedIdsInAscendingOrder.get(0),
+        latestInstance.getId());
 
     // when
-    var processInstances = historyService.createHistoricProcessInstanceQuery()
+    var processInstancesAscending = historyService.createHistoricProcessInstanceQuery()
         .orderByProcessInstanceStartTime()
         .asc()
         .orderByProcessInstanceId()
         .asc()
         .list();
+    var processInstancesDescending = historyService.createHistoricProcessInstanceQuery()
+        .orderByProcessInstanceStartTime()
+        .asc()
+        .orderByProcessInstanceId()
+        .desc()
+        .list();
 
     // then
-    assertThat(processInstances).hasSize(1);
+    assertThat(processInstancesAscending)
+        .extracting(HistoricProcessInstance::getId)
+        .containsExactlyElementsOf(expectedAscendingIds);
+    assertThat(processInstancesDescending)
+        .extracting(HistoricProcessInstance::getId)
+        .containsExactlyElementsOf(expectedDescendingIds);
   }
 
   @Test
