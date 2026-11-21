@@ -78,6 +78,17 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>../core/src/main/resources</directory>
+        <includes>
+          <include>org/camunda/bpm/engine/impl/mapping/entity/Commons.xml</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>

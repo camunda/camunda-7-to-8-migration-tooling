@@ -150,7 +150,7 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
   public void shouldRollbackUserTaskInsertWhenMappingFails() {
     // given - create process with user task
     deployer.deployCamunda7Process("userTaskProcess.bpmn");
-    runtimeService.startProcessInstanceByKey("userTaskProcessId");
+    var processInstance = runtimeService.startProcessInstanceByKey("userTaskProcessId");
     completeAllUserTasksWithDefaultUserTaskId();
 
     // Migrate prerequisites (UserTask requires ProcessInstance AND FlowNode)
@@ -163,7 +163,7 @@ public class TransactionRollbackTest extends HistoryMigrationAbstractTest {
 
     // when/then - test rollback behavior
     String c7Id = historyService.createHistoricTaskInstanceQuery()
-        .processDefinitionKey("userTaskProcessId")
+        .processInstanceId(processInstance.getId())
         .singleResult()
         .getId();
     testRollbackWithMappingVerification(

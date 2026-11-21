@@ -14,7 +14,6 @@ import static io.camunda.migration.data.qa.extension.HistoryMigrationExtension.U
 import static io.camunda.search.entities.DecisionInstanceEntity.DecisionInstanceState.EVALUATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.db.rdbms.config.VendorDatabaseProperties;
 import io.camunda.db.rdbms.read.domain.FlowNodeInstanceDbQuery;
 import io.camunda.db.rdbms.read.service.AuditLogDbReader;
 import io.camunda.db.rdbms.read.service.DecisionDefinitionDbReader;
@@ -29,13 +28,12 @@ import io.camunda.db.rdbms.read.service.ProcessInstanceDbReader;
 import io.camunda.db.rdbms.read.service.UserTaskDbReader;
 import io.camunda.db.rdbms.read.service.VariableDbReader;
 import io.camunda.db.rdbms.sql.FlowNodeInstanceMapper;
-import io.camunda.db.rdbms.sql.PurgeMapper;
 import io.camunda.db.rdbms.write.domain.FlowNodeInstanceDbModel;
 import io.camunda.db.rdbms.write.domain.IncidentDbModel;
 import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.migration.data.HistoryMigrator;
-import io.camunda.migration.data.config.C8DataSourceConfigured;
 import io.camunda.migration.data.config.MigratorAutoConfiguration;
+import io.camunda.migration.data.qa.c8compat.C8RdbmsPurgerConfiguration;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.impl.util.ConverterUtil;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
@@ -80,13 +78,10 @@ import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Conditional;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Import({
-  HistoryMigrationAbstractTest.HistoryCustomConfiguration.class,
+  C8RdbmsPurgerConfiguration.class,
   MigratorAutoConfiguration.class
 })
 @WithSpringProfile("history-level-full")
@@ -370,19 +365,6 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     }
 
     return formReader.search(new FormQuery(FilterBuilders.form().build(), SortOptionBuilders.form().build(), SearchQueryPage.of((b) -> b))).items();
-  }
-
-  @Configuration
-  public static class HistoryCustomConfiguration {
-
-    @Bean
-    @Conditional(C8DataSourceConfigured.class)
-    public RdbmsPurger rdbmsPurger(
-        PurgeMapper purgeMapper,
-        VendorDatabaseProperties vendorDatabaseProperties) {
-      return new RdbmsPurger(purgeMapper, vendorDatabaseProperties);
-    }
-
   }
 
   protected void completeAllUserTasksWithDefaultUserTaskId() {
