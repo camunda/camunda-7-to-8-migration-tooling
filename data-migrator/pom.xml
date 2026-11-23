@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-migration-tooling-root</artifactId>
-    <version>0.3.7-SNAPSHOT</version>
+    <version>0.3.11-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -15,11 +15,17 @@
   <name>Camunda 7 to 8 Migration Tooling - Data</name>
 
   <properties>
-    <version.hibernate-validator>9.1.5.Final</version.hibernate-validator>
+    <version.hibernate-validator>9.1.6.Final</version.hibernate-validator>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- CVE-2026-116486: ensure shipped Data Migrator runtime paths use Objenesis 3.6. -->
+      <dependency>
+        <groupId>org.objenesis</groupId>
+        <artifactId>objenesis</artifactId>
+        <version>3.6</version>
+      </dependency>
       <dependency>
         <groupId>org.hibernate.validator</groupId>
         <artifactId>hibernate-validator</artifactId>

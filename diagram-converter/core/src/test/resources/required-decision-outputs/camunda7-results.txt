@@ -1,0 +1,23 @@
+# What Camunda 7 returns for each top-level decision of the fixtures, evaluated with the variables
+# customerId = "C1", auditId = "X", customer = {limit: 3}, points = 4.
+#
+# Checked against the Camunda 7 DMN engine by RequiredDecisionOutputReferenceReportTest (core).
+# The Camunda 8 oracle (camunda8-oracle) checks that the converted fixture, with every finding of
+# the report applied, returns the same values in Camunda 8.
+#
+# Markers, for the Camunda 8 oracle:
+# - none: the converted fixture returns a different value until the findings are applied
+# - unchanged: the converted fixture already returns this value; a finding would be a false positive
+# - ambiguous: the decision reads a name from different providers depending on the decision that is
+#   called. No single rewrite preserves both, so the report flags it instead of suggesting one.
+#
+# fixture | decision | Camunda 7 result | marker
+c7-style.dmn | Quote | uid: U-C1-final, segment: gold = 45.0 |
+c7-style.dmn | Quote_Audit | audit U-C1-final | ambiguous
+c7-style.dmn | Audit_Report | audit A-X | ambiguous
+c7-bindings.dmn | Rate_Report | rate r-1 |
+c7-bindings.dmn | Tier_Report | tier gold |
+c7-bindings.dmn | Score_Report | score s-1 |
+c7-bindings.dmn | Level_Report | level L-source |
+c7-bindings.dmn | Path_Report | path 3 | unchanged
+c7-bindings.dmn | Range_Check | in range |

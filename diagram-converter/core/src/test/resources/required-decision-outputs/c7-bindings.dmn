@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Synthetic DRD with the shapes where a name that Camunda 8 can resolve doesn't hold the value
+  Camunda 7 read, or where a name isn't a reference at all: decision tables with a variable name,
+  a multi-output table named like one of its outputs, a variable name equal to an output of another
+  requirement, a path with spaces around the dot, and a range bound. Each top-level decision
+  exercises one shape.
+-->
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="bindings" name="Bindings" namespace="http://camunda.org/schema/1.0/dmn">
+  <!-- Camunda 8 binds a table with a variable name to that name, not to the decision ID -->
+  <decision id="Rates" name="Rates">
+    <variable id="Rates_Var" name="rateResult"/>
+    <decisionTable id="Rates_Table" hitPolicy="FIRST">
+      <input id="Rates_In"><inputExpression id="Rates_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Rates_Rate" name="rate" typeRef="string"/>
+      <output id="Rates_RateId" name="rateId" typeRef="string"/>
+      <rule id="Rates_R1">
+        <inputEntry id="Rates_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Rates_R1_Rate"><text>"r-1"</text></outputEntry>
+        <outputEntry id="Rates_R1_RateId"><text>"id-1"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Rate_Report" name="Rate report">
+    <variable id="Rate_Report_Var" name="Rate_Report" typeRef="string"/>
+    <informationRequirement id="Rate_Report_Req1"><requiredDecision href="#Rates"/></informationRequirement>
+    <literalExpression id="Rate_Report_Expr"><text>"rate " + rate</text></literalExpression>
+  </decision>
+
+  <decision id="Tier" name="Tier">
+    <variable id="Tier_Var" name="tierResult"/>
+    <decisionTable id="Tier_Table" hitPolicy="FIRST">
+      <input id="Tier_In"><inputExpression id="Tier_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Tier_Tier" name="tier" typeRef="string"/>
+      <rule id="Tier_R1">
+        <inputEntry id="Tier_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Tier_R1_Tier"><text>"gold"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Tier_Report" name="Tier report">
+    <variable id="Tier_Report_Var" name="Tier_Report" typeRef="string"/>
+    <informationRequirement id="Tier_Report_Req1"><requiredDecision href="#Tier"/></informationRequirement>
+    <literalExpression id="Tier_Report_Expr"><text>"tier " + tier</text></literalExpression>
+  </decision>
+
+  <!-- Camunda 7 reads the output Score; Camunda 8 binds Score to the context of both outputs -->
+  <decision id="Score" name="Score">
+    <decisionTable id="Score_Table" hitPolicy="FIRST">
+      <input id="Score_In"><inputExpression id="Score_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Score_Score" name="Score" typeRef="string"/>
+      <output id="Score_Band" name="band" typeRef="string"/>
+      <rule id="Score_R1">
+        <inputEntry id="Score_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Score_R1_Score"><text>"s-1"</text></outputEntry>
+        <outputEntry id="Score_R1_Band"><text>"b-1"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Score_Report" name="Score report">
+    <variable id="Score_Report_Var" name="Score_Report" typeRef="string"/>
+    <informationRequirement id="Score_Report_Req1"><requiredDecision href="#Score"/></informationRequirement>
+    <literalExpression id="Score_Report_Expr"><text>"score " + Score</text></literalExpression>
+  </decision>
+
+  <!-- Camunda 7 reads the output level of Level_Source; Camunda 8 binds level to Level_Other -->
+  <decision id="Level_Source" name="Level source">
+    <decisionTable id="Level_Source_Table" hitPolicy="FIRST">
+      <input id="Level_Source_In"><inputExpression id="Level_Source_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Level_Source_Level" name="level" typeRef="string"/>
+      <rule id="Level_Source_R1">
+        <inputEntry id="Level_Source_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Level_Source_R1_Level"><text>"L-source"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Level_Other" name="Level other">
+    <variable id="Level_Other_Var" name="level"/>
+    <decisionTable id="Level_Other_Table" hitPolicy="FIRST">
+      <input id="Level_Other_In"><inputExpression id="Level_Other_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Level_Other_X" name="x" typeRef="string"/>
+      <rule id="Level_Other_R1">
+        <inputEntry id="Level_Other_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Level_Other_R1_X"><text>"L-other"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Level_Report" name="Level report">
+    <variable id="Level_Report_Var" name="Level_Report" typeRef="string"/>
+    <informationRequirement id="Level_Report_Req1"><requiredDecision href="#Level_Source"/></informationRequirement>
+    <informationRequirement id="Level_Report_Req2"><requiredDecision href="#Level_Other"/></informationRequirement>
+    <literalExpression id="Level_Report_Expr"><text>"level " + level</text></literalExpression>
+  </decision>
+
+  <!-- limit is an output of Limits, but customer . limit is a path into an input variable -->
+  <decision id="Limits" name="Limits">
+    <decisionTable id="Limits_Table" hitPolicy="FIRST">
+      <input id="Limits_In"><inputExpression id="Limits_In_Expr" typeRef="string"><text>customerId</text></inputExpression></input>
+      <output id="Limits_Limit" name="limit" typeRef="integer"/>
+      <rule id="Limits_R1">
+        <inputEntry id="Limits_R1_In"><text>-</text></inputEntry>
+        <outputEntry id="Limits_R1_Limit"><text>5</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Path_Report" name="Path report">
+    <variable id="Path_Report_Var" name="Path_Report" typeRef="string"/>
+    <informationRequirement id="Path_Report_Req1"><requiredDecision href="#Limits"/></informationRequirement>
+    <literalExpression id="Path_Report_Expr"><text>"path " + string(customer . limit)</text></literalExpression>
+  </decision>
+
+  <!-- an unspaced range bound is a reference -->
+  <decision id="Range_Check" name="Range check">
+    <informationRequirement id="Range_Check_Req1"><requiredDecision href="#Limits"/></informationRequirement>
+    <decisionTable id="Range_Check_Table" hitPolicy="FIRST">
+      <input id="Range_Check_In"><inputExpression id="Range_Check_In_Expr" typeRef="integer"><text>points</text></inputExpression></input>
+      <output id="Range_Check_Out" name="Range_Check" typeRef="string"/>
+      <rule id="Range_Check_R1">
+        <inputEntry id="Range_Check_R1_In"><text>[0..limit]</text></inputEntry>
+        <outputEntry id="Range_Check_R1_Out"><text>"in range"</text></outputEntry>
+      </rule>
+      <rule id="Range_Check_R2">
+        <inputEntry id="Range_Check_R2_In"><text>-</text></inputEntry>
+        <outputEntry id="Range_Check_R2_Out"><text>"out of range"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

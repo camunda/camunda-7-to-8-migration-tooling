@@ -46,7 +46,7 @@ const { DmnJSMock, viewerInstances } = vi.hoisted(() => {
   return { DmnJSMock: MockDmnJS, viewerInstances: instances };
 });
 
-vi.mock("dmn-js", () => ({
+vi.mock("dmn-js/lib/Viewer", () => ({
   default: DmnJSMock,
 }));
 

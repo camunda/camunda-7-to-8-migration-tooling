@@ -8,5 +8,9 @@ jobs:
   ci:
     name: CI label escalation
     if: startsWith(github.event.label.name, 'ci:')
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     uses: ./.github/workflows/ci.yml
     secrets: inherit

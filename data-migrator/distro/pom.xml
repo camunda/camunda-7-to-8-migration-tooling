@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
-    <version>0.3.7-SNAPSHOT</version>
+    <version>0.3.11-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -59,6 +59,12 @@
         <version>${version.camunda-8}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-113602: override the imported json-smart version in the shipped distro. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-93879: override the imported Hibernate Validator version for the shipped distro. -->
       <dependency>

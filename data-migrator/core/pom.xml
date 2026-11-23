@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.camunda</groupId>
     <artifactId>camunda-7-to-8-data-migrator-parent</artifactId>
-    <version>0.3.7-SNAPSHOT</version>
+    <version>0.3.11-SNAPSHOT</version>
     <relativePath>../</relativePath>
   </parent>
 
@@ -45,6 +45,12 @@
         <version>${version.spring-boot}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- CVE-2026-113602: override Spring Boot's imported json-smart version. -->
+      <dependency>
+        <groupId>net.minidev</groupId>
+        <artifactId>json-smart</artifactId>
+        <version>${version.json-smart}</version>
       </dependency>
       <!-- CVE-2026-93879: override Spring Boot's imported Hibernate Validator version. -->
       <dependency>
@@ -308,7 +314,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.6.1</version>
       </plugin>
     </plugins>
   </build>

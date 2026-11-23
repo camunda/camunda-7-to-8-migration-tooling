@@ -22,6 +22,19 @@ export default defineConfig({
   build: {
     // Design System CSS contains container-query placeholders unsupported by Lightning CSS.
     cssMinify: false,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "dmn",
+              test: /node_modules[\\/]dmn-js(?:-[^\\/]+)?[\\/]/,
+              maxSize: 400 * 1024,
+            },
+          ],
+        },
+      },
+    },
   },
   test: {
     environment: "jsdom",
