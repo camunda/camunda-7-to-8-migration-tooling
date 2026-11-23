@@ -74,12 +74,14 @@ import io.camunda.search.sort.SortOptionBuilders;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.camunda.bpm.engine.task.Task;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -379,8 +381,9 @@ public abstract class HistoryMigrationAbstractTest extends AbstractMigratorTest 
     @Conditional(C8DataSourceConfigured.class)
     public RdbmsPurger rdbmsPurger(
         PurgeMapper purgeMapper,
+        @Qualifier("c8SqlSessionFactory") SqlSessionFactory sqlSessionFactory,
         VendorDatabaseProperties vendorDatabaseProperties) {
-      return new RdbmsPurger(purgeMapper, vendorDatabaseProperties);
+      return C8QueryCompat.rdbmsPurger(purgeMapper, sqlSessionFactory, vendorDatabaseProperties);
     }
 
   }
