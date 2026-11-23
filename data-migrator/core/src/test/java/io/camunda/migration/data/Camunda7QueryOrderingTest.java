@@ -9,9 +9,6 @@ package io.camunda.migration.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.camunda.migration.data.impl.clients.C7Client;
-import java.util.ArrayList;
-import java.util.List;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.camunda.bpm.model.bpmn.Bpmn;
@@ -23,10 +20,7 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @TestPropertySource(properties = "camunda.migrator.page-size=1")
-class C7ClientOrderingTest {
-
-  @Autowired
-  protected C7Client c7Client;
+class Camunda7QueryOrderingTest {
 
   @Autowired
   protected RepositoryService repositoryService;
@@ -51,12 +45,18 @@ class C7ClientOrderingTest {
             Bpmn.createExecutableProcess("secondOrderingProcess").startEvent().endEvent().done())
         .deploy()
         .getId();
-    List<ProcessDefinition> processDefinitions = new ArrayList<>();
+    var query = repositoryService.createProcessDefinitionQuery()
+        .processDefinitionKeyIn("firstOrderingProcess", "secondOrderingProcess")
+        .orderByDeploymentTime()
+        .asc()
+        .orderByProcessDefinitionId()
+        .asc();
 
-    c7Client.fetchAndHandleProcessDefinitions(processDefinitions::add, null);
-
-    assertThat(processDefinitions)
+    assertThat(query.listPage(0, 1))
         .extracting(ProcessDefinition::getKey)
-        .containsExactly("firstOrderingProcess", "secondOrderingProcess");
+        .containsExactly("firstOrderingProcess");
+    assertThat(query.listPage(1, 1))
+        .extracting(ProcessDefinition::getKey)
+        .containsExactly("secondOrderingProcess");
   }
 }
