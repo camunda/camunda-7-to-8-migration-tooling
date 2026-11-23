@@ -7,12 +7,16 @@
  */
 package io.camunda.migration.data.qa.c8compat;
 
+import io.camunda.db.rdbms.config.VendorDatabaseProperties;
+import io.camunda.db.rdbms.sql.PurgeMapper;
+import io.camunda.db.rdbms.write.service.RdbmsPurger;
 import io.camunda.search.query.FlowNodeInstanceQuery;
 import io.camunda.search.query.ProcessDefinitionQuery;
 import java.util.Arrays;
+import org.apache.ibatis.session.SqlSessionFactory;
 
 /**
- * Version-specific test query helpers for the current Camunda 8 version.
+ * Version-specific test helpers for the current Camunda 8 version.
  *
  * <p>Lives under {@code src/test/java-c8-current} and is added to the test source set by the
  * {@code c8-current-api} Maven profile. A parallel implementation exists under
@@ -40,5 +44,12 @@ public final class C8QueryCompat {
     return FlowNodeInstanceQuery.of(
         queryBuilder ->
             queryBuilder.filter(filterBuilder -> filterBuilder.flowNodeIds(first, rest)));
+  }
+
+  public static RdbmsPurger rdbmsPurger(
+      final PurgeMapper purgeMapper,
+      final SqlSessionFactory sqlSessionFactory,
+      final VendorDatabaseProperties vendorDatabaseProperties) {
+    return new RdbmsPurger(sqlSessionFactory, vendorDatabaseProperties);
   }
 }

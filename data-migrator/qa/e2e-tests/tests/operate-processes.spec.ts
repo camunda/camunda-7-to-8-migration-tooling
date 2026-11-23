@@ -31,22 +31,16 @@ async function installChangelogHandler(page: Page) {
  */
 async function login(page: Page) {
   await navigateToOperateLogin(page);
-  await page.waitForLoadState('networkidle');
 
-  const isLoginPage = await page
-    .locator('input[name="username"]')
-    .isVisible()
-    .catch(() => false);
+  const usernameInput = page.locator('input[name="username"]');
+  await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
-  if (isLoginPage) {
-    await page.locator('input[name="username"]').fill('demo');
-    await page.locator('input[name="password"]').fill('demo');
-    await page.locator('button[type="submit"]').click();
-    // Wait for login to complete: either redirected away from login or login form disappears
-    await page
-      .locator('input[name="username"]')
-      .waitFor({ state: 'hidden', timeout: 15000 });
-  }
+  await usernameInput.fill('demo');
+  await page.locator('input[name="password"]').fill('demo');
+  await page.locator('button[type="submit"]').click();
+  await page.waitForURL((url) => !url.pathname.endsWith('/login'), {
+    timeout: 15000,
+  });
 
   await installChangelogHandler(page);
 }
@@ -99,7 +93,7 @@ async function openProcessInstance(page: Page, processName: string) {
  * 1. Process instances list shows migrated processes
  * 2. Instance details display BPMN diagram, instance header, and instance history
  * 3. Variables display with correct types and values (using data-testid="variable-*")
- * 4. Flow node instance history via data-testid="instance-history"
+ * 4. Flow node instance history via the Instance History region
  * 5. Operations Log (audit log) — migrated audit entries with operation type, entity, actor, date
  * 6. Call activity navigation via "View all called instances" link
  * 7. Child process (Multi Instance Process) shows subprocess and scoped variables
@@ -231,9 +225,9 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await openProcessInstance(page, 'callingProcessId');
 
     // Verify Instance History panel
-    const instanceHistory = page.locator(
-      '[data-testid="instance-history"]',
-    );
+    const instanceHistory = page.getByRole('region', {
+      name: 'Instance History',
+    });
     await expect(instanceHistory).toBeVisible({ timeout: 10000 });
 
     await page.screenshot({
@@ -267,7 +261,6 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     const canceledCheckbox = page.locator('label:has-text("Canceled")');
     await canceledCheckbox.waitFor({ state: 'visible', timeout: 10000 });
     await canceledCheckbox.click();
-    await page.waitForLoadState('networkidle');
 
     // Select the second (middle) Invoice Receipt instance — it has audit log entries
     const invoiceRows = page
@@ -280,16 +273,16 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await instanceLink.click();
 
     await page.waitForURL('**/processes/**', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    await page
+      .locator('[data-testid="instance-header"]')
+      .waitFor({ state: 'visible', timeout: 10000 });
 
-    // "Operations Log" is a tab button in the right panel (next to Variables, Listeners)
+    // "Operations Log" is a tab link in the right panel (next to Variables, Listeners)
     const operationsLogTab = page
-      .locator('button[aria-label="Operations Log"]')
+      .getByRole('link', { name: 'Operations Log' })
       .first();
     await operationsLogTab.waitFor({ state: 'visible', timeout: 10000 });
     await operationsLogTab.click();
-
-    await page.waitForLoadState('networkidle');
 
     await page.screenshot({
       path: 'test-results/operate-operations-log.png',
@@ -297,13 +290,18 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     });
 
     // Verify the operations log table is rendered
-    const dataTable = page.locator('[data-testid="data-table-container"]');
+    const dataTable = page
+      .getByRole('table')
+      .filter({ hasText: 'Operation Type' });
     await expect(dataTable).toBeVisible({ timeout: 10000 });
 
     // Verify column headers are present
-    const headerLabel = dataTable.locator('.cds--table-header-label');
-    await expect(headerLabel.getByText('Operation Type')).toBeVisible();
-    await expect(headerLabel.getByText('Entity Type')).toBeVisible();
+    await expect(
+      dataTable.getByRole('columnheader', { name: 'Sort by Operation Type' }),
+    ).toBeVisible();
+    await expect(
+      dataTable.getByRole('columnheader', { name: 'Sort by Entity Type' }),
+    ).toBeVisible();
 
     // Verify at least one audit log row exists with actual data
     const tableRows = dataTable.locator('tbody tr');
@@ -389,9 +387,9 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await expect(bpmnDiagram).toBeVisible({ timeout: 10000 });
 
     // Verify Instance History panel
-    const instanceHistory = page.locator(
-      '[data-testid="instance-history"]',
-    );
+    const instanceHistory = page.getByRole('region', {
+      name: 'Instance History',
+    });
     await expect(instanceHistory).toBeVisible({ timeout: 10000 });
 
     // Verify the history shows "Start Event" and "failingTask"
