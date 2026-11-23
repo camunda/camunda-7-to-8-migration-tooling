@@ -277,9 +277,9 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
       .locator('[data-testid="instance-header"]')
       .waitFor({ state: 'visible', timeout: 10000 });
 
-    // "Operations Log" is a tab button in the right panel (next to Variables, Listeners)
+    // "Operations Log" is a tab link in the right panel (next to Variables, Listeners)
     const operationsLogTab = page
-      .locator('button[aria-label="Operations Log"]')
+      .getByRole('link', { name: 'Operations Log' })
       .first();
     await operationsLogTab.waitFor({ state: 'visible', timeout: 10000 });
     await operationsLogTab.click();
