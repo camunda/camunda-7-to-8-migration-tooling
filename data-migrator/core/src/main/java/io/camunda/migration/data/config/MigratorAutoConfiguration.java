@@ -19,7 +19,6 @@ import io.camunda.migration.data.HistoryMigrator;
 import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.config.mybatis.C8Configuration;
 import io.camunda.migration.data.config.mybatis.MigratorConfiguration;
-import io.camunda.migration.data.config.mybatis.MigratorSpringProcessEngineConfiguration;
 import io.camunda.migration.data.config.property.MigratorProperties;
 import io.camunda.migration.data.impl.clients.C7Client;
 import io.camunda.migration.data.impl.clients.C8Client;
@@ -49,6 +48,7 @@ import liquibase.integration.spring.SpringLiquibase;
 import org.camunda.bpm.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.camunda.bpm.engine.impl.history.HistoryLevel;
 import org.camunda.bpm.engine.spring.ProcessEngineFactoryBean;
+import org.camunda.bpm.engine.spring.SpringProcessEngineConfiguration;
 import org.camunda.bpm.engine.spring.SpringProcessEngineServicesConfiguration;
 import org.camunda.spin.plugin.impl.SpinProcessEnginePlugin;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,7 +115,7 @@ public class MigratorAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean(ProcessEngineConfigurationImpl.class)
   public ProcessEngineConfigurationImpl processEngineConfiguration(DataSourceRegistry registry) {
-    var config = new MigratorSpringProcessEngineConfiguration();
+    var config = new SpringProcessEngineConfiguration();
 
     config.setDataSource(registry.getC7DataSource());
     config.setTransactionManager(registry.getC7TxManager());

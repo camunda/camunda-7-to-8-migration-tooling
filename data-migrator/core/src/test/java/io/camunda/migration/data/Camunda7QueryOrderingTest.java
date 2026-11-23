@@ -9,6 +9,7 @@ package io.camunda.migration.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.camunda.bpm.engine.HistoryService;
 import org.camunda.bpm.engine.RepositoryService;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.camunda.bpm.model.bpmn.Bpmn;
@@ -24,6 +25,9 @@ class Camunda7QueryOrderingTest {
 
   @Autowired
   protected RepositoryService repositoryService;
+
+  @Autowired
+  protected HistoryService historyService;
 
   protected String deploymentId;
 
@@ -58,5 +62,13 @@ class Camunda7QueryOrderingTest {
     assertThat(query.listPage(1, 1))
         .extracting(ProcessDefinition::getKey)
         .containsExactly("secondOrderingProcess");
+  }
+
+  @Test
+  public void shouldPreserveCamunda7JoinBindings() {
+    assertThat(historyService.createHistoricTaskInstanceQuery()
+        .processDefinitionKey("missingProcessDefinition")
+        .list())
+        .isEmpty();
   }
 }

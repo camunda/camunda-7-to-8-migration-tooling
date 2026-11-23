@@ -16,6 +16,7 @@
 
   <properties>
     <version.hibernate-validator>9.1.6.Final</version.hibernate-validator>
+    <version.mybatis>3.5.19</version.mybatis>
   </properties>
 
   <dependencyManagement>
@@ -33,6 +34,11 @@
         <groupId>org.hibernate.validator</groupId>
         <artifactId>hibernate-validator</artifactId>
         <version>${version.hibernate-validator}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.mybatis</groupId>
+        <artifactId>mybatis</artifactId>
+        <version>${version.mybatis}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

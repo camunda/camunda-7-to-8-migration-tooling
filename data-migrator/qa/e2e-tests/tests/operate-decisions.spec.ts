@@ -293,36 +293,30 @@ test.describe('Operate - Decision Instances', () => {
     await navigateToDecisionByName(page, 'Assign Approver Group');
 
     // Verify the DRD panel is visible
-    const drdPanel = page.locator('[data-testid="drd-panel"]');
+    const drdPanel = page.getByRole('region', { name: 'DRD panel' });
     await expect(drdPanel).toBeVisible();
 
-    // Verify the DRD viewer and diagram content is visible
-    const drdViewer = drdPanel.locator('[data-testid="drd"]');
-    await expect(drdViewer).toBeVisible();
-
     // Verify the diagram title matches the DRD name
-    const diagramTitle = drdViewer.locator('h2:has-text("Invoice Business Decisions")');
+    const diagramTitle = drdPanel.getByRole('heading', {
+      name: 'Invoice Business Decisions',
+    });
     await expect(diagramTitle).toBeVisible();
 
-    // Wait for the main DMN diagram SVG to be rendered
-    const dmnDiagram = drdPanel.locator('svg[data-element-id="invoiceBusinessDecisions"]');
-    await expect(dmnDiagram).toBeVisible();
-
     // Verify specific decision nodes are visible in the DRD by their labels
-    const invoiceClassificationNode = drdPanel.locator('text:has-text("Invoice Classification")');
+    const invoiceClassificationNode = drdPanel.getByRole('button', {
+      name: 'Invoice Classification',
+    });
     await expect(invoiceClassificationNode).toBeVisible();
 
-    const assignApproverNode = drdPanel.locator('text:has-text("Assign Approver")');
+    const assignApproverNode = drdPanel.getByRole('button', {
+      name: 'Assign Approver Group',
+    });
     await expect(assignApproverNode).toBeVisible();
 
     // Verify badges for both evaluated decisions — toHaveCount retries until both badges render
-    const executionBadges = drdPanel.locator('[data-testid="state-overlay-EVALUATED"]');
+    const executionBadges = drdPanel.getByRole('img', { name: /Evaluated$/ });
     await expect(executionBadges).toHaveCount(2, { timeout: 10000 });
     console.log('Found 2 evaluation state badges in DRD (Invoice Classification and Assign Approver Group)');
-
-    // Verify the badges contain checkmark icons indicating successful evaluation
-    const checkmarkIcons = executionBadges.locator('svg');
-    await expect(checkmarkIcons).toHaveCount(2, { timeout: 10000 });
   });
 
   test('should navigate to different decision when clicking DRD nodes', async ({ page }) => {
@@ -337,11 +331,13 @@ test.describe('Operate - Decision Instances', () => {
     console.log(`Current decision: ${currentDecisionName}`);
 
     // Get the DRD panel
-    const drdPanel = page.locator('[data-testid="drd-panel"]');
+    const drdPanel = page.getByRole('region', { name: 'DRD panel' });
 
     // Find the "Invoice Classification" decision node in the DRD
     // This is the parent/required decision that should be clickable
-    const invoiceClassificationNode = drdPanel.locator('.djs-element.djs-shape[data-element-id="c7-legacy-invoiceClassification"]');
+    const invoiceClassificationNode = drdPanel.getByRole('button', {
+      name: 'Invoice Classification',
+    });
     await invoiceClassificationNode.waitFor({ state: 'visible', timeout: 10000 });
 
     // Get current URL before clicking
