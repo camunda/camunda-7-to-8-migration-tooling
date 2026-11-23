@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.2</version>
+		<version>4.1.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>io.camunda.conversion</groupId>
@@ -28,7 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<version.spring-boot>4.1.2</version.spring-boot>
+		<version.spring-boot>4.1.3</version.spring-boot>
 		<version.jackson-bom>2.22.4</version.jackson-bom>
 		<version.jackson-3-bom>3.2.4</version.jackson-3-bom>
 	</properties>
@@ -78,6 +78,64 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>reject-vulnerable-spring-dependencies</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<bannedDependencies>
+									<excludes>
+										<exclude>org.springframework:spring-web:(,5.3.51)</exclude>
+										<exclude>org.springframework:spring-web:[6.0,6.0.33)</exclude>
+										<exclude>org.springframework:spring-web:[6.1,6.1.30)</exclude>
+										<exclude>org.springframework:spring-web:[6.2,6.2.21)</exclude>
+										<exclude>org.springframework:spring-web:[7.0,7.0.11)</exclude>
+										<exclude>org.springframework:spring-webmvc:(,5.3.50)</exclude>
+										<exclude>org.springframework:spring-webmvc:[6.0,6.0.31)</exclude>
+										<exclude>org.springframework:spring-webmvc:[6.1,6.1.29)</exclude>
+										<exclude>org.springframework:spring-webmvc:[6.2,6.2.21)</exclude>
+										<exclude>org.springframework:spring-webmvc:[7.0,7.0.11)</exclude>
+										<exclude>org.springframework:spring-beans:(,5.3.51)</exclude>
+										<exclude>org.springframework:spring-beans:[6.0,6.0.33)</exclude>
+										<exclude>org.springframework:spring-beans:[6.1,6.1.30)</exclude>
+										<exclude>org.springframework:spring-beans:[6.2,6.2.21)</exclude>
+										<exclude>org.springframework:spring-beans:[7.0,7.0.11)</exclude>
+										<exclude>org.springframework:spring-expression:(,5.3.51)</exclude>
+										<exclude>org.springframework:spring-expression:[6.0,6.0.33)</exclude>
+										<exclude>org.springframework:spring-expression:[6.1,6.1.30)</exclude>
+										<exclude>org.springframework:spring-expression:[6.2,6.2.21)</exclude>
+										<exclude>org.springframework:spring-expression:[7.0,7.0.11)</exclude>
+										<exclude>org.springframework:spring-core:[6.1,6.1.30)</exclude>
+										<exclude>org.springframework:spring-core:[6.2,6.2.21)</exclude>
+										<exclude>org.springframework:spring-core:[7.0,7.0.11)</exclude>
+										<exclude>org.springframework.boot:spring-boot-actuator:(,2.7.36)</exclude>
+										<exclude>org.springframework.boot:spring-boot-actuator:[3.0,3.4.19)</exclude>
+										<exclude>org.springframework.boot:spring-boot-actuator:[3.5,3.5.18)</exclude>
+										<exclude>org.springframework.boot:spring-boot-actuator:[4.0,4.0.10)</exclude>
+										<exclude>org.springframework.boot:spring-boot-actuator:[4.1,4.1.3)</exclude>
+										<exclude>org.springframework.boot:spring-boot-webmvc:(,2.7.36)</exclude>
+										<exclude>org.springframework.boot:spring-boot-webmvc:[3.0,3.4.19)</exclude>
+										<exclude>org.springframework.boot:spring-boot-webmvc:[3.5,3.5.18)</exclude>
+										<exclude>org.springframework.boot:spring-boot-webmvc:[4.0,4.0.10)</exclude>
+										<exclude>org.springframework.boot:spring-boot-webmvc:[4.1,4.1.3)</exclude>
+									</excludes>
+									<message>
+										Use patched Spring Framework and Spring Boot Actuator/WebMVC versions as required by the root dependency guard.
+									</message>
+									<searchTransitive>true</searchTransitive>
+								</bannedDependencies>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
