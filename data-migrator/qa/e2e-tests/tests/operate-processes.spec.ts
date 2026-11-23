@@ -290,13 +290,18 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     });
 
     // Verify the operations log table is rendered
-    const dataTable = page.locator('[data-testid="data-table-container"]');
+    const dataTable = page
+      .getByRole('table')
+      .filter({ hasText: 'Operation Type' });
     await expect(dataTable).toBeVisible({ timeout: 10000 });
 
     // Verify column headers are present
-    const headerLabel = dataTable.locator('.cds--table-header-label');
-    await expect(headerLabel.getByText('Operation Type')).toBeVisible();
-    await expect(headerLabel.getByText('Entity Type')).toBeVisible();
+    await expect(
+      dataTable.getByRole('columnheader', { name: 'Sort by Operation Type' }),
+    ).toBeVisible();
+    await expect(
+      dataTable.getByRole('columnheader', { name: 'Sort by Entity Type' }),
+    ).toBeVisible();
 
     // Verify at least one audit log row exists with actual data
     const tableRows = dataTable.locator('tbody tr');
