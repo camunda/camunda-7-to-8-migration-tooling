@@ -163,6 +163,7 @@ release line, then run the workflow from the release branch.
    | `ONLY_PUBLISH_DOCKER_IMAGE` | `false` | Set to `true` only to publish an image from an earlier release workflow run. |
    | `SOURCE_RELEASE_RUN_ID` | Leave empty | Required only when `ONLY_PUBLISH_DOCKER_IMAGE` is `true`. |
    | `DEPLOY_DIAGRAM_CONVERTER` | `false` | Set to `true` only when this release should also deploy the Diagram Converter to production. |
+   | `MAKE_LATEST` | `false` | Set to `true` to mark the GitHub release as the latest release; leave unticked for patch releases of older lines. |
 
    Do not enable every option. The `ONLY_*` inputs select separate recovery paths, and
    `DEPLOY_DIAGRAM_CONVERTER` triggers an additional deployment.

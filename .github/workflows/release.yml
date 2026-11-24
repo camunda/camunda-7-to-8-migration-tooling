@@ -37,6 +37,11 @@ on:
         required: false
         type: boolean
         default: false
+      MAKE_LATEST:
+        description: "MAKE_LATEST (mark the GitHub release as latest)"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   id-token: write
@@ -51,6 +56,7 @@ env:
   IS_DRY_RUN: ${{ inputs.IS_DRY_RUN }}
   ONLY_PUSH_TO_MAVEN_CENTRAL: ${{ inputs.ONLY_PUSH_TO_MAVEN_CENTRAL }}
   DEVELOPMENT_VERSION: ${{ inputs.DEVELOPMENT_VERSION }}
+  MAKE_LATEST: ${{ inputs.MAKE_LATEST }}
   PUSH_CHANGES: ${{ inputs.IS_DRY_RUN == false }}
   GH_TOKEN: ${{ github.token }}
 
@@ -387,9 +393,10 @@ jobs:
 
               jq --null-input \
                 --arg tag "${RELEASE_VERSION}" \
+                --arg make_latest "${MAKE_LATEST}" \
                 --argjson prerelease "${expected_prerelease}" \
                 --slurpfile notes "${release_notes_json}" \
-                '{tag_name: $tag, name: $tag, body: $notes[0].body, draft: true, prerelease: $prerelease}' \
+                '{tag_name: $tag, name: $tag, body: $notes[0].body, draft: true, prerelease: $prerelease, make_latest: $make_latest}' \
                 > "${release_payload}"
               gh api --method POST "repos/${GITHUB_REPOSITORY}/releases" \
                 --input "${release_payload}" > "${release_json}"
@@ -558,7 +565,8 @@ jobs:
           set -euo pipefail
 
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            --field draft=false > /dev/null
+            --field draft=false \
+            --raw-field "make_latest=${MAKE_LATEST}" > /dev/null
           if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
             exit 1
