@@ -566,7 +566,7 @@ jobs:
 
           gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
             --field draft=false \
-            --field "make_latest=${MAKE_LATEST}" > /dev/null
+            --raw-field "make_latest=${MAKE_LATEST}" > /dev/null
           if [[ "$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" --jq '.draft')" != false ]]; then
             echo "::error::GitHub release '${RELEASE_VERSION}' is still a draft after publishing."
             exit 1
