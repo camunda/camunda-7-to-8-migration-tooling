@@ -177,6 +177,11 @@
       </dependency>
       <dependency>
         <groupId>org.springframework</groupId>
+        <artifactId>spring-webflux</artifactId>
+        <version>${version.spring-framework}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework</groupId>
         <artifactId>spring-webmvc</artifactId>
         <version>${version.spring-framework}</version>
       </dependency>
@@ -432,6 +437,10 @@
                     <exclude>org.springframework:spring-web:[6.1,6.1.30)</exclude>
                     <exclude>org.springframework:spring-web:[6.2,6.2.21)</exclude>
                     <exclude>org.springframework:spring-web:[7.0,7.0.11)</exclude>
+                    <exclude>org.springframework:spring-webflux:[6.0,6.0.33)</exclude>
+                    <exclude>org.springframework:spring-webflux:[6.1,6.1.30)</exclude>
+                    <exclude>org.springframework:spring-webflux:[6.2,6.2.21)</exclude>
+                    <exclude>org.springframework:spring-webflux:[7.0,7.0.11)</exclude>
                     <exclude>org.springframework:spring-webmvc:(,5.3.50)</exclude>
                     <exclude>org.springframework:spring-webmvc:[6.0,6.0.31)</exclude>
                     <exclude>org.springframework:spring-webmvc:[6.1,6.1.29)</exclude>
