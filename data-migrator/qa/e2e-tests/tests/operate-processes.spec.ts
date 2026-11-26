@@ -224,10 +224,11 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     await goToProcesses(page);
     await openProcessInstance(page, 'callingProcessId');
 
-    // Verify Instance History panel
-    const instanceHistory = page.getByRole('region', {
-      name: 'Instance History',
-    });
+    // Verify Instance History panel — it is a named region on 8.11+ and carries
+    // data-testid="instance-history" on 8.10; accept either (mutually exclusive)
+    const instanceHistory = page
+      .getByRole('region', { name: 'Instance History' })
+      .or(page.locator('[data-testid="instance-history"]'));
     await expect(instanceHistory).toBeVisible({ timeout: 10000 });
 
     await page.screenshot({
@@ -386,10 +387,11 @@ test.describe('Operate - Process Instances & Audit Logs', () => {
     const bpmnDiagram = page.locator('[data-testid="diagram"]');
     await expect(bpmnDiagram).toBeVisible({ timeout: 10000 });
 
-    // Verify Instance History panel
-    const instanceHistory = page.getByRole('region', {
-      name: 'Instance History',
-    });
+    // Verify Instance History panel — it is a named region on 8.11+ and carries
+    // data-testid="instance-history" on 8.10; accept either (mutually exclusive)
+    const instanceHistory = page
+      .getByRole('region', { name: 'Instance History' })
+      .or(page.locator('[data-testid="instance-history"]'));
     await expect(instanceHistory).toBeVisible({ timeout: 10000 });
 
     // Verify the history shows "Start Event" and "failingTask"

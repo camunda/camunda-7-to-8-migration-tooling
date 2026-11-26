@@ -302,19 +302,25 @@ test.describe('Operate - Decision Instances', () => {
     });
     await expect(diagramTitle).toBeVisible();
 
-    // Verify specific decision nodes are visible in the DRD by their labels
-    const invoiceClassificationNode = drdPanel.getByRole('button', {
-      name: 'Invoice Classification',
-    });
-    await expect(invoiceClassificationNode).toBeVisible();
+    // Verify specific decision nodes are visible in the DRD by their labels.
+    // dmn-js 18 (Camunda 8.11) exposes decision nodes as named buttons,
+    // dmn-js 17 (Camunda 8.10) renders them as plain SVG text.
+    const invoiceClassificationNode = drdPanel
+      .getByRole('button', { name: 'Invoice Classification' })
+      .or(drdPanel.locator('text:has-text("Invoice Classification")'));
+    await expect(invoiceClassificationNode.first()).toBeVisible();
 
-    const assignApproverNode = drdPanel.getByRole('button', {
-      name: 'Assign Approver Group',
-    });
-    await expect(assignApproverNode).toBeVisible();
+    const assignApproverNode = drdPanel
+      .getByRole('button', { name: 'Assign Approver Group' })
+      .or(drdPanel.locator('text:has-text("Assign Approver")'));
+    await expect(assignApproverNode.first()).toBeVisible();
 
-    // Verify badges for both evaluated decisions — toHaveCount retries until both badges render
-    const executionBadges = drdPanel.getByRole('img', { name: /Evaluated$/ });
+    // Verify badges for both evaluated decisions — toHaveCount retries until both badges render.
+    // The state overlay carries this data-testid on both Camunda 8 versions;
+    // the img role with an accessible name only exists on 8.11+.
+    const executionBadges = drdPanel.locator(
+      '[data-testid="state-overlay-EVALUATED"]',
+    );
     await expect(executionBadges).toHaveCount(2, { timeout: 10000 });
     console.log('Found 2 evaluation state badges in DRD (Invoice Classification and Assign Approver Group)');
   });
@@ -334,10 +340,17 @@ test.describe('Operate - Decision Instances', () => {
     const drdPanel = page.getByRole('region', { name: 'DRD panel' });
 
     // Find the "Invoice Classification" decision node in the DRD
-    // This is the parent/required decision that should be clickable
-    const invoiceClassificationNode = drdPanel.getByRole('button', {
-      name: 'Invoice Classification',
-    });
+    // This is the parent/required decision that should be clickable.
+    // dmn-js 18 (Camunda 8.11) exposes decision nodes as named buttons,
+    // dmn-js 17 (Camunda 8.10) renders them as plain diagram shapes.
+    const invoiceClassificationNode = drdPanel
+      .getByRole('button', { name: 'Invoice Classification' })
+      .or(
+        drdPanel.locator(
+          '.djs-element.djs-shape[data-element-id="c7-legacy-invoiceClassification"]',
+        ),
+      )
+      .first();
     await invoiceClassificationNode.waitFor({ state: 'visible', timeout: 10000 });
 
     // Get current URL before clicking
