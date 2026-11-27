@@ -24,7 +24,9 @@ public class PublishedPomTest {
     var flattenedPom =
         DocumentBuilderFactory.newInstance()
             .newDocumentBuilder()
-            .parse(Path.of(System.getProperty("basedir"), ".flattened-pom.xml").toFile());
+            .parse(
+                Path.of(System.getProperty("basedir"), "target", ".flattened-pom.xml")
+                    .toFile());
     var dependencies = flattenedPom.getElementsByTagName("dependency");
     Element camundaWebapp = null;
     Element jacksonDatabind = null;
