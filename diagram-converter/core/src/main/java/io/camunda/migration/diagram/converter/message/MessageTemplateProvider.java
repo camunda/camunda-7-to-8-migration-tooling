@@ -59,28 +59,26 @@ public class MessageTemplateProvider {
           }
         }
         Map<String, String> messageProperties =
-            messagesTemplates.computeIfAbsent(messageName, (s) -> new HashMap<>());
+            messagesTemplates.computeIfAbsent(messageName, s -> new HashMap<>());
         assertMessageProperties(messageName, messageProperties, property);
         messageProperties.put(property, loader.getProperty(name));
       }
     }
     if (assertMandatoryEntries(messagesTemplates)) {
       MESSAGE_TEMPLATE_PROCESSOR.replaceTemplates(rawTemplates);
-      rawTemplates.forEach(
-          (messageName, template) -> {
-            if (messagesTemplates.containsKey(messageName)) {
-              messagesTemplates.get(messageName).put(PROPERTY_MESSAGE, template);
-            }
-          });
-      messagesTemplates.forEach(
-          (key, value) ->
-              MESSAGE_TEMPLATES.put(
-                  key,
-                  new MessageTemplate(
-                      Severity.valueOf(value.get(PROPERTY_SEVERITY)),
-                      value.get(PROPERTY_LINK),
-                      value.get(PROPERTY_MESSAGE),
-                      MESSAGE_TEMPLATE_PROCESSOR.extractVariables(value.get(PROPERTY_MESSAGE)))));
+      rawTemplates.forEach((messageName, template) -> {
+        if (messagesTemplates.containsKey(messageName)) {
+          messagesTemplates.get(messageName).put(PROPERTY_MESSAGE, template);
+        }
+      });
+      messagesTemplates.forEach((key, value) ->
+          MESSAGE_TEMPLATES.put(
+              key,
+              new MessageTemplate(
+                  Severity.valueOf(value.get(PROPERTY_SEVERITY)),
+                  value.get(PROPERTY_LINK),
+                  value.get(PROPERTY_MESSAGE),
+                  MESSAGE_TEMPLATE_PROCESSOR.extractVariables(value.get(PROPERTY_MESSAGE)))));
     }
     if (!BOOTSTRAP_ERRORS.isEmpty()) {
       throw new IllegalArgumentException(

@@ -127,14 +127,13 @@ public class ExpressionTransformerTest {
                 .hasMethodInvocation(true),
             expressionToJobType("${myDelegate.doSomething.else}")
                 .isMappedTo("myDelegateDoSomethingElse"))
-        .map(
-            data ->
-                DynamicContainer.dynamicContainer(
-                    "Expression to "
-                        + data.getTransformationType()
-                        + ": "
-                        + data.getResult().juelExpression(),
-                    data.getTests()));
+        .map(data ->
+            DynamicContainer.dynamicContainer(
+                "Expression to "
+                    + data.getTransformationType()
+                    + ": "
+                    + data.getResult().juelExpression(),
+                data.getTests()));
   }
 
   @TestFactory
@@ -155,14 +154,13 @@ public class ExpressionTransformerTest {
             expressionToFeelDmn("#{order.getPriority()}")
                 .isMappedTo("#{order.getPriority()}")
                 .hasMethodInvocation(true))
-        .map(
-            data ->
-                DynamicContainer.dynamicContainer(
-                    "Expression to "
-                        + data.getTransformationType()
-                        + ": "
-                        + data.getResult().juelExpression(),
-                    data.getTests()));
+        .map(data ->
+            DynamicContainer.dynamicContainer(
+                "Expression to "
+                    + data.getTransformationType()
+                    + ": "
+                    + data.getResult().juelExpression(),
+                data.getTests()));
   }
 
   private enum TransformationType {
