@@ -4,7 +4,8 @@
 
 A Maven setup wrapper that configures a specific Maven and Java version, GitHub Cache, and
 Camunda-Nexus cache. It reuses Maven on the runner when its version matches `maven-version`;
-otherwise, it installs the requested version.
+otherwise, it verifies that the requested Maven Central distribution is available before
+installing it. A matching runner version skips both the availability check and the download.
 
 See [setup-java](https://github.com/actions/setup-java) for possible distribution keywords or how to define java versions.
 

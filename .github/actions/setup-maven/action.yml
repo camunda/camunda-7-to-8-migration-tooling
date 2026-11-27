@@ -99,6 +99,24 @@ runs:
       }
 
       "matches=$($versionMatches.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+  - name: Verify Maven distribution availability
+    if: steps.check-maven.outputs.matches != 'true'
+    shell: bash
+    env:
+      MAVEN_VERSION: ${{ inputs.maven-version }}
+    run: |
+      distribution_url="https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+
+      if ! status_code=$(curl --silent --show-error --head --location --max-time 30 \
+        --output /dev/null --write-out '%{http_code}' "$distribution_url"); then
+        echo "::error::Could not verify the Maven distribution for version '${MAVEN_VERSION}' at '${distribution_url}'."
+        exit 1
+      fi
+
+      if [ "$status_code" != "200" ]; then
+        echo "::error::Maven distribution for version '${MAVEN_VERSION}' returned HTTP ${status_code} at '${distribution_url}'."
+        exit 1
+      fi
   - name: Setup Maven
     if: steps.check-maven.outputs.matches != 'true'
     uses: stCarolas/setup-maven@v5
