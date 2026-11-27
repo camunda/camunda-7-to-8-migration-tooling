@@ -154,6 +154,10 @@ run_case "version-range-cache-hit" "3.9.x" "X64" "3.9.16" "x64" true true || fai
 run_case "version-range-cache-miss" "3.8.x" "X64" "3.9.16" "x64" true false || failures=1
 run_case "partial-version-range-cache-hit" "3.9" "X64" "3.9.16" "x64" true true || failures=1
 run_case "caret-version-range-cache-hit" "^3.9.0" "X64" "3.9.16" "x64" true true || failures=1
+run_case "exact-prerelease-cache-hit" "4.0.0-rc-4" "X64" "4.0.0-rc-4" "x64" true true || failures=1
+run_case "prerelease-range-stable-cache-hit" "^3.9.16-0" "X64" "3.9.16" "x64" true true || failures=1
+run_case "prerelease-range-prerelease-cache-hit" "^4.0.0-rc.1" "X64" "4.0.0-rc.2" "x64" true true || failures=1
+run_case "prerelease-range-different-core-cache-miss" "^4.0.0-rc.1" "X64" "4.1.0-rc.1" "x64" true false || failures=1
 run_case "tilde-version-range-cache-hit" "~3.9.0" "X64" "3.9.16" "x64" true true || failures=1
 run_case "comparator-version-range-cache-hit" ">=3.9.0 <4.0.0" "X64" "3.9.16" "x64" true true || failures=1
 run_case "hyphen-version-range-cache-hit" "3.9.0 - 3.9.99" "X64" "3.9.16" "x64" true true || failures=1
