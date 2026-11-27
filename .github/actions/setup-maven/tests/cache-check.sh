@@ -27,6 +27,14 @@ print cache_check.fetch("run")
 RUBY
 )
 
+preflight_script=$(ruby -ryaml - "$action_file" <<'RUBY'
+steps = YAML.load_file(ARGV.fetch(0)).fetch("runs").fetch("steps")
+preflight = steps.find { |step| step["name"] == "Verify Maven distribution availability" }
+abort "missing Maven distribution preflight" unless preflight
+print preflight.fetch("run")
+RUBY
+)
+
 test_dir="$(mktemp -d "$action_dir/tests/.cache-check.XXXXXX")"
 trap 'rm -rf "$test_dir"' EXIT
 
@@ -80,10 +88,91 @@ CYGPATH
   printf 'PASS %s\n' "$name"
 }
 
-run_case "x64-cache-hit" "3.9.16" "X64" "3.9.16" "x64" true true
-run_case "arm64-cache-hit" "3.9.16" "ARM64" "3.9.16" "arm64" true true
-run_case "windows-cache-hit" "3.9.16" "X64" "3.9.16" "x64" true true Windows
-run_case "incomplete-cache-entry" "3.9.16" "X64" "3.9.16" "x64" false false
-run_case "different-cached-version" "3.9.16" "X64" "3.9.15" "x64" true false
-run_case "different-cached-architecture" "3.9.16" "ARM64" "3.9.16" "x64" true false
-run_case "missing-tool-cache" "3.9.16" "X64" "-" "-" false false
+run_preflight_case() {
+  local name="$1"
+  local scenario="$2"
+  local expected_exit="$3"
+  local fake_bin="$test_dir/$name/bin"
+  local actual_exit
+
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/curl" <<'CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+
+retry_count=0
+while (($#)); do
+  if [[ "$1" == "--retry" ]]; then
+    retry_count="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+
+case "$CURL_SCENARIO" in
+  transient-503)
+    if ((retry_count == 2)); then
+      printf '200'
+    else
+      printf '503'
+    fi
+    ;;
+  persistent-503)
+    printf '503'
+    ;;
+  http-404)
+    printf '404'
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+CURL
+  chmod +x "$fake_bin/curl"
+
+  if CURL_SCENARIO="$scenario" MAVEN_VERSION="3.9.16" PATH="$fake_bin:$PATH" \
+    bash -e -o pipefail -c "$preflight_script"; then
+    actual_exit=0
+  else
+    actual_exit=$?
+  fi
+
+  if [[ "$actual_exit" != "$expected_exit" ]]; then
+    printf 'FAIL %s: expected exit=%s, got exit=%s\n' "$name" "$expected_exit" "$actual_exit" >&2
+    return 1
+  fi
+  printf 'PASS %s\n' "$name"
+}
+
+failures=0
+run_case "x64-cache-hit" "3.9.16" "X64" "3.9.16" "x64" true true || failures=1
+run_case "arm64-cache-hit" "3.9.16" "ARM64" "3.9.16" "arm64" true true || failures=1
+run_case "windows-cache-hit" "3.9.16" "X64" "3.9.16" "x64" true true Windows || failures=1
+run_case "normalized-version-cache-hit" "v3.9.16" "X64" "3.9.16" "x64" true true || failures=1
+run_case "version-range-cache-hit" "3.9.x" "X64" "3.9.16" "x64" true true || failures=1
+run_case "version-range-cache-miss" "3.8.x" "X64" "3.9.16" "x64" true false || failures=1
+run_case "partial-version-range-cache-hit" "3.9" "X64" "3.9.16" "x64" true true || failures=1
+run_case "caret-version-range-cache-hit" "^3.9.0" "X64" "3.9.16" "x64" true true || failures=1
+run_case "tilde-version-range-cache-hit" "~3.9.0" "X64" "3.9.16" "x64" true true || failures=1
+run_case "comparator-version-range-cache-hit" ">=3.9.0 <4.0.0" "X64" "3.9.16" "x64" true true || failures=1
+run_case "hyphen-version-range-cache-hit" "3.9.0 - 3.9.99" "X64" "3.9.16" "x64" true true || failures=1
+run_case "or-version-range-cache-hit" "3.8.x || 3.9.x" "X64" "3.9.16" "x64" true true || failures=1
+run_case "malformed-version-range-cache-miss" "3..9" "X64" "3.0.0" "x64" true false || failures=1
+run_case "wildcard-followed-by-version-cache-miss" "3.x.9" "X64" "3.9.16" "x64" true false || failures=1
+run_case "invalid-alternative-cache-miss" "3.9.x || invalid" "X64" "3.9.16" "x64" true false || failures=1
+run_case "leading-zero-version-cache-miss" "03.9.16" "X64" "3.9.16" "x64" true false || failures=1
+run_case "oversized-version-cache-miss" "18446744073709551616.0.0" "X64" "0.0.0" "x64" true false || failures=1
+run_case "zero-major-caret-cache-hit" "^0.2.0" "X64" "0.2.8" "x64" true true || failures=1
+run_case "zero-major-caret-cache-miss" "^0.2.0" "X64" "0.3.0" "x64" true false || failures=1
+run_case "incomplete-cache-entry" "3.9.16" "X64" "3.9.16" "x64" false false || failures=1
+run_case "different-cached-version" "3.9.16" "X64" "3.9.15" "x64" true false || failures=1
+run_case "different-cached-architecture" "3.9.16" "ARM64" "3.9.16" "x64" true false || failures=1
+run_case "missing-tool-cache" "3.9.16" "X64" "-" "-" false false || failures=1
+run_preflight_case "transient-http-failure-retries" "transient-503" 0 || failures=1
+run_preflight_case "persistent-http-failure-rejected" "persistent-503" 1 || failures=1
+run_preflight_case "missing-distribution-rejected" "http-404" 1 || failures=1
+
+if [[ "$failures" != "0" ]]; then
+  exit 1
+fi
