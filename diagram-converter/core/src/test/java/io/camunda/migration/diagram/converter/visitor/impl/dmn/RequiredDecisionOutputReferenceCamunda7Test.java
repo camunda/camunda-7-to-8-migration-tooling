@@ -208,12 +208,11 @@ class RequiredDecisionOutputReferenceCamunda7Test {
         .flatMap(r -> r.getMessages().stream())
         .map(ElementCheckMessage::getMessage)
         .filter(m -> m.contains("references 'uid'"))
-        .forEach(
-            m -> {
-              Matcher matcher = PROVIDER.matcher(m);
-              assertThat(matcher.find()).as(m).isTrue();
-              providers.add(matcher.group(1));
-            });
+        .forEach(m -> {
+          Matcher matcher = PROVIDER.matcher(m);
+          assertThat(matcher.find()).as(m).isTrue();
+          providers.add(matcher.group(1));
+        });
     assertThat(providers).as("findings on the probe").hasSizeLessThanOrEqualTo(1);
     return providers.isEmpty() ? "none" : providers.get(0);
   }

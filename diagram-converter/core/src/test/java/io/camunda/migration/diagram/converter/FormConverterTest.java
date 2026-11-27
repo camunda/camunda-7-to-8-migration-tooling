@@ -136,34 +136,29 @@ class FormConverterTest {
     assertThat(result.checkResult().getResults())
         .flatExtracting(ElementCheckResult::getMessages)
         .hasSize(4)
-        .allSatisfy(
-            message -> {
-              assertThat(message.getId()).isEqualTo("expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-              assertThat(message.getMessage()).contains("Please review transformed expression");
-              assertThat(message.getLink()).contains("/feel/");
-            })
+        .allSatisfy(message -> {
+          assertThat(message.getId()).isEqualTo("expression");
+          assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+          assertThat(message.getMessage()).contains("Please review transformed expression");
+          assertThat(message.getLink()).contains("/feel/");
+        })
         .extracting(ElementCheckMessage::getMessage)
-        .anySatisfy(
-            message ->
-                assertThat(message)
-                    .contains("'${customerName}' -> '= customerName'")
-                    .contains("property 'label'"))
-        .anySatisfy(
-            message ->
-                assertThat(message)
-                    .contains("'#{defaultGreeting}' -> '= defaultGreeting'")
-                    .contains("property 'defaultValue'"))
-        .anySatisfy(
-            message ->
-                assertThat(message)
-                    .contains("'${optionLabel}' -> '= optionLabel'")
-                    .contains("property 'values'"))
-        .anySatisfy(
-            message ->
-                assertThat(message)
-                    .contains("'${messageText}' -> '= messageText'")
-                    .contains("property 'text'"));
+        .anySatisfy(message ->
+            assertThat(message)
+                .contains("'${customerName}' -> '= customerName'")
+                .contains("property 'label'"))
+        .anySatisfy(message ->
+            assertThat(message)
+                .contains("'#{defaultGreeting}' -> '= defaultGreeting'")
+                .contains("property 'defaultValue'"))
+        .anySatisfy(message ->
+            assertThat(message)
+                .contains("'${optionLabel}' -> '= optionLabel'")
+                .contains("property 'values'"))
+        .anySatisfy(message ->
+            assertThat(message)
+                .contains("'${messageText}' -> '= messageText'")
+                .contains("property 'text'"));
   }
 
   @ParameterizedTest
@@ -208,12 +203,11 @@ class FormConverterTest {
     assertThat(result.checkResult().getResults())
         .flatExtracting(ElementCheckResult::getMessages)
         .isNotEmpty()
-        .allSatisfy(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-juel-expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
-              assertThat(message.getMessage()).contains("Migrate this expression manually.");
-            });
+        .allSatisfy(message -> {
+          assertThat(message.getId()).isEqualTo("form-juel-expression");
+          assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+          assertThat(message.getMessage()).contains("Migrate this expression manually.");
+        });
   }
 
   @Test

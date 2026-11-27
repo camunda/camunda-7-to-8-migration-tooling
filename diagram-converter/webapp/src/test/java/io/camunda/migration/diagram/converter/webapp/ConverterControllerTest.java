@@ -225,22 +225,20 @@ public class ConverterControllerTest {
             .as(new TypeRef<List<DiagramCheckResult>>() {});
 
     assertThat(checkResult)
-        .anySatisfy(
-            singleCheckResult -> {
-              assertThat(singleCheckResult.getFilename()).isEqualTo("example.bpmn");
-              assertThat(singleCheckResult.getResults())
-                  .isNotEmpty()
-                  .anySatisfy(
-                      result -> assertThat(result.getElementId()).isEqualTo("Activity_Example1"));
-            })
-        .anySatisfy(
-            singleCheckResult -> {
-              assertThat(singleCheckResult.getFilename()).isEqualTo("example2.bpmn");
-              assertThat(singleCheckResult.getResults())
-                  .isNotEmpty()
-                  .anySatisfy(
-                      result -> assertThat(result.getElementId()).isEqualTo("Activity_Example2"));
-            });
+        .anySatisfy(singleCheckResult -> {
+          assertThat(singleCheckResult.getFilename()).isEqualTo("example.bpmn");
+          assertThat(singleCheckResult.getResults())
+              .isNotEmpty()
+              .anySatisfy(
+                  result -> assertThat(result.getElementId()).isEqualTo("Activity_Example1"));
+        })
+        .anySatisfy(singleCheckResult -> {
+          assertThat(singleCheckResult.getFilename()).isEqualTo("example2.bpmn");
+          assertThat(singleCheckResult.getResults())
+              .isNotEmpty()
+              .anySatisfy(
+                  result -> assertThat(result.getElementId()).isEqualTo("Activity_Example2"));
+        });
   }
 
   @Test
@@ -809,11 +807,10 @@ public class ConverterControllerTest {
         .containsExactly("form-juel-expression");
     assertThat(checkResult.get(1).getResults())
         .first()
-        .satisfies(
-            element -> {
-              assertThat(element.getElementId()).isEqualTo("greeting");
-              assertThat(element.getElementType()).isEqualTo("textfield");
-            });
+        .satisfies(element -> {
+          assertThat(element.getElementId()).isEqualTo("greeting");
+          assertThat(element.getElementType()).isEqualTo("textfield");
+        });
   }
 
   @Test
@@ -851,12 +848,11 @@ public class ConverterControllerTest {
 
     assertThat(checkResult)
         .singleElement()
-        .satisfies(
-            result ->
-                assertThat(result.getResults())
-                    .flatExtracting(ElementCheckResult::getMessages)
-                    .extracting(ElementCheckMessage::getId)
-                    .containsExactly("expression", "form-juel-expression"));
+        .satisfies(result ->
+            assertThat(result.getResults())
+                .flatExtracting(ElementCheckResult::getMessages)
+                .extracting(ElementCheckMessage::getId)
+                .containsExactly("expression", "form-juel-expression"));
 
     String converted =
         RestAssured.given()

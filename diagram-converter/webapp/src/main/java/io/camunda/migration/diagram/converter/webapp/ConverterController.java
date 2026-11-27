@@ -239,9 +239,8 @@ public class ConverterController {
 
   private boolean analysisJsonRequested(String[] contentType) {
     return bestMatch(contentType)
-        .map(
-            mediaType ->
-                mediaType.equalsTypeAndSubtype(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON)))
+        .map(mediaType ->
+            mediaType.equalsTypeAndSubtype(MediaType.parseMediaType(APPLICATION_ANALYSIS_JSON)))
         .orElse(false);
   }
 
@@ -258,11 +257,10 @@ public class ConverterController {
 
   private boolean excelRequested(String[] contentType) {
     return bestMatch(contentType)
-        .map(
-            mediaType ->
-                mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_EXCEL))
-                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_MS_EXCEL))
-                    || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_XLSX)))
+        .map(mediaType ->
+            mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_EXCEL))
+                || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_MS_EXCEL))
+                || mediaType.equalsTypeAndSubtype(MediaType.valueOf(APPLICATION_XLSX)))
         .orElse(false);
   }
 
@@ -281,13 +279,12 @@ public class ConverterController {
     List<MediaType> mediaTypes =
         Arrays.stream(contentType)
             .map(MediaType::parseMediaType)
-            .filter(
-                mediaType ->
-                    mediaType.isWildcardType()
-                        || (mediaType.isWildcardSubtype()
-                            && ("application".equals(mediaType.getType())
-                                || "text".equals(mediaType.getType())))
-                        || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType)))
+            .filter(mediaType ->
+                mediaType.isWildcardType()
+                    || (mediaType.isWildcardSubtype()
+                        && ("application".equals(mediaType.getType())
+                            || "text".equals(mediaType.getType())))
+                    || supported.stream().anyMatch(s -> s.equalsTypeAndSubtype(mediaType)))
             .collect(Collectors.toList());
     if (mediaTypes.isEmpty()) {
       return Optional.empty();

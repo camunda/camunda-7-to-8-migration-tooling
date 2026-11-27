@@ -23,20 +23,17 @@ public class AbstractCatchEventConversion
   @Override
   protected void convertTyped(DomElement element, AbstractCatchEventConvertible convertible) {
     getTimerEventDefinition(element)
-        .ifPresent(
-            timerEventDefinition -> {
-              getTimeDuration(timerEventDefinition)
-                  .ifPresent(
-                      timeDuration ->
-                          applyExpression(timeDuration, convertible.getTimeDurationExpression()));
-              getTimeDate(timerEventDefinition)
-                  .ifPresent(
-                      timeDate -> applyExpression(timeDate, convertible.getTimeDateExpression()));
-              getTimeCycle(timerEventDefinition)
-                  .ifPresent(
-                      timeCycle ->
-                          applyExpression(timeCycle, convertible.getTimeCycleExpression()));
-            });
+        .ifPresent(timerEventDefinition -> {
+          getTimeDuration(timerEventDefinition)
+              .ifPresent(timeDuration ->
+                  applyExpression(timeDuration, convertible.getTimeDurationExpression()));
+          getTimeDate(timerEventDefinition)
+              .ifPresent(
+                  timeDate -> applyExpression(timeDate, convertible.getTimeDateExpression()));
+          getTimeCycle(timerEventDefinition)
+              .ifPresent(
+                  timeCycle -> applyExpression(timeCycle, convertible.getTimeCycleExpression()));
+        });
   }
 
   private void applyExpression(DomElement container, String expression) {

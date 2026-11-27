@@ -196,11 +196,10 @@ public class DiagramConverterTest {
                 .flatMap(element -> element.getMessages().stream())
                 .filter(message -> "camunda-script".equals(message.getId())))
         .singleElement()
-        .satisfies(
-            message ->
-                assertThat(message.getMessage())
-                    .isEqualTo(
-                        "Element 'script' cannot be transformed. Script 'print(\"start\");' with format 'groovy' on 'executionListener'."));
+        .satisfies(message ->
+            assertThat(message.getMessage())
+                .isEqualTo(
+                    "Element 'script' cannot be transformed. Script 'print(\"start\");' with format 'groovy' on 'executionListener'."));
   }
 
   private BpmnModelInstance mixedSeverityModel() {
