@@ -460,19 +460,19 @@ class RequiredDecisionOutputReferenceVisitorTest {
           "<output id=\"o_%1$s\" name=\"%1$s\" typeRef=\"string\"/>".formatted(output));
     }
     return """
-        <decision id="Base" name="Base">
-          %s
-          <decisionTable id="t_b">
-            <input id="i_b"><inputExpression id="e_b"><text>in</text></inputExpression></input>
-            %s
-          </decisionTable>
-        </decision>
-        <decision id="Top" name="Top">
-          <variable id="v1" name="top"/>
-          <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
-          <literalExpression id="le"><text>%s</text></literalExpression>
-        </decision>
-        """
+    <decision id="Base" name="Base">
+      %s
+      <decisionTable id="t_b">
+        <input id="i_b"><inputExpression id="e_b"><text>in</text></inputExpression></input>
+        %s
+      </decisionTable>
+    </decision>
+    <decision id="Top" name="Top">
+      <variable id="v1" name="top"/>
+      <informationRequirement id="q1"><requiredDecision href="#Base"/></informationRequirement>
+      <literalExpression id="le"><text>%s</text></literalExpression>
+    </decision>
+    """
         .formatted(
             variable == null ? "" : "<variable id=\"v_b\" name=\"%s\"/>".formatted(variable),
             outputElements,
@@ -543,13 +543,13 @@ class RequiredDecisionOutputReferenceVisitorTest {
 
   private static String provider(String id, String outputName) {
     return """
-        <decision id="%1$s" name="%1$s">
-          <decisionTable id="t_%1$s">
-            <input id="i_%1$s"><inputExpression id="e_%1$s"><text>in</text></inputExpression></input>
-            <output id="o_%1$s" name="%2$s" typeRef="string"/>
-          </decisionTable>
-        </decision>
-        """
+    <decision id="%1$s" name="%1$s">
+      <decisionTable id="t_%1$s">
+        <input id="i_%1$s"><inputExpression id="e_%1$s"><text>in</text></inputExpression></input>
+        <output id="o_%1$s" name="%2$s" typeRef="string"/>
+      </decisionTable>
+    </decision>
+    """
         .formatted(id, outputName);
   }
 
@@ -574,10 +574,9 @@ class RequiredDecisionOutputReferenceVisitorTest {
   /** Required-decision TASK messages, grouped by the element they are reported on. */
   private static Map<String, List<String>> taskMessages(String decisions) {
     return check(decisions).getResults().stream()
-        .filter(
-            r ->
-                r.getMessages().stream()
-                    .anyMatch(RequiredDecisionOutputReferenceVisitorTest::isRequiredDecisionTask))
+        .filter(r ->
+            r.getMessages().stream()
+                .anyMatch(RequiredDecisionOutputReferenceVisitorTest::isRequiredDecisionTask))
         .collect(
             Collectors.toMap(
                 DiagramCheckResult.ElementCheckResult::getElementId,

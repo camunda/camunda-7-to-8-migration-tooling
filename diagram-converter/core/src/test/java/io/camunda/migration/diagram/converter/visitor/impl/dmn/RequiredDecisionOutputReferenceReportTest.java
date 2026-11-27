@@ -116,12 +116,11 @@ class RequiredDecisionOutputReferenceReportTest {
     List<String> lines = new ArrayList<>();
     result
         .getResults()
-        .forEach(
-            r ->
-                r.getMessages().stream()
-                    .filter(m -> LINK.equals(m.getLink()))
-                    .map(ElementCheckMessage::getMessage)
-                    .forEach(m -> lines.add(r.getElementId() + " | " + m)));
+        .forEach(r ->
+            r.getMessages().stream()
+                .filter(m -> LINK.equals(m.getLink()))
+                .map(ElementCheckMessage::getMessage)
+                .forEach(m -> lines.add(r.getElementId() + " | " + m)));
     return lines;
   }
 

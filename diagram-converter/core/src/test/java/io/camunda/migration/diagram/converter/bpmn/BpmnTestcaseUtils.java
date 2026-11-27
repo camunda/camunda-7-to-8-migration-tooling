@@ -41,17 +41,17 @@ public class BpmnTestcaseUtils {
 
   public static String asXml(String snippet) {
     return """
-      <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                   xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
-                   xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
-                   xmlns:zeebe="http://camunda.io/schema/zeebe/1.0"
-                   xmlns:conversion="http://camunda.org/schema/conversion/1.0">
-        <bpmn:process id="process">
-          %s
-        </bpmn:process>
-      </definitions>
-      """
+    <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                 xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                 xmlns:zeebe="http://camunda.io/schema/zeebe/1.0"
+                 xmlns:conversion="http://camunda.org/schema/conversion/1.0">
+      <bpmn:process id="process">
+        %s
+      </bpmn:process>
+    </definitions>
+    """
         .formatted(snippet);
   }
 
@@ -171,27 +171,26 @@ public class BpmnTestcaseUtils {
   public static void applyProperties(Object target, Map<String, String> properties) {
     Class<?> clazz = target.getClass();
 
-    properties.forEach(
-        (key, stringValue) -> {
-          String methodName = "set" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
+    properties.forEach((key, stringValue) -> {
+      String methodName = "set" + Character.toUpperCase(key.charAt(0)) + key.substring(1);
 
-          for (Method method : clazz.getMethods()) {
-            if (method.getName().equals(methodName) && method.getParameterCount() == 1) {
-              Class<?> paramType = method.getParameterTypes()[0];
+      for (Method method : clazz.getMethods()) {
+        if (method.getName().equals(methodName) && method.getParameterCount() == 1) {
+          Class<?> paramType = method.getParameterTypes()[0];
 
-              try {
-                Object convertedValue = convert(stringValue, paramType);
-                method.invoke(target, convertedValue);
-                return; // success
-              } catch (Exception e) {
-                throw new RuntimeException(
-                    "Failed to set property '" + key + "' with value '" + stringValue + "'", e);
-              }
-            }
+          try {
+            Object convertedValue = convert(stringValue, paramType);
+            method.invoke(target, convertedValue);
+            return; // success
+          } catch (Exception e) {
+            throw new RuntimeException(
+                "Failed to set property '" + key + "' with value '" + stringValue + "'", e);
           }
+        }
+      }
 
-          throw new RuntimeException("No matching setter found for property: " + key);
-        });
+      throw new RuntimeException("No matching setter found for property: " + key);
+    });
   }
 
   private static Object convert(String value, Class<?> targetType) {
