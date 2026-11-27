@@ -99,8 +99,48 @@ runs:
       }
 
       "matches=$($versionMatches.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-  - name: Verify Maven distribution availability
+  - name: Check Maven tool cache
+    id: check-maven-cache
     if: steps.check-maven.outputs.matches != 'true'
+    shell: bash
+    env:
+      MAVEN_VERSION: ${{ inputs.maven-version }}
+    run: |
+      cache_hit=false
+      cache_root="${RUNNER_TOOL_CACHE:-}"
+      tool_arch=""
+
+      case "${RUNNER_ARCH:-}" in
+        X86|x86) tool_arch="ia32" ;;
+        X64|x64) tool_arch="x64" ;;
+        ARM|arm) tool_arch="arm" ;;
+        ARM64|arm64) tool_arch="arm64" ;;
+      esac
+
+      if [[ -n "$cache_root" && -n "$tool_arch" ]]; then
+        if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
+          if command -v cygpath >/dev/null 2>&1; then
+            if ! cache_root=$(cygpath -u "$cache_root"); then
+              echo "::warning::Could not translate RUNNER_TOOL_CACHE; Maven Central availability check will run."
+              cache_root=""
+            fi
+          else
+            echo "::warning::Could not find cygpath; Maven Central availability check will run."
+            cache_root=""
+          fi
+        fi
+
+        if [[ -n "$cache_root" ]]; then
+          cached_maven="$cache_root/maven/$MAVEN_VERSION/$tool_arch"
+          if [[ -d "$cached_maven" && -f "$cached_maven.complete" ]]; then
+            cache_hit=true
+          fi
+        fi
+      fi
+
+      printf 'hit=%s\n' "$cache_hit" >> "$GITHUB_OUTPUT"
+  - name: Verify Maven distribution availability
+    if: steps.check-maven.outputs.matches != 'true' && steps.check-maven-cache.outputs.hit != 'true'
     shell: bash
     env:
       MAVEN_VERSION: ${{ inputs.maven-version }}
