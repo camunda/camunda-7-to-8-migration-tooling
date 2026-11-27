@@ -31,11 +31,10 @@ public class ProcessEngineClientTest {
         .getRepositoryService()
         .createDeploymentQuery()
         .list()
-        .forEach(
-            deployment ->
-                processEngine
-                    .getRepositoryService()
-                    .deleteDeployment(deployment.getId(), true, true, true));
+        .forEach(deployment ->
+            processEngine
+                .getRepositoryService()
+                .deleteDeployment(deployment.getId(), true, true, true));
   }
 
   @Test
