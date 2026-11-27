@@ -44,6 +44,7 @@ public class MultiDbExtension implements BeforeAllCallback {
       Map.of("sqlserver-to-postgresql", List.of("sqlserver", "postgresql"));
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(MultiDbExtension.class);
+  protected static final int DATABASE_CONTAINER_STARTUP_ATTEMPTS = 3;
   protected static Map<String, JdbcDatabaseContainer<?>> containers = createContainers();
   
   static { // Start db container before initializing Spring context
@@ -181,6 +182,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     containers.putIfAbsent("mariadb", createMariaDBContainer());
     containers.putIfAbsent("mariadb-10", createMariaDB10Container());
     containers.putIfAbsent("sqlserver", createSQLServerContainer());
+    containers.values()
+        .forEach(container -> container.setStartupAttempts(DATABASE_CONTAINER_STARTUP_ATTEMPTS));
     return containers;
   }
 
