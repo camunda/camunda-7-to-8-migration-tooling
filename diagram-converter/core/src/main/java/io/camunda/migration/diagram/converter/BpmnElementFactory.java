@@ -19,16 +19,15 @@ public class BpmnElementFactory {
         .filter(e -> e.getLocalName().equals(localName))
         .filter(e -> e.getNamespaceURI().equals(namespaceUri))
         .findFirst()
-        .orElseGet(
-            () -> {
-              DomElement child =
-                  parent
-                      .getDocument()
-                      .createElement(namespaceUri, createElementName(parent, localName));
-              childDecorator.accept(child);
-              inserter.insert(parent, child);
-              return child;
-            });
+        .orElseGet(() -> {
+          DomElement child =
+              parent
+                  .getDocument()
+                  .createElement(namespaceUri, createElementName(parent, localName));
+          childDecorator.accept(child);
+          inserter.insert(parent, child);
+          return child;
+        });
   }
 
   public static DomElement getExtensionElements(DomElement element) {

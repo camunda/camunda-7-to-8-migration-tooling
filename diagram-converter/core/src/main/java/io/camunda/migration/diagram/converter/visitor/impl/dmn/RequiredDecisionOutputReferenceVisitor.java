@@ -164,15 +164,12 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
 
   private static String describeProviders(Map<String, Set<String>> providers) {
     return providers.entrySet().stream()
-        .map(
-            e ->
-                "'"
-                    + e.getKey()
-                    + "' (when evaluating "
-                    + e.getValue().stream()
-                        .map(t -> "'" + t + "'")
-                        .collect(Collectors.joining(", "))
-                    + ")")
+        .map(e ->
+            "'"
+                + e.getKey()
+                + "' (when evaluating "
+                + e.getValue().stream().map(t -> "'" + t + "'").collect(Collectors.joining(", "))
+                + ")")
         .collect(Collectors.joining(", "));
   }
 
@@ -238,11 +235,10 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
       }
       Map<String, List<String>> requirements = new HashMap<>();
       Set<String> requiredBySomeDecision = new HashSet<>();
-      decisions.forEach(
-          (id, decision) -> {
-            requirements.put(id, decision.requiredDecisionIds());
-            requiredBySomeDecision.addAll(decision.requiredDecisionIds());
-          });
+      decisions.forEach((id, decision) -> {
+        requirements.put(id, decision.requiredDecisionIds());
+        requiredBySomeDecision.addAll(decision.requiredDecisionIds());
+      });
       // Every decision that no other decision requires can be called. Decisions that are only
       // reachable through a requirement cycle are treated as callable too.
       List<String> roots = new ArrayList<>();
@@ -279,12 +275,11 @@ public class RequiredDecisionOutputReferenceVisitor extends AbstractDmnElementVi
             see(visible, name, provider, top);
           }
         }
-        nonSimpleContext.forEach(
-            (name, provider) -> {
-              if (decision.expressionText().contains(name)) {
-                see(visible, name, provider, top);
-              }
-            });
+        nonSimpleContext.forEach((name, provider) -> {
+          if (decision.expressionText().contains(name)) {
+            see(visible, name, provider, top);
+          }
+        });
         for (String name : decision.outputNames()) {
           context.put(name, id);
           if (!SIMPLE_NAME.matcher(name).matches()) {

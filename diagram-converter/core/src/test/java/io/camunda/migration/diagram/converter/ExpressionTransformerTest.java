@@ -89,14 +89,13 @@ public class ExpressionTransformerTest {
                 .hasMethodInvocation(true),
             expressionToJobType("${myDelegate.doSomething.else}")
                 .isMappedTo("myDelegateDoSomethingElse"))
-        .map(
-            data ->
-                DynamicContainer.dynamicContainer(
-                    "Expression to "
-                        + data.getTransformationType()
-                        + ": "
-                        + data.getResult().juelExpression(),
-                    data.getTests()));
+        .map(data ->
+            DynamicContainer.dynamicContainer(
+                "Expression to "
+                    + data.getTransformationType()
+                    + ": "
+                    + data.getResult().juelExpression(),
+                data.getTests()));
   }
 
   private enum TransformationType {
