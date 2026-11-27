@@ -4,7 +4,6 @@ camunda:
     c7:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:mariadb://localhost:33062/process-engine
         username: camunda
         password: camunda
         driver-class-name: org.mariadb.jdbc.Driver
@@ -22,7 +21,6 @@ camunda:
     c8:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:mariadb://localhost:33062/process-engine
         username: camunda
         password: camunda
         driver-class-name: org.mariadb.jdbc.Driver

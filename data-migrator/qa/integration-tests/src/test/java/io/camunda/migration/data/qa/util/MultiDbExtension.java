@@ -27,25 +27,16 @@ import org.testcontainers.utility.DockerImageName;
 
 public class MultiDbExtension implements BeforeAllCallback {
 
-  public static final int POSTGRESQL_PORT = 55432;
-  public static final int POSTGRESQL_15_PORT = 55433;
-  public static final int ORACLE_PORT = 15432;
-  public static final int ORACLE_19_PORT = 15433;
-  public static final int MYSQL_PORT = 33061;
-  public static final int MARIADB_PORT = 33062;
-  public static final int MARIADB_10_PORT = 33063;
-  public static final int SQLSERVER_PORT = 14331;
-  
   /**
    * Cross-vendor profiles that require more than one database container: the profile name is
-   * mapped to the container keys it needs, in the order they are started.
+   * mapped to its C7 and C8 container keys, in that order.
    */
   protected static final Map<String, List<String>> CROSS_VENDOR_PROFILES =
       Map.of("sqlserver-to-postgresql", List.of("sqlserver", "postgresql"));
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(MultiDbExtension.class);
   protected static Map<String, JdbcDatabaseContainer<?>> containers = createContainers();
-  
+
   static { // Start db container before initializing Spring context
     startContainer();
   }
@@ -77,6 +68,33 @@ public class MultiDbExtension implements BeforeAllCallback {
         container.start();
       }
     }
+    if (!"default".equals(dbProfile)) {
+      setDataSourceJdbcUrls(containerKeys);
+    }
+  }
+
+  protected static void setDataSourceJdbcUrls(List<String> containerKeys) {
+    System.setProperty(
+        MigratorProperties.PREFIX + ".c7.data-source.jdbc-url",
+        getJdbcUrl(containerKeys.get(0)));
+    System.setProperty(
+        MigratorProperties.PREFIX + ".c8.data-source.jdbc-url",
+        getJdbcUrl(containerKeys.get(containerKeys.size() - 1)));
+  }
+
+  /**
+   * Returns the JDBC URL for a started database container.
+   *
+   * @param containerKey the key used in the container registry
+   * @return the container's JDBC URL, including its mapped host port
+   * @throws IllegalArgumentException if the container key is unknown
+   */
+  public static String getJdbcUrl(String containerKey) {
+    JdbcDatabaseContainer<?> container = containers.get(containerKey);
+    if (container == null) {
+      throw new IllegalArgumentException("Unknown database container [" + containerKey + "]");
+    }
+    return container.getJdbcUrl();
   }
 
   protected static PostgreSQLContainer createPostgreSQLContainer() {
@@ -87,7 +105,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withReuse(true)
         .withCommand("postgres", "-c", "max_connections=200")
         .withExposedPorts(5432);
-    postgres.setPortBindings(List.of(POSTGRESQL_PORT + ":5432"));
     return postgres;
   }
 
@@ -99,7 +116,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withReuse(true)
         .withCommand("postgres", "-c", "max_connections=200")
         .withExposedPorts(5432);
-    postgres.setPortBindings(List.of(POSTGRESQL_15_PORT + ":5432"));
     return postgres;
   }
 
@@ -110,7 +126,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withPassword("camunda")
         .withReuse(true)
         .withExposedPorts(1521);
-    oracle.setPortBindings(List.of(ORACLE_PORT + ":1521"));
     return oracle;
   }
 
@@ -123,7 +138,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withPassword("camunda")
         .withReuse(true)
         .withExposedPorts(1521);
-    oracle.setPortBindings(List.of(ORACLE_19_PORT + ":1521"));
     return oracle;
   }
 
@@ -134,7 +148,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withPassword("camunda")
         .withConfigurationOverride("mysql-conf")
         .withExposedPorts(3306);
-    mysql.setPortBindings(List.of(MYSQL_PORT + ":3306"));
     return mysql;
   }
 
@@ -145,7 +158,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withPassword("camunda")
         .withConfigurationOverride("mariadb-conf")
         .withExposedPorts(3306);
-    mariadb.setPortBindings(List.of(MARIADB_PORT + ":3306"));
     return mariadb;
   }
 
@@ -158,7 +170,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withUrlParam("sslMode", "disable")
         .withConfigurationOverride("mariadb-conf")
         .withExposedPorts(3306);
-    mariadb.setPortBindings(List.of(MARIADB_10_PORT + ":3306"));
     return mariadb;
   }
 
@@ -167,7 +178,6 @@ public class MultiDbExtension implements BeforeAllCallback {
         .withPassword("Camunda123!")
         .withExposedPorts(1433)
         .acceptLicense();
-    sqlserver.setPortBindings(List.of(SQLSERVER_PORT + ":1433"));
     return sqlserver;
   }
 
