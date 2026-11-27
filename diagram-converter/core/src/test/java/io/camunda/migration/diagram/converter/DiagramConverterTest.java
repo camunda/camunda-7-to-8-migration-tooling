@@ -813,12 +813,11 @@ public class DiagramConverterTest {
         .anyMatch(m -> m.contains("${jobPriority}") && m.contains("=jobPriority"));
     assertThat(result.getResult("JobPriorityProcess").getMessages())
         .extracting(ElementCheckMessage::getMessage)
-        .anyMatch(
-            m ->
-                m.contains("Both 'camunda:jobPriority'")
-                    && m.contains("'50'")
-                    && m.contains("'70'")
-                    && m.contains("used 'taskPriority'"));
+        .anyMatch(m ->
+            m.contains("Both 'camunda:jobPriority'")
+                && m.contains("'50'")
+                && m.contains("'70'")
+                && m.contains("used 'taskPriority'"));
     assertThat(result.getResult("ServiceTaskLiteral").getMessages())
         .extracting(ElementCheckMessage::getMessage)
         .anyMatch(m -> m.contains("mapped into a single Camunda 8 priority range"));
@@ -892,11 +891,10 @@ public class DiagramConverterTest {
               "priority-not-migrated message expected for element '%s' with priority '%s'",
               carrier.id(), carrier.priority())
           .extracting(ElementCheckMessage::getMessage)
-          .anyMatch(
-              m ->
-                  m.contains("was not migrated")
-                      && m.contains("'" + carrier.id() + "'")
-                      && m.contains(carrier.priorityMessageFragment()));
+          .anyMatch(m ->
+              m.contains("was not migrated")
+                  && m.contains("'" + carrier.id() + "'")
+                  && m.contains(carrier.priorityMessageFragment()));
     }
   }
 
