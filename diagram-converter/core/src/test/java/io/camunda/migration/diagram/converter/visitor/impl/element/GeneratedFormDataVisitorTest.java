@@ -41,34 +41,30 @@ class GeneratedFormDataVisitorTest {
 
     assertThat(result.getResult(ownerId).getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-data");
-              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
-              assertThat(message.getMessage())
-                  .isEqualTo(
-                      "Element '%s' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually."
-                          .formatted(generatedFormElement));
-              assertThat(message.getLink())
-                  .isEqualTo(
-                      "https://docs.camunda.io/docs/components/modeler/forms/utilizing-forms/");
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-data");
+          assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+          assertThat(message.getMessage())
+              .isEqualTo(
+                  "Element '%s' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually."
+                      .formatted(generatedFormElement));
+          assertThat(message.getLink())
+              .isEqualTo("https://docs.camunda.io/docs/components/modeler/forms/utilizing-forms/");
+        });
 
     DomElement owner = modelInstance.getDocument().getElementById(ownerId);
     assertThat(owner.getChildElementsByNameNs(BPMN, "extensionElements"))
         .singleElement()
-        .satisfies(
-            extensionElements ->
-                assertThat(extensionElements.getChildElementsByNameNs(CONVERSION, "message"))
-                    .singleElement()
-                    .satisfies(
-                        message -> {
-                          assertThat(message.getAttribute("severity")).isEqualTo("TASK");
-                          assertThat(message.getTextContent())
-                              .isEqualTo(
-                                  "Element '%s' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually."
-                                      .formatted(generatedFormElement));
-                        }));
+        .satisfies(extensionElements ->
+            assertThat(extensionElements.getChildElementsByNameNs(CONVERSION, "message"))
+                .singleElement()
+                .satisfies(message -> {
+                  assertThat(message.getAttribute("severity")).isEqualTo("TASK");
+                  assertThat(message.getTextContent())
+                      .isEqualTo(
+                          "Element '%s' cannot be transformed. Migrate this Generated Task Form to a Camunda 8 form and link it manually."
+                              .formatted(generatedFormElement));
+                }));
   }
 
   private static Stream<Arguments> generatedForms() {

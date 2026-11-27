@@ -43,11 +43,10 @@ public class ConvertEngineCommandTest {
         .getRepositoryService()
         .createDeploymentQuery()
         .list()
-        .forEach(
-            deployment ->
-                processEngine
-                    .getRepositoryService()
-                    .deleteDeployment(deployment.getId(), true, true, true));
+        .forEach(deployment ->
+            processEngine
+                .getRepositoryService()
+                .deleteDeployment(deployment.getId(), true, true, true));
   }
 
   @Test
@@ -134,10 +133,9 @@ public class ConvertEngineCommandTest {
           .extracting(File::getName)
           .containsExactly("converted-c8-c7.bpmn");
       assertThat(listAppender.list)
-          .anyMatch(
-              event ->
-                  event.getFormattedMessage().contains("c8.bpmn")
-                      && event.getFormattedMessage().contains("Problem while converting"));
+          .anyMatch(event ->
+              event.getFormattedMessage().contains("c8.bpmn")
+                  && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
       listAppender.stop();

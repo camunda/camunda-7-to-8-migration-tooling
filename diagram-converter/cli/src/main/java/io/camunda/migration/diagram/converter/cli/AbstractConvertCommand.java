@@ -372,11 +372,10 @@ public abstract class AbstractConvertCommand implements Callable<Integer> {
         .flatMap(diagramType -> diagramType.getFileEndings().stream())
         .filter(fileName::endsWith)
         .max(Comparator.comparingInt(String::length))
-        .orElseGet(
-            () -> {
-              String extension = FilenameUtils.getExtension(fileName);
-              return extension.isEmpty() ? "" : "." + extension;
-            });
+        .orElseGet(() -> {
+          String extension = FilenameUtils.getExtension(fileName);
+          return extension.isEmpty() ? "" : "." + extension;
+        });
   }
 
   protected String createMessage(Exception e) {

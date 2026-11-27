@@ -46,19 +46,16 @@ public class ConversionElementAppender {
   public void appendReferences(DomElement element, List<String> references) {
     if (!references.isEmpty()) {
       DomElement extensionElements = getExtensionElements(element);
-      references.forEach(
-          reference ->
-              extensionElements.appendChild(createReference(reference, element.getDocument())));
+      references.forEach(reference ->
+          extensionElements.appendChild(createReference(reference, element.getDocument())));
     }
   }
 
   public void appendReferencedBy(DomElement element, List<String> referencedBys) {
     if (!referencedBys.isEmpty()) {
       DomElement extensionElements = getExtensionElements(element);
-      referencedBys.forEach(
-          referencedBy ->
-              extensionElements.appendChild(
-                  createReferencedBy(referencedBy, element.getDocument())));
+      referencedBys.forEach(referencedBy ->
+          extensionElements.appendChild(createReferencedBy(referencedBy, element.getDocument())));
     }
   }
 

@@ -474,10 +474,9 @@ public class ConvertLocalCommandTest {
       Integer call = command.call();
       assertEquals(1, call);
       assertThat(listAppender.list)
-          .anyMatch(
-              event ->
-                  event.getFormattedMessage().contains(expectedPath)
-                      && event.getFormattedMessage().contains("Problem while converting"));
+          .anyMatch(event ->
+              event.getFormattedMessage().contains(expectedPath)
+                  && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
       listAppender.stop();
@@ -498,10 +497,9 @@ public class ConvertLocalCommandTest {
       Integer call = command.call();
       assertEquals(1, call);
       assertThat(listAppender.list)
-          .anyMatch(
-              event ->
-                  event.getFormattedMessage().contains(expectedPath)
-                      && event.getFormattedMessage().contains("Problem while converting"));
+          .anyMatch(event ->
+              event.getFormattedMessage().contains(expectedPath)
+                  && event.getFormattedMessage().contains("Problem while converting"));
     } finally {
       cliLogger.detachAppender(listAppender);
       listAppender.stop();
