@@ -62,32 +62,31 @@ public class UpgradeSchemaTest {
         .orElse("h2");
 
     // Configure database connection based on active profile
-    // For non-H2 databases, use the ports exposed by MultiDbExtension
+    // For non-H2 databases, use the JDBC URLs exposed by MultiDbExtension
     switch (activeProfile) {
       case "postgresql":
-        dbConfig = createPostgreSqlConfig(MultiDbExtension.POSTGRESQL_PORT);
+        dbConfig = createPostgreSqlConfig(MultiDbExtension.getJdbcUrl("postgresql"));
         break;
       case "postgresql-15":
-        dbConfig = createPostgreSqlConfig(MultiDbExtension.POSTGRESQL_15_PORT);
+        dbConfig = createPostgreSqlConfig(MultiDbExtension.getJdbcUrl("postgresql-15"));
         break;
       case "oracle":
-        dbConfig = createOracleConfig(MultiDbExtension.ORACLE_PORT);
+        dbConfig = createOracleConfig(MultiDbExtension.getJdbcUrl("oracle"));
         break;
       case "oracle-19":
-        dbConfig = createOracleConfig(MultiDbExtension.ORACLE_19_PORT);
+        dbConfig = createOracleConfig(MultiDbExtension.getJdbcUrl("oracle-19"));
         break;
       case "mysql":
-        dbConfig = createMySqlConfig(MultiDbExtension.MYSQL_PORT);
+        dbConfig = createMySqlConfig(MultiDbExtension.getJdbcUrl("mysql"));
         break;
       case "mariadb":
-        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_PORT, "");
+        dbConfig = createMariaDbConfig(MultiDbExtension.getJdbcUrl("mariadb"));
         break;
       case "mariadb-10":
-        // MariaDB 10.6 ships without TLS, but Connector/J 4 requires TLS by default.
-        dbConfig = createMariaDbConfig(MultiDbExtension.MARIADB_10_PORT, "?sslMode=disable");
+        dbConfig = createMariaDbConfig(MultiDbExtension.getJdbcUrl("mariadb-10"));
         break;
       case "sqlserver":
-        dbConfig = createSqlServerConfig(MultiDbExtension.SQLSERVER_PORT);
+        dbConfig = createSqlServerConfig(MultiDbExtension.getJdbcUrl("sqlserver"));
         break;
       default: // h2
         dbConfig = createH2Config();
@@ -327,12 +326,12 @@ public class UpgradeSchemaTest {
   /**
    * Creates a PostgreSQL database configuration.
    *
-   * @param port the port number for the PostgreSQL instance
+   * @param jdbcUrl the JDBC URL for the PostgreSQL instance
    * @return the database configuration
    */
-  protected static DatabaseConfig createPostgreSqlConfig(int port) {
+  protected static DatabaseConfig createPostgreSqlConfig(String jdbcUrl) {
     return new DatabaseConfig(
-        "jdbc:postgresql://localhost:" + port + "/process-engine",
+        jdbcUrl,
         "camunda",
         "camunda",
         "org.postgresql.Driver"
@@ -342,12 +341,12 @@ public class UpgradeSchemaTest {
   /**
    * Creates an Oracle database configuration.
    *
-   * @param port the port number for the Oracle instance
+   * @param jdbcUrl the JDBC URL for the Oracle instance
    * @return the database configuration
    */
-  protected static DatabaseConfig createOracleConfig(int port) {
+  protected static DatabaseConfig createOracleConfig(String jdbcUrl) {
     return new DatabaseConfig(
-        "jdbc:oracle:thin:@localhost:" + port + "/ORCLDB",
+        jdbcUrl,
         "camunda",
         "camunda",
         "oracle.jdbc.OracleDriver"
@@ -357,12 +356,12 @@ public class UpgradeSchemaTest {
   /**
    * Creates a MySQL database configuration.
    *
-   * @param port the port number for the MySQL instance
+   * @param jdbcUrl the JDBC URL for the MySQL instance
    * @return the database configuration
    */
-  protected static DatabaseConfig createMySqlConfig(int port) {
+  protected static DatabaseConfig createMySqlConfig(String jdbcUrl) {
     return new DatabaseConfig(
-        "jdbc:mysql://localhost:" + port + "/process-engine",
+        jdbcUrl,
         "camunda",
         "camunda",
         "com.mysql.cj.jdbc.Driver"
@@ -372,13 +371,12 @@ public class UpgradeSchemaTest {
   /**
    * Creates a MariaDB database configuration.
    *
-   * @param port the port number for the MariaDB instance
-   * @param urlParams JDBC URL query string appended to the URL, or empty
+   * @param jdbcUrl the JDBC URL for the MariaDB instance
    * @return the database configuration
    */
-  protected static DatabaseConfig createMariaDbConfig(int port, String urlParams) {
+  protected static DatabaseConfig createMariaDbConfig(String jdbcUrl) {
     return new DatabaseConfig(
-        "jdbc:mariadb://localhost:" + port + "/process-engine" + urlParams,
+        jdbcUrl,
         "camunda",
         "camunda",
         "org.mariadb.jdbc.Driver"
@@ -388,12 +386,12 @@ public class UpgradeSchemaTest {
   /**
    * Creates a SQL Server database configuration.
    *
-   * @param port the port number for the SQL Server instance
+   * @param jdbcUrl the JDBC URL for the SQL Server instance
    * @return the database configuration
    */
-  protected static DatabaseConfig createSqlServerConfig(int port) {
+  protected static DatabaseConfig createSqlServerConfig(String jdbcUrl) {
     return new DatabaseConfig(
-        "jdbc:sqlserver://localhost:" + port + ";encrypt=true;trustServerCertificate=true",
+        jdbcUrl,
         "sa",
         "Camunda123!",
         "com.microsoft.sqlserver.jdbc.SQLServerDriver"

@@ -5,7 +5,6 @@ camunda:
     c7:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:sqlserver://localhost:14331;databaseName=master;encrypt=false;trustServerCertificate=true
         username: sa
         password: Camunda123!
         driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
@@ -23,7 +22,6 @@ camunda:
     c8:
       data-source:
         auto-ddl: true
-        jdbc-url: jdbc:postgresql://localhost:55432/process-engine
         username: camunda
         password: camunda
         driver-class-name: org.postgresql.Driver
