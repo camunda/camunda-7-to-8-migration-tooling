@@ -28,8 +28,9 @@ public final class CamundaClusterHealthCheck {
   public static void awaitHealthy(BooleanSupplier healthCheck) {
     Awaitility.await()
         .atMost(HEALTH_CHECK_TIMEOUT)
+        .pollDelay(Duration.ZERO)
         .pollInterval(HEALTH_CHECK_INTERVAL)
-        .ignoreException(ClientException.class)
+        .ignoreExceptionsInstanceOf(ClientException.class)
         .until(healthCheck::getAsBoolean);
   }
 
