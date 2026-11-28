@@ -29,7 +29,6 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
 @WithMultiDb
-@WithSpringProfile("history-level-full")
 public class MultiDbExtensionTest {
 
   protected static final Set<String> DATABASE_PROFILES =
@@ -49,25 +48,41 @@ public class MultiDbExtensionTest {
 
   @Test
   public void shouldUseMappedJdbcUrlsForActiveProfile() {
+    assertThat(environment.getActiveProfiles()).doesNotContain("history-level-full");
+
     String dbProfile = SpringProfileResolver.getActiveProfiles().stream()
         .filter(DATABASE_PROFILES::contains)
         .findFirst()
         .orElse("h2");
     String c7JdbcUrlProperty = MigratorProperties.PREFIX + ".c7.data-source.jdbc-url";
     String c8JdbcUrlProperty = MigratorProperties.PREFIX + ".c8.data-source.jdbc-url";
+    String c7UsernameProperty = MigratorProperties.PREFIX + ".c7.data-source.username";
+    String c8UsernameProperty = MigratorProperties.PREFIX + ".c8.data-source.username";
+    String c7PasswordProperty = MigratorProperties.PREFIX + ".c7.data-source.password";
+    String c8PasswordProperty = MigratorProperties.PREFIX + ".c8.data-source.password";
 
     if ("h2".equals(dbProfile)) {
       assertThat(environment.getProperty(c7JdbcUrlProperty)).startsWith("jdbc:h2:");
       assertThat(environment.getProperty(c8JdbcUrlProperty)).startsWith("jdbc:h2:");
+      assertThat(environment.getProperty(c7UsernameProperty)).isEqualTo("sa");
+      assertThat(environment.getProperty(c8UsernameProperty)).isEqualTo("sa");
+      assertThat(environment.getProperty(c7PasswordProperty)).isEqualTo("sa");
+      assertThat(environment.getProperty(c8PasswordProperty)).isEqualTo("sa");
       return;
     }
 
     String c7ContainerKey = "sqlserver-to-postgresql".equals(dbProfile) ? "sqlserver" : dbProfile;
     String c8ContainerKey = "sqlserver-to-postgresql".equals(dbProfile) ? "postgresql" : dbProfile;
+    JdbcDatabaseContainer<?> c7Container = MultiDbExtension.getContainer(c7ContainerKey);
+    JdbcDatabaseContainer<?> c8Container = MultiDbExtension.getContainer(c8ContainerKey);
     assertThat(environment.getProperty(c7JdbcUrlProperty))
-        .isEqualTo(MultiDbExtension.getJdbcUrl(c7ContainerKey));
+        .isEqualTo(c7Container.getJdbcUrl());
     assertThat(environment.getProperty(c8JdbcUrlProperty))
-        .isEqualTo(MultiDbExtension.getJdbcUrl(c8ContainerKey));
+        .isEqualTo(c8Container.getJdbcUrl());
+    assertThat(environment.getProperty(c7UsernameProperty)).isEqualTo(c7Container.getUsername());
+    assertThat(environment.getProperty(c8UsernameProperty)).isEqualTo(c8Container.getUsername());
+    assertThat(environment.getProperty(c7PasswordProperty)).isEqualTo(c7Container.getPassword());
+    assertThat(environment.getProperty(c8PasswordProperty)).isEqualTo(c8Container.getPassword());
   }
 
   @Test
@@ -76,17 +91,29 @@ public class MultiDbExtensionTest {
     PostgreSQLContainer c8Container = mock(PostgreSQLContainer.class);
     when(c7Container.getJdbcUrl()).thenReturn("jdbc:postgresql://c7/process-engine");
     when(c7Container.getDriverClassName()).thenReturn("c7.Driver");
+    when(c7Container.getUsername()).thenReturn("c7-user");
+    when(c7Container.getPassword()).thenReturn("c7-password");
     when(c8Container.getJdbcUrl()).thenReturn("jdbc:postgresql://c8/process-engine");
     when(c8Container.getDriverClassName()).thenReturn("c8.Driver");
+    when(c8Container.getUsername()).thenReturn("c8-user");
+    when(c8Container.getPassword()).thenReturn("c8-password");
 
     String c7JdbcUrlProperty = MigratorProperties.PREFIX + ".c7.data-source.jdbc-url";
     String c8JdbcUrlProperty = MigratorProperties.PREFIX + ".c8.data-source.jdbc-url";
     String c7DriverProperty = MigratorProperties.PREFIX + ".c7.data-source.driver-class-name";
     String c8DriverProperty = MigratorProperties.PREFIX + ".c8.data-source.driver-class-name";
+    String c7UsernameProperty = MigratorProperties.PREFIX + ".c7.data-source.username";
+    String c8UsernameProperty = MigratorProperties.PREFIX + ".c8.data-source.username";
+    String c7PasswordProperty = MigratorProperties.PREFIX + ".c7.data-source.password";
+    String c8PasswordProperty = MigratorProperties.PREFIX + ".c8.data-source.password";
     String originalC7JdbcUrl = System.getProperty(c7JdbcUrlProperty);
     String originalC8JdbcUrl = System.getProperty(c8JdbcUrlProperty);
     String originalC7Driver = System.getProperty(c7DriverProperty);
     String originalC8Driver = System.getProperty(c8DriverProperty);
+    String originalC7Username = System.getProperty(c7UsernameProperty);
+    String originalC8Username = System.getProperty(c8UsernameProperty);
+    String originalC7Password = System.getProperty(c7PasswordProperty);
+    String originalC8Password = System.getProperty(c8PasswordProperty);
     Map<String, JdbcDatabaseContainer<?>> originalContainers = MultiDbExtension.containers;
 
     try {
@@ -99,12 +126,20 @@ public class MultiDbExtensionTest {
           .isEqualTo("jdbc:postgresql://c8/process-engine");
       assertThat(System.getProperty(c7DriverProperty)).isEqualTo("c7.Driver");
       assertThat(System.getProperty(c8DriverProperty)).isEqualTo("c8.Driver");
+      assertThat(System.getProperty(c7UsernameProperty)).isEqualTo("c7-user");
+      assertThat(System.getProperty(c8UsernameProperty)).isEqualTo("c8-user");
+      assertThat(System.getProperty(c7PasswordProperty)).isEqualTo("c7-password");
+      assertThat(System.getProperty(c8PasswordProperty)).isEqualTo("c8-password");
     } finally {
       MultiDbExtension.containers = originalContainers;
       restoreSystemProperty(c7JdbcUrlProperty, originalC7JdbcUrl);
       restoreSystemProperty(c8JdbcUrlProperty, originalC8JdbcUrl);
       restoreSystemProperty(c7DriverProperty, originalC7Driver);
       restoreSystemProperty(c8DriverProperty, originalC8Driver);
+      restoreSystemProperty(c7UsernameProperty, originalC7Username);
+      restoreSystemProperty(c8UsernameProperty, originalC8Username);
+      restoreSystemProperty(c7PasswordProperty, originalC7Password);
+      restoreSystemProperty(c8PasswordProperty, originalC8Password);
     }
   }
 

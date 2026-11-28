@@ -83,6 +83,8 @@ public class MultiDbExtension implements BeforeAllCallback {
     String propertyPrefix = MigratorProperties.PREFIX + "." + dataSource + ".data-source.";
     System.setProperty(propertyPrefix + "jdbc-url", container.getJdbcUrl());
     System.setProperty(propertyPrefix + "driver-class-name", container.getDriverClassName());
+    System.setProperty(propertyPrefix + "username", container.getUsername());
+    System.setProperty(propertyPrefix + "password", container.getPassword());
   }
 
   /**
