@@ -59,13 +59,12 @@ class FormCheckerTest {
     assertThat(element.getElementId()).isEqualTo("myForm");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-schema-version-outdated");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-              assertThat(message.getMessage()).contains("16").contains("18");
-              assertThat(message.getLink()).isNotBlank();
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-schema-version-outdated");
+          assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+          assertThat(message.getMessage()).contains("16").contains("18");
+          assertThat(message.getLink()).isNotBlank();
+        });
   }
 
   @Test
@@ -85,11 +84,10 @@ class FormCheckerTest {
     assertThat(result.getResults()).hasSize(1);
     assertThat(result.getResults().get(0).getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-schema-version-missing");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-schema-version-missing");
+          assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+        });
   }
 
   @Test
@@ -112,11 +110,10 @@ class FormCheckerTest {
         .isEqualTo(FormChecker.FORM_ELEMENT_TYPE);
     assertThat(result.getResults().get(0).getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-already-camunda-8");
-              assertThat(message.getSeverity()).isEqualTo(Severity.INFO);
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-already-camunda-8");
+          assertThat(message.getSeverity()).isEqualTo(Severity.INFO);
+        });
   }
 
   @Test
@@ -148,24 +145,22 @@ class FormCheckerTest {
     assertThat(element.getElementName()).isEqualTo("Hello ${customerName}");
     assertThat(element.getMessages())
         .hasSize(2)
-        .anySatisfy(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-juel-expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
-              assertThat(message.getMessage())
-                  .contains("${customerName}")
-                  .contains("label")
-                  .contains("Migrate this expression manually.");
-            })
-        .anySatisfy(
-            message -> {
-              assertThat(message.getId()).isEqualTo("expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-              assertThat(message.getMessage())
-                  .contains("#{defaultGreeting}")
-                  .contains("= defaultGreeting")
-                  .contains("defaultValue");
-            });
+        .anySatisfy(message -> {
+          assertThat(message.getId()).isEqualTo("form-juel-expression");
+          assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+          assertThat(message.getMessage())
+              .contains("${customerName}")
+              .contains("label")
+              .contains("Migrate this expression manually.");
+        })
+        .anySatisfy(message -> {
+          assertThat(message.getId()).isEqualTo("expression");
+          assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+          assertThat(message.getMessage())
+              .contains("#{defaultGreeting}")
+              .contains("= defaultGreeting")
+              .contains("defaultValue");
+        });
   }
 
   @Test
@@ -222,14 +217,13 @@ class FormCheckerTest {
     assertThat(element.getElementId()).isEqualTo("choice");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("expression");
-              assertThat(message.getMessage())
-                  .contains("${optionA}")
-                  .contains("= optionA")
-                  .contains("values");
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("expression");
+          assertThat(message.getMessage())
+              .contains("${optionA}")
+              .contains("= optionA")
+              .contains("values");
+        });
   }
 
   @Test
@@ -259,12 +253,11 @@ class FormCheckerTest {
     assertThat(element.getElementType()).isEqualTo("camunda7-legacy-widget");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-component-unknown");
-              assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
-              assertThat(message.getMessage()).contains("camunda7-legacy-widget");
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-component-unknown");
+          assertThat(message.getSeverity()).isEqualTo(Severity.REVIEW);
+          assertThat(message.getMessage()).contains("camunda7-legacy-widget");
+        });
   }
 
   @Test
@@ -299,12 +292,11 @@ class FormCheckerTest {
     assertThat(element.getElementId()).isEqualTo("nested");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-juel-expression");
-              assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
-              assertThat(message.getMessage()).contains("Migrate this expression manually.");
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-juel-expression");
+          assertThat(message.getSeverity()).isEqualTo(Severity.TASK);
+          assertThat(message.getMessage()).contains("Migrate this expression manually.");
+        });
   }
 
   @Test
@@ -357,11 +349,10 @@ class FormCheckerTest {
     assertThat(element.getElementType()).isEqualTo("unknown");
     assertThat(element.getMessages())
         .singleElement()
-        .satisfies(
-            message -> {
-              assertThat(message.getId()).isEqualTo("form-component-unknown");
-              assertThat(message.getMessage()).contains("missing");
-            });
+        .satisfies(message -> {
+          assertThat(message.getId()).isEqualTo("form-component-unknown");
+          assertThat(message.getMessage()).contains("missing");
+        });
   }
 
   @Test

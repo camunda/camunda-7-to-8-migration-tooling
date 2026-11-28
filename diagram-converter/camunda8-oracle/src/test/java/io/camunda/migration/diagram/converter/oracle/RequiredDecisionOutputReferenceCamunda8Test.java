@@ -129,21 +129,17 @@ class RequiredDecisionOutputReferenceCamunda8Test {
     List<String> ambiguous = new ArrayList<>();
     result
         .getResults()
-        .forEach(
-            r ->
-                r.getMessages().stream()
-                    .map(DiagramCheckResult.ElementCheckMessage::getMessage)
-                    .filter(m -> m.contains("references '"))
-                    .forEach(
-                        m -> {
-                          if (FINDING.matcher(m).find()) {
-                            findings
-                                .computeIfAbsent(r.getElementId(), k -> new ArrayList<>())
-                                .add(m);
-                          } else {
-                            ambiguous.add(m);
-                          }
-                        }));
+        .forEach(r ->
+            r.getMessages().stream()
+                .map(DiagramCheckResult.ElementCheckMessage::getMessage)
+                .filter(m -> m.contains("references '"))
+                .forEach(m -> {
+                  if (FINDING.matcher(m).find()) {
+                    findings.computeIfAbsent(r.getElementId(), k -> new ArrayList<>()).add(m);
+                  } else {
+                    ambiguous.add(m);
+                  }
+                }));
     return new Conversion(
         converted.toString(), applyFindings(converted.toString(), findings), findings, ambiguous);
   }
@@ -155,22 +151,21 @@ class RequiredDecisionOutputReferenceCamunda8Test {
    */
   private static String applyFindings(String xml, Map<String, List<String>> findings) {
     Document document = parse(xml);
-    findings.forEach(
-        (elementId, messages) -> {
-          Element element = byId(document, elementId);
-          assertThat(element).as("reported element %s", elementId).isNotNull();
-          Element text = firstChild(element, "text");
-          Map<String, String> replacements = new LinkedHashMap<>();
-          for (String message : messages) {
-            Matcher matcher = FINDING.matcher(message);
-            assertThat(matcher.find()).isTrue();
-            replacements.put(matcher.group("name"), matcher.group("use"));
-            if (matcher.group("require") != null) {
-              addRequirement(enclosingDecision(element), matcher.group("require"));
-            }
-          }
-          text.setTextContent(replace(text.getTextContent(), replacements));
-        });
+    findings.forEach((elementId, messages) -> {
+      Element element = byId(document, elementId);
+      assertThat(element).as("reported element %s", elementId).isNotNull();
+      Element text = firstChild(element, "text");
+      Map<String, String> replacements = new LinkedHashMap<>();
+      for (String message : messages) {
+        Matcher matcher = FINDING.matcher(message);
+        assertThat(matcher.find()).isTrue();
+        replacements.put(matcher.group("name"), matcher.group("use"));
+        if (matcher.group("require") != null) {
+          addRequirement(enclosingDecision(element), matcher.group("require"));
+        }
+      }
+      text.setTextContent(replace(text.getTextContent(), replacements));
+    });
     return print(document);
   }
 

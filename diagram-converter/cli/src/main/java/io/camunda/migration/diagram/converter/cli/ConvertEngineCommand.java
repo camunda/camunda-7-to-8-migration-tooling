@@ -81,35 +81,32 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
       Map<String, Map<String, Set<String>>> diagrams,
       DiagramType diagramType,
       Map<File, ModelInstance> result) {
-    diagrams.forEach(
-        (resourceName, models) ->
-            models.forEach(
-                (model, processDefinitionKeys) -> {
-                  try {
-                    String resourceFilename =
-                        resourceName == null ? "" : FilenameUtils.getName(resourceName);
-                    String filename =
-                        models.size() == 1
-                            ? resourceFilename
-                            : multiModelFilename(
-                                resourceFilename, processDefinitionKeys, diagramType);
-                    filename = FilenameUtils.getName(filename);
-                    filename = safeFilename(filename, diagramType);
-                    File outputFile = uniqueOutputFile(filename, diagramType, result);
-                    result.put(
-                        outputFile,
-                        diagramType.readDiagram(
-                            new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
-                  } catch (Exception e) {
-                    LOG_CLI.error(
-                        "Problem while reading {} diagram '{}' for process definitions {}: {}",
-                        diagramType,
-                        resourceName,
-                        processDefinitionKeys,
-                        createMessage(e));
-                    returnCode = 1;
-                  }
-                }));
+    diagrams.forEach((resourceName, models) ->
+        models.forEach((model, processDefinitionKeys) -> {
+          try {
+            String resourceFilename =
+                resourceName == null ? "" : FilenameUtils.getName(resourceName);
+            String filename =
+                models.size() == 1
+                    ? resourceFilename
+                    : multiModelFilename(resourceFilename, processDefinitionKeys, diagramType);
+            filename = FilenameUtils.getName(filename);
+            filename = safeFilename(filename, diagramType);
+            File outputFile = uniqueOutputFile(filename, diagramType, result);
+            result.put(
+                outputFile,
+                diagramType.readDiagram(
+                    new ByteArrayInputStream(model.getBytes(StandardCharsets.UTF_8))));
+          } catch (Exception e) {
+            LOG_CLI.error(
+                "Problem while reading {} diagram '{}' for process definitions {}: {}",
+                diagramType,
+                resourceName,
+                processDefinitionKeys,
+                createMessage(e));
+            returnCode = 1;
+          }
+        }));
   }
 
   static String safeFilename(String filename, DiagramType diagramType) {
@@ -141,11 +138,10 @@ public class ConvertEngineCommand extends AbstractConvertCommand {
     return diagramType.getFileEndings().stream()
         .filter(filename::endsWith)
         .findFirst()
-        .orElseGet(
-            () -> {
-              String extension = FilenameUtils.getExtension(filename);
-              return extension.isEmpty() ? "" : "." + extension;
-            });
+        .orElseGet(() -> {
+          String extension = FilenameUtils.getExtension(filename);
+          return extension.isEmpty() ? "" : "." + extension;
+        });
   }
 
   private File uniqueOutputFile(

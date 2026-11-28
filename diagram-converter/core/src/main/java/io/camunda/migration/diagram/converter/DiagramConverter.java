@@ -112,37 +112,33 @@ public class DiagramConverter {
         .forEach(element -> element.getParentElement().removeChild(element));
     context
         .getAttributesToRemove()
-        .forEach(
-            (element, stringSetMap) ->
-                stringSetMap.forEach(
-                    (namespaceUri, attributes) ->
-                        attributes.forEach(
-                            attribute -> element.removeAttribute(namespaceUri, attribute))));
+        .forEach((element, stringSetMap) ->
+            stringSetMap.forEach((namespaceUri, attributes) ->
+                attributes.forEach(attribute -> element.removeAttribute(namespaceUri, attribute))));
     LOG.info("Done remove of old elements");
     LOG.info("Start conversion");
     ConversionElementAppender conversionElementAppender = new ConversionElementAppender();
     context
         .getConvertibles()
-        .forEach(
-            (element, convertible) -> {
-              List<ElementCheckMessage> messages = getMessages(element, result);
-              List<String> references = getReferences(element, result);
-              List<String> referencedBys = getReferencedBys(element, result);
-              if (properties.getAppendElements()) {
-                conversionElementAppender.appendMessages(element, messages);
-                conversionElementAppender.appendReferences(element, references);
-                conversionElementAppender.appendReferencedBy(element, referencedBys);
-              }
-              if ((Boolean.TRUE.equals(properties.getAppendDocumentation())
-                      || Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()))
-                  && isBpmn(rootElement.getDocument())) {
-                conversionElementAppender.appendDocumentation(
-                    element,
-                    collectMessages(result, messages, references),
-                    Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()));
-              }
-              conversions.forEach(conversion -> conversion.convert(element, convertible, messages));
-            });
+        .forEach((element, convertible) -> {
+          List<ElementCheckMessage> messages = getMessages(element, result);
+          List<String> references = getReferences(element, result);
+          List<String> referencedBys = getReferencedBys(element, result);
+          if (properties.getAppendElements()) {
+            conversionElementAppender.appendMessages(element, messages);
+            conversionElementAppender.appendReferences(element, references);
+            conversionElementAppender.appendReferencedBy(element, referencedBys);
+          }
+          if ((Boolean.TRUE.equals(properties.getAppendDocumentation())
+                  || Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()))
+              && isBpmn(rootElement.getDocument())) {
+            conversionElementAppender.appendDocumentation(
+                element,
+                collectMessages(result, messages, references),
+                Boolean.TRUE.equals(properties.getAppendDocumentationOnlyTaskAndWarning()));
+          }
+          conversions.forEach(conversion -> conversion.convert(element, convertible, messages));
+        });
     removeUnusedCamundaNamespaceDeclarations(rootElement.getDocument());
     LOG.info("Done with conversion");
     return result;
@@ -362,57 +358,49 @@ public class DiagramConverter {
 
   private MustacheContext createContext(List<DiagramCheckResult> results) {
     List<MustacheResultContext> contexts = new ArrayList<>();
-    results.forEach(
-        bpmnDiagramCheckResult -> {
-          List<MustacheElementResultContext> resultList = new ArrayList<>();
-          bpmnDiagramCheckResult
-              .getResults()
-              .forEach(
-                  bpmnElementCheckResult -> {
-                    List<MustacheSeverityContext> severities = new ArrayList<>();
-                    bpmnElementCheckResult
-                        .getMessages()
-                        .forEach(
-                            bpmnElementCheckMessage -> {
-                              // create severity if absent
-                              MustacheSeverityContext mustacheSeverityContext =
-                                  severities.stream()
-                                      .filter(
-                                          severity ->
-                                              severity
-                                                  .severity()
-                                                  .equals(
-                                                      bpmnElementCheckMessage.getSeverity().name()))
-                                      .findFirst()
-                                      .orElseGet(
-                                          () -> {
-                                            List<MustacheMessageContext> messages =
-                                                new ArrayList<>();
-                                            MustacheSeverityContext newMustacheSeverityContext =
-                                                new MustacheSeverityContext(
-                                                    bpmnElementCheckMessage.getSeverity().name(),
-                                                    messages,
-                                                    (frag, out) ->
-                                                        out.write(String.valueOf(messages.size())));
-                                            severities.add(newMustacheSeverityContext);
-                                            return newMustacheSeverityContext;
-                                          });
-                              mustacheSeverityContext
-                                  .messages()
-                                  .add(
-                                      new MustacheMessageContext(
-                                          bpmnElementCheckMessage.getMessage(),
-                                          bpmnElementCheckMessage.getLink()));
-                            });
-                    resultList.add(
-                        new MustacheElementResultContext(
-                            bpmnElementCheckResult.getElementName(),
-                            bpmnElementCheckResult.getElementId(),
-                            bpmnElementCheckResult.getElementType(),
-                            severities));
-                  });
-          contexts.add(new MustacheResultContext(bpmnDiagramCheckResult.getFilename(), resultList));
-        });
+    results.forEach(bpmnDiagramCheckResult -> {
+      List<MustacheElementResultContext> resultList = new ArrayList<>();
+      bpmnDiagramCheckResult
+          .getResults()
+          .forEach(bpmnElementCheckResult -> {
+            List<MustacheSeverityContext> severities = new ArrayList<>();
+            bpmnElementCheckResult
+                .getMessages()
+                .forEach(bpmnElementCheckMessage -> {
+                  // create severity if absent
+                  MustacheSeverityContext mustacheSeverityContext =
+                      severities.stream()
+                          .filter(severity ->
+                              severity
+                                  .severity()
+                                  .equals(bpmnElementCheckMessage.getSeverity().name()))
+                          .findFirst()
+                          .orElseGet(() -> {
+                            List<MustacheMessageContext> messages = new ArrayList<>();
+                            MustacheSeverityContext newMustacheSeverityContext =
+                                new MustacheSeverityContext(
+                                    bpmnElementCheckMessage.getSeverity().name(),
+                                    messages,
+                                    (frag, out) -> out.write(String.valueOf(messages.size())));
+                            severities.add(newMustacheSeverityContext);
+                            return newMustacheSeverityContext;
+                          });
+                  mustacheSeverityContext
+                      .messages()
+                      .add(
+                          new MustacheMessageContext(
+                              bpmnElementCheckMessage.getMessage(),
+                              bpmnElementCheckMessage.getLink()));
+                });
+            resultList.add(
+                new MustacheElementResultContext(
+                    bpmnElementCheckResult.getElementName(),
+                    bpmnElementCheckResult.getElementId(),
+                    bpmnElementCheckResult.getElementType(),
+                    severities));
+          });
+      contexts.add(new MustacheResultContext(bpmnDiagramCheckResult.getFilename(), resultList));
+    });
     return new MustacheContext(contexts);
   }
 
@@ -431,25 +419,22 @@ public class DiagramConverter {
 
   private List<String[]> createLines(List<DiagramCheckResult> results) {
     return results.stream()
-        .flatMap(
-            diagramCheckResult ->
-                diagramCheckResult.getResults().stream()
-                    .flatMap(
-                        elementCheckResult ->
-                            elementCheckResult.getMessages().stream()
-                                .map(
-                                    message ->
-                                        sanitizeCsvCells(
-                                            new String[] {
-                                              diagramCheckResult.getFilename(),
-                                              elementCheckResult.getElementName(),
-                                              elementCheckResult.getElementId(),
-                                              elementCheckResult.getElementType(),
-                                              message.getSeverity().name(),
-                                              message.getId(),
-                                              message.getMessage(),
-                                              message.getLink()
-                                            }))))
+        .flatMap(diagramCheckResult ->
+            diagramCheckResult.getResults().stream()
+                .flatMap(elementCheckResult ->
+                    elementCheckResult.getMessages().stream()
+                        .map(message ->
+                            sanitizeCsvCells(
+                                new String[] {
+                                  diagramCheckResult.getFilename(),
+                                  elementCheckResult.getElementName(),
+                                  elementCheckResult.getElementId(),
+                                  elementCheckResult.getElementType(),
+                                  message.getSeverity().name(),
+                                  message.getId(),
+                                  message.getMessage(),
+                                  message.getLink()
+                                }))))
         .collect(Collectors.toList());
   }
 
@@ -476,23 +461,20 @@ public class DiagramConverter {
 
   public List<DiagramConverterResultDTO> createLineItemDTOList(List<DiagramCheckResult> results) {
     return results.stream()
-        .flatMap(
-            diagramCheckResult ->
-                diagramCheckResult.getResults().stream()
-                    .flatMap(
-                        elementCheckResult ->
-                            elementCheckResult.getMessages().stream()
-                                .map(
-                                    message ->
-                                        new DiagramConverterResultDTO(
-                                            diagramCheckResult.getFilename(),
-                                            elementCheckResult.getElementName(),
-                                            elementCheckResult.getElementId(),
-                                            elementCheckResult.getElementType(),
-                                            message.getSeverity().name(),
-                                            message.getId(),
-                                            message.getMessage(),
-                                            message.getLink()))))
+        .flatMap(diagramCheckResult ->
+            diagramCheckResult.getResults().stream()
+                .flatMap(elementCheckResult ->
+                    elementCheckResult.getMessages().stream()
+                        .map(message ->
+                            new DiagramConverterResultDTO(
+                                diagramCheckResult.getFilename(),
+                                elementCheckResult.getElementName(),
+                                elementCheckResult.getElementId(),
+                                elementCheckResult.getElementType(),
+                                message.getSeverity().name(),
+                                message.getId(),
+                                message.getMessage(),
+                                message.getLink()))))
         .collect(Collectors.toList());
   }
 

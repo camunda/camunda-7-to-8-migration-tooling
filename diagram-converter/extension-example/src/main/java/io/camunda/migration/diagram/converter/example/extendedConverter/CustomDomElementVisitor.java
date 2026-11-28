@@ -63,15 +63,14 @@ public class CustomDomElementVisitor implements DomElementVisitor {
 
   private ConditionExpression extractConditionExpression(DomElement sequenceFlow) {
     return sequenceFlow.getChildElementsByNameNs(BPMN, "conditionExpression").stream()
-        .map(
-            dom -> {
-              String language = dom.getAttribute("language");
-              if (language == null) {
-                language = "juel";
-              }
-              return new ConditionExpression(
-                  sequenceFlow.getAttribute("id"), language, dom.getTextContent());
-            })
+        .map(dom -> {
+          String language = dom.getAttribute("language");
+          if (language == null) {
+            language = "juel";
+          }
+          return new ConditionExpression(
+              sequenceFlow.getAttribute("id"), language, dom.getTextContent());
+        })
         .findFirst()
         .orElse(null);
   }
