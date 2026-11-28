@@ -99,6 +99,518 @@ runs:
       }
 
       "matches=$($versionMatches.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+  - name: Check Maven tool cache
+    id: check-maven-cache
+    if: steps.check-maven.outputs.matches != 'true'
+    shell: bash
+    env:
+      MAVEN_VERSION: ${{ inputs.maven-version }}
+    run: |
+      maven_parse_semver() {
+        local version="$1"
+        local build_metadata
+        local component
+        local identifier
+        local index
+        local -a version_parts=()
+        local -a prerelease_parts=()
+
+        while [[ "$version" == =* || "$version" == v* || "$version" == V* ]]; do
+          version="${version:1}"
+        done
+
+        if [[ "$version" == *+* ]]; then
+          [[ "$version" != *+*+* ]] || return 1
+          build_metadata="${version#*+}"
+          [[ "$build_metadata" =~ ^[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$ ]] || return 1
+          version="${version%%+*}"
+        fi
+
+        maven_semver_prerelease=""
+        if [[ "$version" == *-* ]]; then
+          maven_semver_prerelease="${version#*-}"
+          version="${version%%-*}"
+          [[ "$maven_semver_prerelease" =~ ^[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$ ]] || return 1
+          IFS='.' read -r -a prerelease_parts <<< "$maven_semver_prerelease"
+          for identifier in "${prerelease_parts[@]}"; do
+            if [[ "$identifier" =~ ^[0-9]+$ ]]; then
+              [[ "$identifier" == "0" || "$identifier" =~ ^[1-9][0-9]*$ ]] || return 1
+            fi
+          done
+        fi
+
+        [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || return 1
+        IFS='.' read -r -a version_parts <<< "$version"
+        ((${#version_parts[@]} == 3)) || return 1
+
+        for index in 0 1 2; do
+          component="${version_parts[$index]}"
+          ((${#component} <= 16)) || return 1
+          if ((${#component} == 16)) && ((10#$component > 9007199254740991)); then
+            return 1
+          fi
+        done
+
+        maven_semver_major="${version_parts[0]}"
+        maven_semver_minor="${version_parts[1]}"
+        maven_semver_patch="${version_parts[2]}"
+        return 0
+      }
+
+      maven_version_compare() {
+        local left="$1"
+        local right="$2"
+        local index
+        local left_component
+        local right_component
+        local left_prerelease
+        local right_prerelease
+        local left_identifier
+        local right_identifier
+        local left_is_numeric
+        local right_is_numeric
+        local LC_ALL=C
+        local -a left_parts=()
+        local -a right_parts=()
+        local -a left_prerelease_parts=()
+        local -a right_prerelease_parts=()
+
+        version_comparison=0
+        maven_parse_semver "$left" || return 1
+        left_parts=("$maven_semver_major" "$maven_semver_minor" "$maven_semver_patch")
+        left_prerelease="$maven_semver_prerelease"
+        maven_parse_semver "$right" || return 1
+        right_parts=("$maven_semver_major" "$maven_semver_minor" "$maven_semver_patch")
+        right_prerelease="$maven_semver_prerelease"
+
+        for index in 0 1 2; do
+          left_component=$((10#${left_parts[$index]}))
+          right_component=$((10#${right_parts[$index]}))
+          if ((left_component < right_component)); then
+            version_comparison=-1
+            return 0
+          fi
+          if ((left_component > right_component)); then
+            version_comparison=1
+            return 0
+          fi
+        done
+
+        if [[ -z "$left_prerelease" && -z "$right_prerelease" ]]; then
+          return 0
+        fi
+        if [[ -z "$left_prerelease" ]]; then
+          version_comparison=1
+          return 0
+        fi
+        if [[ -z "$right_prerelease" ]]; then
+          version_comparison=-1
+          return 0
+        fi
+
+        IFS='.' read -r -a left_prerelease_parts <<< "$left_prerelease"
+        IFS='.' read -r -a right_prerelease_parts <<< "$right_prerelease"
+        for ((index = 0; index < ${#left_prerelease_parts[@]} && index < ${#right_prerelease_parts[@]}; index++)); do
+          left_identifier="${left_prerelease_parts[$index]}"
+          right_identifier="${right_prerelease_parts[$index]}"
+          left_is_numeric=false
+          right_is_numeric=false
+          [[ "$left_identifier" =~ ^[0-9]+$ ]] && left_is_numeric=true
+          [[ "$right_identifier" =~ ^[0-9]+$ ]] && right_is_numeric=true
+
+          if [[ "$left_is_numeric" == true && "$right_is_numeric" == true ]]; then
+            if ((${#left_identifier} < ${#right_identifier})); then
+              version_comparison=-1
+              return 0
+            fi
+            if ((${#left_identifier} > ${#right_identifier})); then
+              version_comparison=1
+              return 0
+            fi
+          elif [[ "$left_is_numeric" == true ]]; then
+            version_comparison=-1
+            return 0
+          elif [[ "$right_is_numeric" == true ]]; then
+            version_comparison=1
+            return 0
+          fi
+
+          if [[ "$left_identifier" < "$right_identifier" ]]; then
+            version_comparison=-1
+            return 0
+          fi
+          if [[ "$left_identifier" > "$right_identifier" ]]; then
+            version_comparison=1
+            return 0
+          fi
+        done
+
+        if ((${#left_prerelease_parts[@]} < ${#right_prerelease_parts[@]})); then
+          version_comparison=-1
+        elif ((${#left_prerelease_parts[@]} > ${#right_prerelease_parts[@]})); then
+          version_comparison=1
+        fi
+        return 0
+      }
+
+      maven_parse_version_spec() {
+        local version_spec="$1"
+        local component
+        local index
+        local wildcard_seen=false
+        local range_prerelease=""
+        local -a spec_parts=()
+
+        while [[ "$version_spec" == =* || "$version_spec" == v* || "$version_spec" == V* ]]; do
+          version_spec="${version_spec:1}"
+        done
+
+        if [[ "$version_spec" == *-* || "$version_spec" == *+* ]]; then
+          maven_parse_semver "$version_spec" || return 1
+          range_prerelease="$maven_semver_prerelease"
+          version_spec="$maven_semver_major.$maven_semver_minor.$maven_semver_patch"
+        fi
+
+        [[ "$version_spec" =~ ^([0-9]+|[xX*])(\.([0-9]+|[xX*])){0,2}$ ]] || return 1
+        IFS='.' read -r -a spec_parts <<< "$version_spec"
+        ((${#spec_parts[@]} >= 1 && ${#spec_parts[@]} <= 3)) || return 1
+
+        maven_range_major=0
+        maven_range_minor=0
+        maven_range_patch=0
+        maven_range_precision=${#spec_parts[@]}
+        maven_range_prerelease="$range_prerelease"
+
+        for index in 0 1 2; do
+          component="${spec_parts[$index]:-}"
+          [[ -n "$component" ]] || break
+          if [[ "$component" == x || "$component" == X || "$component" == '*' ]]; then
+            if [[ "$wildcard_seen" != true ]]; then
+              maven_range_precision="$index"
+              wildcard_seen=true
+            fi
+            continue
+          fi
+          [[ "$wildcard_seen" != true ]] || return 1
+          [[ "$component" =~ ^(0|[1-9][0-9]*)$ ]] || return 1
+          ((${#component} <= 16)) || return 1
+          if ((${#component} == 16)) && ((10#$component > 9007199254740991)); then
+            return 1
+          fi
+
+          case "$index" in
+            0) maven_range_major=$((10#$component)) ;;
+            1) maven_range_minor=$((10#$component)) ;;
+            2) maven_range_patch=$((10#$component)) ;;
+          esac
+        done
+        return 0
+      }
+
+      maven_validate_version_token() {
+        local token="$1"
+        local version_spec="$token"
+
+        case "$token" in
+          '>='*) version_spec="${token:2}" ;;
+          '<='*) version_spec="${token:2}" ;;
+          '>'*) version_spec="${token:1}" ;;
+          '<'*) version_spec="${token:1}" ;;
+          '='*) version_spec="${token:1}" ;;
+          '^'*) version_spec="${token:1}" ;;
+          '~'*) version_spec="${token:1}" ;;
+        esac
+
+        [[ -n "$version_spec" ]] || return 1
+        maven_parse_version_spec "$version_spec"
+      }
+
+      maven_set_next_boundary() {
+        local precision="$1"
+
+        maven_upper_major="$maven_range_major"
+        maven_upper_minor="$maven_range_minor"
+        maven_upper_patch="$maven_range_patch"
+        case "$precision" in
+          1)
+            maven_upper_major=$((maven_range_major + 1))
+            maven_upper_minor=0
+            maven_upper_patch=0
+            ;;
+          2)
+            maven_upper_minor=$((maven_range_minor + 1))
+            maven_upper_patch=0
+            ;;
+          3)
+            maven_upper_patch=$((maven_range_patch + 1))
+            ;;
+        esac
+      }
+
+      maven_version_satisfies_token() {
+        local cached_version="$1"
+        local token="$2"
+        local operator=""
+        local version_spec="$token"
+        local lower_bound
+        local upper_bound
+
+        case "$token" in
+          '>='*) operator='>='; version_spec="${token:2}" ;;
+          '<='*) operator='<='; version_spec="${token:2}" ;;
+          '>'*) operator='>'; version_spec="${token:1}" ;;
+          '<'*) operator='<'; version_spec="${token:1}" ;;
+          '='*) operator='='; version_spec="${token:1}" ;;
+          '^'*) operator='^'; version_spec="${token:1}" ;;
+          '~'*) operator='~'; version_spec="${token:1}" ;;
+        esac
+
+        maven_parse_version_spec "$version_spec" || return 1
+        lower_bound="$maven_range_major.$maven_range_minor.$maven_range_patch"
+        if [[ -n "$maven_range_prerelease" ]]; then
+          lower_bound+="-$maven_range_prerelease"
+        fi
+
+        case "$operator" in
+          ''|'=')
+            if ((maven_range_precision == 0)); then
+              return 0
+            fi
+            if ((maven_range_precision == 3)); then
+              maven_version_compare "$cached_version" "$lower_bound" || return 1
+              ((version_comparison == 0))
+              return
+            fi
+            maven_set_next_boundary "$maven_range_precision"
+            upper_bound="$maven_upper_major.$maven_upper_minor.$maven_upper_patch"
+            maven_version_compare "$cached_version" "$lower_bound" || return 1
+            ((version_comparison >= 0)) || return 1
+            maven_version_compare "$cached_version" "$upper_bound" || return 1
+            ((version_comparison < 0))
+            ;;
+          '>=')
+            ((maven_range_precision == 0)) && return 0
+            maven_version_compare "$cached_version" "$lower_bound" || return 1
+            ((version_comparison >= 0))
+            ;;
+          '>')
+            ((maven_range_precision == 0)) && return 1
+            if ((maven_range_precision == 3)); then
+              maven_version_compare "$cached_version" "$lower_bound" || return 1
+              ((version_comparison > 0))
+              return
+            fi
+            maven_set_next_boundary "$maven_range_precision"
+            upper_bound="$maven_upper_major.$maven_upper_minor.$maven_upper_patch"
+            maven_version_compare "$cached_version" "$upper_bound" || return 1
+            ((version_comparison >= 0))
+            ;;
+          '<')
+            ((maven_range_precision == 0)) && return 1
+            maven_version_compare "$cached_version" "$lower_bound" || return 1
+            ((version_comparison < 0))
+            ;;
+          '<=')
+            ((maven_range_precision == 0)) && return 0
+            if ((maven_range_precision == 3)); then
+              maven_version_compare "$cached_version" "$lower_bound" || return 1
+              ((version_comparison <= 0))
+              return
+            fi
+            maven_set_next_boundary "$maven_range_precision"
+            upper_bound="$maven_upper_major.$maven_upper_minor.$maven_upper_patch"
+            maven_version_compare "$cached_version" "$upper_bound" || return 1
+            ((version_comparison < 0))
+            ;;
+          '~')
+            ((maven_range_precision == 0)) && return 0
+            maven_version_compare "$cached_version" "$lower_bound" || return 1
+            ((version_comparison >= 0)) || return 1
+            if ((maven_range_precision == 1)); then
+              maven_set_next_boundary 1
+            else
+              maven_set_next_boundary 2
+            fi
+            upper_bound="$maven_upper_major.$maven_upper_minor.$maven_upper_patch"
+            maven_version_compare "$cached_version" "$upper_bound" || return 1
+            ((version_comparison < 0))
+            ;;
+          '^')
+            ((maven_range_precision == 0)) && return 0
+            maven_version_compare "$cached_version" "$lower_bound" || return 1
+            ((version_comparison >= 0)) || return 1
+            if ((maven_range_major > 0 || maven_range_precision == 1)); then
+              maven_set_next_boundary 1
+            elif ((maven_range_minor > 0 || maven_range_precision == 2)); then
+              maven_set_next_boundary 2
+            else
+              maven_set_next_boundary 3
+            fi
+            upper_bound="$maven_upper_major.$maven_upper_minor.$maven_upper_patch"
+            maven_version_compare "$cached_version" "$upper_bound" || return 1
+            ((version_comparison < 0))
+            ;;
+        esac
+      }
+
+      maven_version_matches() {
+        local version_spec="$1"
+        local cached_version="$2"
+        local candidate_version
+        local remaining_spec
+        local alternative
+        local token
+        local range_match
+        local has_more
+        local any_match=false
+        local candidate_major
+        local candidate_minor
+        local candidate_patch
+        local candidate_prerelease
+        local prerelease_allowed
+        local token_version_spec
+        local index
+        local -a tokens=()
+        local -a normalized_tokens=()
+
+        while [[ "$version_spec" == =* || "$version_spec" == v* || "$version_spec" == V* ]]; do
+          version_spec="${version_spec:1}"
+        done
+
+        candidate_version="$cached_version"
+        maven_parse_semver "$candidate_version" || return 1
+        candidate_major="$maven_semver_major"
+        candidate_minor="$maven_semver_minor"
+        candidate_patch="$maven_semver_patch"
+        candidate_prerelease="$maven_semver_prerelease"
+        [[ "$version_spec" == "$cached_version" ]] && return 0
+        remaining_spec="$version_spec"
+
+        while true; do
+          if [[ "$remaining_spec" == *"||"* ]]; then
+            alternative="${remaining_spec%%||*}"
+            remaining_spec="${remaining_spec#*||}"
+            has_more=true
+          else
+            alternative="$remaining_spec"
+            has_more=false
+          fi
+          alternative="${alternative//,/ }"
+          tokens=()
+          normalized_tokens=()
+          read -r -a tokens <<< "$alternative"
+          ((${#tokens[@]} > 0)) || return 1
+
+          if ((${#tokens[@]} == 3)) && [[ "${tokens[1]}" == '-' ]]; then
+            tokens=(">=${tokens[0]}" "<=${tokens[2]}")
+          fi
+
+          range_match=true
+          for ((index = 0; index < ${#tokens[@]}; index++)); do
+            token="${tokens[$index]}"
+            case "$token" in
+              '>'|'<'|'>='|'<='|'='|'^'|'~')
+                ((index + 1 < ${#tokens[@]})) || return 1
+                token+="${tokens[$((index + 1))]}"
+                index=$((index + 1))
+                ;;
+            esac
+            maven_validate_version_token "$token" || return 1
+            normalized_tokens+=("$token")
+          done
+
+          range_match=true
+          for token in "${normalized_tokens[@]}"; do
+            if ! maven_version_satisfies_token "$candidate_version" "$token"; then
+              range_match=false
+              break
+            fi
+          done
+
+          if [[ "$range_match" == true && -n "$candidate_prerelease" ]]; then
+            prerelease_allowed=false
+            for token in "${normalized_tokens[@]}"; do
+              token_version_spec="$token"
+              case "$token" in
+                '>='*|'<='*) token_version_spec="${token:2}" ;;
+                '>'*|'<'*|'='*|'^'*|'~'*) token_version_spec="${token:1}" ;;
+              esac
+              maven_parse_version_spec "$token_version_spec" || return 1
+              if [[ -n "$maven_range_prerelease" &&
+                "$candidate_major" == "$maven_range_major" &&
+                "$candidate_minor" == "$maven_range_minor" &&
+                "$candidate_patch" == "$maven_range_patch" ]]; then
+                prerelease_allowed=true
+                break
+              fi
+            done
+            [[ "$prerelease_allowed" == true ]] || range_match=false
+          fi
+
+          [[ "$range_match" == true ]] && any_match=true
+          [[ "$has_more" == true ]] || break
+        done
+
+        [[ "$any_match" == true ]]
+      }
+
+      cache_hit=false
+      cache_root="${RUNNER_TOOL_CACHE:-}"
+      tool_arch=""
+
+      case "${RUNNER_ARCH:-}" in
+        X86|x86) tool_arch="ia32" ;;
+        X64|x64) tool_arch="x64" ;;
+        ARM|arm) tool_arch="arm" ;;
+        ARM64|arm64) tool_arch="arm64" ;;
+      esac
+
+      if [[ -n "$cache_root" && -n "$tool_arch" ]]; then
+        if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
+          if command -v cygpath >/dev/null 2>&1; then
+            if ! cache_root=$(cygpath -u "$cache_root"); then
+              echo "::warning::Could not translate RUNNER_TOOL_CACHE; Maven Central availability check will run."
+              cache_root=""
+            fi
+          else
+            echo "::warning::Could not find cygpath; Maven Central availability check will run."
+            cache_root=""
+          fi
+        fi
+
+        if [[ -n "$cache_root" ]]; then
+          for cached_maven in "$cache_root"/maven/*/"$tool_arch"; do
+            [[ -d "$cached_maven" && -f "$cached_maven.complete" ]] || continue
+            cached_version="${cached_maven%/"$tool_arch"}"
+            cached_version="${cached_version##*/}"
+            if maven_version_matches "$MAVEN_VERSION" "$cached_version"; then
+              cache_hit=true
+              break
+            fi
+          done
+        fi
+      fi
+
+      printf 'hit=%s\n' "$cache_hit" >> "$GITHUB_OUTPUT"
+  - name: Verify Maven distribution availability
+    if: steps.check-maven.outputs.matches != 'true' && steps.check-maven-cache.outputs.hit != 'true'
+    shell: bash
+    env:
+      MAVEN_VERSION: ${{ inputs.maven-version }}
+    run: |
+      distribution_url="https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/${MAVEN_VERSION}/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+
+      if ! status_code=$(curl --silent --show-error --head --location \
+        --retry 2 --retry-delay 1 --retry-connrefused --max-time 30 \
+        --output /dev/null --write-out '%{http_code}' "$distribution_url"); then
+        echo "::error::Could not verify the Maven distribution for version '${MAVEN_VERSION}' at '${distribution_url}'."
+        exit 1
+      fi
+
+      if [ "$status_code" != "200" ]; then
+        echo "::error::Maven distribution for version '${MAVEN_VERSION}' returned HTTP ${status_code} at '${distribution_url}'."
+        exit 1
+      fi
   - name: Setup Maven
     if: steps.check-maven.outputs.matches != 'true'
     uses: stCarolas/setup-maven@v5
