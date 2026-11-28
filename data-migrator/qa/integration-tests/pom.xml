@@ -508,6 +508,8 @@
                 <include>**/runtime/**/*Test.java</include>
                 <include>**/persistence/**/*Test.java</include>
                 <include>**/distribution/**/*Test.java</include>
+                <include>**/qa/util/CamundaClusterHealthCheckTest.java</include>
+                <include>**/qa/util/MultiDbExtensionTest.java</include>
                 <include>**/ArchitectureTest.java</include>
               </includes>
               <excludes>
