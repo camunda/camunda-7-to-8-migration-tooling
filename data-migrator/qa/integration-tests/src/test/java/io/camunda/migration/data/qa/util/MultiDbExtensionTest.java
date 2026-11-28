@@ -8,9 +8,12 @@
 package io.camunda.migration.data.qa.util;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.camunda.migration.data.config.property.MigratorProperties;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -21,6 +24,7 @@ import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
+import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest
@@ -67,6 +71,44 @@ public class MultiDbExtensionTest {
   }
 
   @Test
+  public void shouldSetDriverClassesFromMappedContainers() {
+    PostgreSQLContainer c7Container = mock(PostgreSQLContainer.class);
+    PostgreSQLContainer c8Container = mock(PostgreSQLContainer.class);
+    when(c7Container.getJdbcUrl()).thenReturn("jdbc:postgresql://c7/process-engine");
+    when(c7Container.getDriverClassName()).thenReturn("c7.Driver");
+    when(c8Container.getJdbcUrl()).thenReturn("jdbc:postgresql://c8/process-engine");
+    when(c8Container.getDriverClassName()).thenReturn("c8.Driver");
+
+    String c7JdbcUrlProperty = MigratorProperties.PREFIX + ".c7.data-source.jdbc-url";
+    String c8JdbcUrlProperty = MigratorProperties.PREFIX + ".c8.data-source.jdbc-url";
+    String c7DriverProperty = MigratorProperties.PREFIX + ".c7.data-source.driver-class-name";
+    String c8DriverProperty = MigratorProperties.PREFIX + ".c8.data-source.driver-class-name";
+    String originalC7JdbcUrl = System.getProperty(c7JdbcUrlProperty);
+    String originalC8JdbcUrl = System.getProperty(c8JdbcUrlProperty);
+    String originalC7Driver = System.getProperty(c7DriverProperty);
+    String originalC8Driver = System.getProperty(c8DriverProperty);
+    Map<String, JdbcDatabaseContainer<?>> originalContainers = MultiDbExtension.containers;
+
+    try {
+      MultiDbExtension.containers = Map.of("c7", c7Container, "c8", c8Container);
+      MultiDbExtension.setDataSourceConnectionProperties(List.of("c7", "c8"));
+
+      assertThat(System.getProperty(c7JdbcUrlProperty))
+          .isEqualTo("jdbc:postgresql://c7/process-engine");
+      assertThat(System.getProperty(c8JdbcUrlProperty))
+          .isEqualTo("jdbc:postgresql://c8/process-engine");
+      assertThat(System.getProperty(c7DriverProperty)).isEqualTo("c7.Driver");
+      assertThat(System.getProperty(c8DriverProperty)).isEqualTo("c8.Driver");
+    } finally {
+      MultiDbExtension.containers = originalContainers;
+      restoreSystemProperty(c7JdbcUrlProperty, originalC7JdbcUrl);
+      restoreSystemProperty(c8JdbcUrlProperty, originalC8JdbcUrl);
+      restoreSystemProperty(c7DriverProperty, originalC7Driver);
+      restoreSystemProperty(c8DriverProperty, originalC8Driver);
+    }
+  }
+
+  @Test
   @EnabledIfSystemProperty(named = "spring.profiles.active", matches = "postgresql")
   public void shouldStartPostgreSqlContainersConcurrentlyOnDifferentPorts() throws Exception {
     PostgreSQLContainer first = MultiDbExtension.createPostgreSQLContainer().withReuse(false);
@@ -96,6 +138,14 @@ public class MultiDbExtensionTest {
       if (second.isRunning()) {
         second.stop();
       }
+    }
+  }
+
+  protected static void restoreSystemProperty(String property, String value) {
+    if (value == null) {
+      System.clearProperty(property);
+    } else {
+      System.setProperty(property, value);
     }
   }
 }

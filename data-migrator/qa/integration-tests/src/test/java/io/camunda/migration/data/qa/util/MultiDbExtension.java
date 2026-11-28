@@ -69,17 +69,20 @@ public class MultiDbExtension implements BeforeAllCallback {
       }
     }
     if (!"default".equals(dbProfile)) {
-      setDataSourceJdbcUrls(containerKeys);
+      setDataSourceConnectionProperties(containerKeys);
     }
   }
 
-  protected static void setDataSourceJdbcUrls(List<String> containerKeys) {
-    System.setProperty(
-        MigratorProperties.PREFIX + ".c7.data-source.jdbc-url",
-        getJdbcUrl(containerKeys.get(0)));
-    System.setProperty(
-        MigratorProperties.PREFIX + ".c8.data-source.jdbc-url",
-        getJdbcUrl(containerKeys.get(containerKeys.size() - 1)));
+  protected static void setDataSourceConnectionProperties(List<String> containerKeys) {
+    setDataSourceConnectionProperties("c7", containerKeys.get(0));
+    setDataSourceConnectionProperties("c8", containerKeys.get(containerKeys.size() - 1));
+  }
+
+  protected static void setDataSourceConnectionProperties(String dataSource, String containerKey) {
+    JdbcDatabaseContainer<?> container = getContainer(containerKey);
+    String propertyPrefix = MigratorProperties.PREFIX + "." + dataSource + ".data-source.";
+    System.setProperty(propertyPrefix + "jdbc-url", container.getJdbcUrl());
+    System.setProperty(propertyPrefix + "driver-class-name", container.getDriverClassName());
   }
 
   /**
@@ -90,11 +93,15 @@ public class MultiDbExtension implements BeforeAllCallback {
    * @throws IllegalArgumentException if the container key is unknown
    */
   public static String getJdbcUrl(String containerKey) {
+    return getContainer(containerKey).getJdbcUrl();
+  }
+
+  protected static JdbcDatabaseContainer<?> getContainer(String containerKey) {
     JdbcDatabaseContainer<?> container = containers.get(containerKey);
     if (container == null) {
       throw new IllegalArgumentException("Unknown database container [" + containerKey + "]");
     }
-    return container.getJdbcUrl();
+    return container;
   }
 
   protected static PostgreSQLContainer createPostgreSQLContainer() {
