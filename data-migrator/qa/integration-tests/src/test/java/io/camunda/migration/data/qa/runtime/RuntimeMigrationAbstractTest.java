@@ -19,6 +19,7 @@ import io.camunda.migration.data.RuntimeMigrator;
 import io.camunda.migration.data.exception.RuntimeMigratorException;
 import io.camunda.migration.data.impl.clients.DbClient;
 import io.camunda.migration.data.qa.AbstractMigratorTest;
+import io.camunda.migration.data.qa.util.CamundaClusterHealthCheckListener;
 import io.camunda.migration.data.qa.util.ProcessInstanceCleanup;
 import io.camunda.process.test.api.CamundaSpringProcessTest;
 import java.time.Duration;
@@ -31,8 +32,10 @@ import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.impl.util.ClockUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 
 @CamundaSpringProcessTest
+@Import(CamundaClusterHealthCheckListener.class)
 public abstract class RuntimeMigrationAbstractTest extends AbstractMigratorTest {
 
   /**
